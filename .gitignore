@@ -1,0 +1,66 @@
+# Build output and packages
+/build/
+/dist/
+/backups/
+/test_packages/
+__pycache__/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Game-derived data: extracted archives, catalogs, dumps and research streams.
+# None of it is needed to build; the generated headers under src/ are committed.
+/analysis/
+/variants/skins/
+/variants/sounds/
+
+# Runtime leftovers
+*.log
+*.bak*
+*.previous
+*.tmp
+
+# Campaign co-op plugin and the mod loader: developed in this folder, released
+# separately, not part of this repository.
+/src/coop_*.h
+/src/coop_plugin.cpp
+/src/runtime_coop*.inc
+/src/modloader.cpp
+/tests/coop_*
+/build_coop*.cmd
+/build_death_ack_tests.cmd
+/build_gate*.cmd
+/build_ghost_probe_tests.cmd
+/build_local_lifecycle_tests.cmd
+/build_modloader.cmd
+/build_npc_policy_tests.cmd
+/build_ownership_probe.cmd
+/build_peer*.cmd
+/build_ping_tests.cmd
+/build_save_policy_tests.cmd
+/build_template_tests.cmd
+/build_uniform_tests.cmd
+/build_weapon_lookup_tests.cmd
+/DS2Coop.ini
+/DS2ModLoader.ini
+/StartCoopEvents.cmd
+/coop_launchers/
+/tools/audit_coop_spawn_policy.py
+/tools/compare_coop_world.py
+/tools/coop_events_live.py
+/tools/inspect_coop_runtime.py
+/tools/inspect_coop_world.py
+/tools/inspect_uniform_runtime.py
+/tools/inspect_weapon_catalog.py
+/tools/inspect_gun_network.py
+/tools/inspect_inventory_persistence.py
+/tools/inspect_native_respawn.py
+/tools/inspect_player_ownership.py
+/tools/verify_ownership_dump_report.py
+/tools/ownership_dump_probe.cpp
+/tools/live_probe_*.py
+/src/generated_message_names.h
+/src/generated_internal_messages.h
+/tools/embed_message_names.py

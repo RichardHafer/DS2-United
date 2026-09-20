@@ -1,0 +1,126 @@
+"""Replace a pool root that turned out to be a scripted-event actor.
+
+The pool's 34 direct arrivals were chosen from the authored corpus by package,
+one entity per character stream, without asking what kind of encounter each was
+authored for. One of them is a scripted-event actor: the `pack_boy` copied from
+`npcs_crash_room_hallway01`, whose awareness message is
+`se_crash_room_hallway01_pack_boy_1_aware`. Of all 108 donors in the pool it is
+the only one. Such an NPC is driven by a level script that does not exist around
+it any more, and in the game it walked around and never attacked.
+
+Nothing is removed - a stream can only be appended to safely. The replacement is
+appended next to it and the row names the root it supersedes, which the runtime
+then stops offering. The old entity stays in the file as dead weight.
+"""
+import argparse
+import collections
+import hashlib
+import json
+import struct
+import sys
+import uuid
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+
+from stream_framing import frame_stream  # noqa: E402
+from remap_pool_guids import remap  # noqa: E402
+from append_vent_donors import MAX_CHUNK, chunk, new_guid, pool_streams, trailing_padding  # noqa: E402
+
+
+def refresh_manifest(pool):
+    """The pool's digest is embedded and checked at build time, so a changed
+    stream has to update the manifest in the same step or the next build stops."""
+    import hashlib
+    manifest_path = pool.with_suffix(".toc.json")
+    manifest = json.loads(manifest_path.read_text())
+    manifest["stream_sha256"] = hashlib.sha256(pool.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, indent=1))
+    print("manifest updated: %s" % manifest_path.name)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pool", type=Path,
+                        default=ROOT / "analysis/runtime_stream/ds2_randomizer_pool.str")
+    parser.add_argument("--donors", type=Path, default=ROOT / "analysis/direct_pool")
+    parser.add_argument("--plan", type=Path, default=ROOT / "analysis/direct_pool_plan.json")
+    parser.add_argument("--write", action="store_true")
+    args = parser.parse_args()
+
+    resident = pool_streams()
+    report = json.loads((args.donors / "report.json").read_text())
+    plan = {entry["guid"]: entry for entry in json.loads(args.plan.read_text())}
+    chosen = [e for e in report["entries"] if e["package"] in resident]
+    print("donors offered: %d, usable without new resources: %d"
+          % (len(report["entries"]), len(chosen)))
+
+    data = bytearray(args.pool.read_bytes())
+    cut = trailing_padding(data)
+    print("pool: %d bytes, real content ends at %d" % (len(data), cut))
+    del data[cut:]
+
+    added = []
+    from ds2_assets import simgroup
+    for entry in chosen:
+        payload = (args.donors / entry["file"]).read_bytes()
+        records, _ = simgroup(payload)
+        mapping = {r["guid"]: new_guid(r["guid"]) for r in records}
+        payload, stats = remap(payload, mapping)
+        header = bytearray(b"RDHS" + bytes(8) + struct.pack("<I", 0xCCB51828) + bytes(16) + bytes(4))
+        struct.pack_into("<I", header, 32, len(payload))
+        name = "{%s}" % str(uuid.uuid5(uuid.NAMESPACE_URL, "ds2direct/" + entry["guid"])).upper()
+        path = "direct_donors/%s/%s.simgroup.bin" % (entry["package"], entry["contract"][:12])
+        body = bytearray(header)
+        body.extend((name + "\0" + path + "\0SimGroup\0").encode("latin1"))
+        data.extend(chunk(bytes(body)))
+        for start in range(0, len(payload), MAX_CHUNK - 12):
+            data.extend(chunk(b"TADS" + payload[start:start + MAX_CHUNK - 12]))
+        row = plan[entry["guid"]]
+        added.append({"guid": new_guid(entry["guid"]), "source": entry["guid"],
+                      "supersedes": row["supersedes"], "reason": row["reason"],
+                      "family": entry["family"], "package": entry["package"],
+                      "context": row["context"], "name": name, "path": path,
+                      "bytes": len(payload), "identities": stats["identities"],
+                      "references": stats["references"],
+                      "sha256": hashlib.sha256(payload).hexdigest()})
+
+    data = bytearray(frame_stream(bytes(data)))
+    print("appended %d donors, pool now %d bytes (%.1f MiB)"
+          % (len(added), len(data), len(data) / 1048576))
+    print("packages: %s" % dict(collections.Counter(a["package"] for a in added)))
+    if not args.write:
+        print("dry run; pass --write to emit")
+        return
+
+    args.pool.write_bytes(bytes(data))
+    refresh_manifest(args.pool)
+    (args.donors / "appended.json").write_text(json.dumps(added, indent=1))
+    print("wrote %s" % args.pool)
+
+    def words(text):
+        return "{" + ",".join("0x%su" % w for w in text.split("-")) + "}"
+
+    lines = ["// Generated by tools/append_direct_donors.py.", "#pragma once",
+             "namespace ds2 {",
+             "// A direct arrival the pool carries in place of one of its own roots.",
+             "// `supersedes` is the pool GUID this replaces: that root stays in the file",
+             "// but stops being offered, because appending is the only safe way to change",
+             "// a stream and nothing can be taken out of one.",
+             "struct DirectDonorRow { Guid guid, source, supersedes; const char* context; };",
+             "inline constexpr DirectDonorRow kDirectDonors[] = {"]
+    for entry in sorted(added, key=lambda e: e["guid"]):
+        lines.append("    {%s,%s,%s,%s},  // %s: %s"
+                     % (words(entry["guid"]), words(entry["source"]),
+                        words(entry["supersedes"]), json.dumps(entry["context"]),
+                        entry["package"], entry["reason"]))
+    lines += ["};", "}", ""]
+    header_path = ROOT / "src/generated_direct_donors.h"
+    header_path.write_text("\n".join(lines), encoding="utf-8")
+    print("wrote %s with %d donors" % (header_path, len(added)))
+
+
+if __name__ == "__main__":
+    main()

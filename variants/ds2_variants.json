@@ -1,0 +1,491 @@
+{
+ "scope": "Stat variants of enemies the pool already carries. Each one is a copy of an authored record with a few authored numbers changed; models, animations and sounds are the base enemy's, so nothing new has to be loaded.",
+ "notation": "'x1.5' multiplies the authored float, '=12' sets a float, 'i1' sets a raw dword (for the 0/1 switches). A key is 'Component.CMD_Name'; every field of that name in the record is changed, so the limb damages all move together. 'speed' is the animation playback factor applied at runtime (1.25 = a quarter faster, movement included); 'scale' is the visual size factor, collision stays, so keep it modest. 'skin' copies the base model with recoloured textures and gives the variant its own look: 'package' is the character stream under ds_assets/char_str/npc, 'tag' the character that replaces the last one of every renamed texture name, 'tint' recolours every diffuse (_c) texture, either [r,g,b] multipliers or {\"hue\": degrees, \"sat\": factor, \"val\": factor} in HSV; 'tints' does the same per texture stem (also for glow maps, _l), 'files' takes a DDS (same format and size, saved with mipmaps) instead of a tint. Every texture the copied materials name travels along; a material must find all of them when the pool loads. 'vfx' recolours effects the model names, per effect stem: {\"light\": [r, g, b]} sets its light colour (0..1). 'sounds' swaps the animation bank's sound events by name (old event -> event of another enemy whose package is forced resident), the DS1 way.",
+ "variants": [
+  {
+   "name": "VeteranSlasher",
+   "family": "Zombie",
+   "source": "31CB05C3-35B016F7-43524F57-31313048",
+   "base": "slasher_var1, transport hub",
+   "chance": 25,
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.8",
+    "DismemberableHealthComponent.CMD_SetRightBackHealth": "x1.5",
+    "DismemberableHealthComponent.CMD_SetLeftBackHealth": "x1.5",
+    "Zombie.CMD_SetOverheadStrikeDamage": "x1.5",
+    "Zombie.CMD_SetFlailDamage": "x1.5",
+    "Zombie.CMD_SetChargeDamage": "x1.5",
+    "Zombie.CMD_SetChargeStartChance": "=0.9",
+    "Zombie.CMD_SetPlayDeadEnabled": "i0",
+    "StasisComponent.CMD_SetStasisResistance": "=0.5",
+    "DismemberableHealthComponent.CMD_SetHeadDamage": "x1.4",
+    "Zombie.CMD_SetGrappleChance": "=0.5",
+    "ZombieGrappleAttacherComponent.CMD_SetDamage": "x1.5"
+   },
+   "speed": 1.1,
+   "scale": 1.0
+  },
+  {
+   "name": "SuperExploder",
+   "family": "Exploder",
+   "source": "30CA671D-2AFB7176-54544950-32303153",
+   "base": "exploder, decompression",
+   "chance": 25,
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x2",
+    "DismemberableHealthComponent.CMD_SetSacHealth": "x2",
+    "DismemberableHealthComponent.CMD_SetHeadDamage": "x1.5",
+    "DismemberableHealthComponent.CMD_SetRightFrontDamage": "x1.5",
+    "DismemberableHealthComponent.CMD_SetRightBackDamage": "x1.5",
+    "DismemberableHealthComponent.CMD_SetLeftBackDamage": "x1.5",
+    "Exploder.CMD_SetBiteRange": "x1.3",
+    "Exploder.CMD_SetChargeStopChance": "=0.5",
+    "ExploderVentComponent.CMD_SetVentMovementSpeed": "x1.4"
+   },
+   "speed": 1.5,
+   "scale": 1.1,
+   "skin": {
+    "package": "exp_cct/exploder.str",
+    "tag": "1",
+    "look": "dark like the Super Slasher, the sac red with a yellow tinge, its glow map shifted the same way",
+    "tint": {
+     "hue": 22,
+     "sat": 1.6,
+     "val": 0.42
+    },
+    "tints": {
+     "explodercap_c": {
+      "hue": 10,
+      "sat": 1.3,
+      "val": 0.42
+     },
+     "exploderarm_c": {
+      "hue": -22,
+      "sat": 1.05,
+      "val": 0.9
+     },
+     "exploderarm_l": {
+      "hue": -25
+     }
+    },
+    "files": {
+     "exploderarm_c": "variants/skins/SuperExploder/edit/exploderarm_c.dds",
+     "exploderarm_l": "variants/skins/SuperExploder/edit/exploderarm_l.dds",
+     "exploderbody_c": "variants/skins/SuperExploder/edit/exploderbody_c.dds",
+     "explodercap_c": "variants/skins/SuperExploder/edit/explodercap_c.dds"
+    },
+    "vfx": {
+     "npc_xpldr_sacklight": {
+      "light": [
+       1.0,
+       0.18,
+       0.05
+      ]
+     }
+    },
+    "sounds": {},
+    "sound_packages": [],
+    "custom_sounds": {
+     "folder": "variants/sounds/SuperExploder/original/edited",
+     "banks": {
+      "exploder.sbk": "sup_exploder.sbk",
+      "exploder_merge.sbk": "sup_exploder_merge.sbk"
+     },
+     "rename": {
+      "exploder": "explode1"
+     }
+    }
+   }
+  },
+  {
+   "name": "RabidLeaper",
+   "family": "Leaper",
+   "source": "31CB1192-35AF2B16-43524F57-31313048",
+   "base": "leaper, se_02_10",
+   "chance": 25,
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.5",
+    "Leaper.CMD_SetUninjuredDamage": "x1.6",
+    "Leaper.CMD_SetMissingLegDamage": "x1.6",
+    "Leaper.CMD_SetMissingTailDamage": "x1.6",
+    "LeaperGrappleAttacherComponent.CMD_SetDamage": "x1.5",
+    "StasisComponent.CMD_SetStasisResistance": "=0.5"
+   },
+   "speed": 1.2,
+   "scale": 1.0
+  },
+  {
+   "name": "BerserkerSlasher",
+   "source": "31CB05C3-35B016F7-43524F57-31313048",
+   "family": "Zombie",
+   "chance": 30,
+   "speed": 1.35,
+   "scale": 1.05,
+   "fields": {
+    "Zombie.CMD_SetChargeStartChance": "=0.95",
+    "Zombie.CMD_SetChargeDamage": "x2.0",
+    "Zombie.CMD_SetChargeAttemptRange": "x1.5",
+    "Zombie.CMD_SetOverheadStrikeDamage": "x1.5",
+    "Zombie.CMD_SetFlailDamage": "x1.5",
+    "Zombie.CMD_SetPlayDeadEnabled": "i0",
+    "Zombie.CMD_SetGrappleChance": "=0.6",
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.5",
+    "StasisComponent.CMD_SetStasisResistance": "=0.8"
+   },
+   "skin": {
+    "package": "zomb_cct/slasher.str",
+    "tag": "2",
+    "tint": null,
+    "tints": {},
+    "files": {
+     "zombieb_c": "variants/skins/BerserkerSlasher/edit/zombieb_c.dds"
+    }
+   },
+   "model_sources": "all"
+  },
+  {
+   "name": "JuggernautSlasher",
+   "source": "31CB0914-53D565C0-43495250-32303045",
+   "family": "Zombie",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 0.9,
+   "scale": 1.15,
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x2.0",
+    "DismemberableHealthComponent.CMD_SetRightBackHealth": "x1.6",
+    "DismemberableHealthComponent.CMD_SetLeftBackHealth": "x1.6",
+    "DismemberableHealthComponent.CMD_SetTailHealth": "x1.6",
+    "Zombie.CMD_SetOverheadStrikeDamage": "x1.4",
+    "Zombie.CMD_SetFlailDamage": "x1.4",
+    "StasisComponent.CMD_SetStasisResistance": "=0.6"
+   },
+   "skin": {
+    "package": "zomb_cct/super_slasher.str",
+    "tag": "3",
+    "tint": null,
+    "tints": {},
+    "files": {
+     "superslasher_c": "variants/skins/JuggernautSlasher/edit/superslasher_c.dds"
+    }
+   }
+  },
+  {
+   "name": "DodgerSlasher",
+   "source": "34CB279B-D4E484EA-54544F43-33363053",
+   "family": "Zombie",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.2,
+   "scale": 0.95,
+   "fields": {
+    "Zombie.CMD_SetThreatenedDodgeChance": "=1.0",
+    "Zombie.CMD_SetThreatenedTimeToDodge": "x0.5",
+    "Zombie.CMD_SetStandbyMaxDistance": "x1.5",
+    "Zombie.CMD_SetChargeStartChance": "=0.3",
+    "DismemberableHealthComponent.CMD_SetHealth": "x0.9"
+   },
+   "skin": {
+    "package": "slasherclergy_cct/slasherclergy.str",
+    "tag": "4",
+    "tint": null,
+    "tints": {},
+    "files": {
+     "slasherclergy_c": "variants/skins/DodgerSlasher/edit/slasherclergy_c.dds"
+    }
+   }
+  },
+  {
+   "name": "GlassSlasher",
+   "source": "31CB1A0F-5256D631-43495250-32303045",
+   "family": "Zombie",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.5,
+   "scale": 0.9,
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x0.5",
+    "DismemberableHealthComponent.CMD_SetRightBackHealth": "x0.6",
+    "DismemberableHealthComponent.CMD_SetLeftBackHealth": "x0.6",
+    "Zombie.CMD_SetOverheadStrikeDamage": "x2.0",
+    "Zombie.CMD_SetFlailDamage": "x2.0",
+    "Zombie.CMD_SetChargeDamage": "x2.0",
+    "Zombie.CMD_SetCrawlDamage": "x2.0"
+   },
+   "skin": {
+    "package": "slasherspitter/slasherspitter.str",
+    "tag": "5",
+    "tint": null,
+    "tints": {},
+    "files": {
+     "slasherspitter_c": "variants/skins/GlassSlasher/edit/slasherspitter_c.dds"
+    }
+   }
+  },
+  {
+   "name": "GrapplerSlasher",
+   "source": "35CAB74B-B0950456-44455257-38343145",
+   "family": "Zombie",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.1,
+   "scale": 1.0,
+   "fields": {
+    "Zombie.CMD_SetGrappleChance": "=1.0",
+    "ZombieGrappleAttacherComponent.CMD_SetDamage": "x2.0",
+    "ZombieGrappleAttacherComponent.CMD_SetBreakThreshold": "x1.5",
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.2"
+   },
+   "skin": {
+    "package": "slasherhospital_cct/slasher_hospital.str",
+    "tag": "6",
+    "tint": null,
+    "tints": {},
+    "files": {
+     "slasherhospital_c": "variants/skins/GrapplerSlasher/edit/slasherhospital_c.dds"
+    }
+   }
+  },
+  {
+   "name": "KamikazeExploder",
+   "source": "30CA671D-2AFB7176-54544950-32303153",
+   "family": "Exploder",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.8,
+   "scale": 0.95,
+   "base": "exploder, sprints and pops early; tiny health",
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x0.4",
+    "DismemberableHealthComponent.CMD_SetSacHealth": "x0.5",
+    "Exploder.CMD_SetExplodeRange": "x1.5",
+    "Exploder.CMD_SetBiteRange": "x1.3",
+    "ExploderVentComponent.CMD_SetVentMovementSpeed": "x1.6"
+   },
+   "skin": {
+    "package": "exp_cct/exploder.str",
+    "tag": "7",
+    "tint": null,
+    "tints": {},
+    "files": {}
+   }
+  },
+  {
+   "name": "FrogLeaper",
+   "source": "31CB1192-35AF2B16-43524F57-31313048",
+   "family": "Leaper",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.3,
+   "scale": 1.1,
+   "base": "leaper, jumps across the whole room and barely pauses",
+   "fields": {
+    "Leaper.CMD_SetWWJumpMinDistance": "x1.5",
+    "Leaper.CMD_SetWWJumpMaxDistance": "x2.0",
+    "Leaper.CMD_SetUninjuredJumpingDamage": "x2.0",
+    "Leaper.CMD_SetPauseMinTime": "x0.3",
+    "Leaper.CMD_SetPauseMaxTime": "x0.3",
+    "Leaper.CMD_SetLeapCheckPercent": "=1.0",
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.2"
+   },
+   "skin": {
+    "package": "leap_cct/leaper.str",
+    "tag": "8",
+    "tint": null,
+    "tints": {},
+    "files": {}
+   }
+  },
+  {
+   "name": "BroodPregnant",
+   "source": "31CAE343-2410960E-43524F57-31313048",
+   "family": "Pregnant",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.1,
+   "scale": 1.1,
+   "base": "pregnant, a swarm of twenty from one belly, thin skin",
+   "fields": {
+    "Pregnant.CMD_SetSpawnNumber": "i20",
+    "DismemberableHealthComponent.CMD_SetHealth": "x0.6",
+    "DismemberableHealthComponent.CMD_SetSacHealth": "x0.6"
+   },
+   "skin": {
+    "package": "preg_cct/pregnant.str",
+    "tag": "9",
+    "tint": null,
+    "tints": {},
+    "files": {}
+   }
+  },
+  {
+   "name": "SpewerPuker",
+   "source": "31CB0DE5-440931AC-43524F57-31313048",
+   "family": "Puker",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.15,
+   "scale": 1.0,
+   "base": "puker, vomits at every chance and from twice the distance, crawling too",
+   "fields": {
+    "Puker.CMD_SetStandupVomitChance": "=1.0",
+    "Puker.CMD_SetHeadlessVomitChance": "=1.0",
+    "Puker.CMD_SetStandupVomitAttemptRange": "x2.0",
+    "Puker.CMD_SetStandupHeadlessVomitAttemptRange": "x2.0",
+    "Puker.CMD_SetCrawlVomitAttemptRange": "x2.0",
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.2"
+   },
+   "skin": {
+    "package": "puker_cct/puker.str",
+    "tag": "a",
+    "tint": null,
+    "tints": {},
+    "files": {}
+   }
+  },
+  {
+   "name": "PackSprinter",
+   "source": "30CA2DAB-7FED4260-54544950-32303153",
+   "family": "PackEnemy",
+   "chance": 30,
+   "model_sources": "all",
+   "speed": 1.5,
+   "scale": 0.85,
+   "base": "pack, no more waiting: always the running jump, closes in fast",
+   "fields": {
+    "PackEnemy.CMD_SetPackRunJumpAttackChance": "=1.0",
+    "PackEnemy.CMD_SetPackAttackDelay": "=0.0",
+    "PackEnemy.CMD_SetPackStandbyMinRange": "x0.5",
+    "PackEnemy.CMD_SetPackStandbyMaxRange": "x0.6",
+    "PackEnemy.CMD_SetPackRunJumpAttackDamage": "x1.5",
+    "PackEnemy.CMD_SetPackJumpAttackDamage": "x1.3"
+   },
+   "skin": {
+    "package": "pack_boy_cct/pack_boy.str",
+    "tag": "b",
+    "tint": null,
+    "tints": {},
+    "files": {}
+   }
+  },
+  {
+   "name": "GoldenLeaper",
+   "source": "31CB1192-35AF2B16-43524F57-31313048",
+   "family": "Leaper",
+   "chance": 3,
+   "model_sources": "all",
+   "speed": 1.0,
+   "scale": 1.0,
+   "base": "a leaper drawn with the dementia pack boy's shader, which comes out solid gold; rare, and it always drops a Power Node, a Large Health Kit or Stasis Energy",
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x1.5",
+    "DismemberableHealthComponent.CMD_SetTailHealth": "x1.5"
+   },
+   "skin": {
+    "package": "leap_cct/leaper.str",
+    "tag": "c",
+    "tint": null,
+    "tints": {},
+    "files": {},
+    "ghost": {
+     "package": "pack_boy_dementia_cct/pack_boy_dementia.str",
+     "material": "skinned_packdementia"
+    }
+   },
+   "drop_list": {
+    "items": [
+     "37C7B444-8607BF9D-4E59414D-36445241",
+     "4BC78C36-9D604E6E-544E4543-53574F4B",
+     "4BC806EA-40D9D6F7-544E4543-53574F4B"
+    ],
+    "weights": [
+     5000.0,
+     5000.0,
+     5000.0
+    ],
+    "drop_chance": 1.0,
+    "names": [
+     "Power Node",
+     "Large Health Kit",
+     "Stasis Energy Small"
+    ]
+   }
+  },
+  {
+   "name": "GhostPackBoy",
+   "source": "30CA2DAB-7FED4260-54544950-32303153",
+   "family": "PackEnemy",
+   "chance": 25,
+   "model_sources": "all",
+   "speed": 1.0,
+   "scale": 1.0,
+   "base": "pack boy carrying the dementia pack boy's material untouched, its own textures included: the pure shader test (with the model's colour map both leaper and pack boy came out solid gold, 14.09.)",
+   "fields": {},
+   "skin": {
+    "package": "pack_boy_cct/pack_boy.str",
+    "tag": "d",
+    "tint": null,
+    "tints": {},
+    "files": {},
+    "ghost": {
+     "package": "pack_boy_dementia_cct/pack_boy_dementia.str",
+     "material": "skinned_packdementia",
+     "template_textures": true,
+     "vfx": [
+      "dementia_land_pack_bufferdistortion_01.vfx",
+      "dementia_land_pack_bufferdistortion_02.vfx",
+      "dementia_land_pack_shadow.vfx",
+      "dementia_land_pack_tentacles.vfx"
+     ],
+     "distortion": {
+      "archive": "ds2dat9/ch11_mtb/ch11_mtb/shared/design/npcs_mini_globals/npcs_mtb_escape_folderstream.str",
+      "vfx": "dementia_land_nicole_bufferdistortion_01.vfx",
+      "bone": "m_pelvis"
+     }
+    }
+   }
+  },
+  {
+   "name": "GhostLeaper",
+   "source": "31CB1192-35AF2B16-43524F57-31313048",
+   "family": "Leaper",
+   "chance": 25,
+   "model_sources": "all",
+   "speed": 1.15,
+   "scale": 1.0,
+   "base": "leaper on the dementia pack boy's material with its own dark textures, plus the four dementia effects in place of four gore effects",
+   "fields": {
+    "DismemberableHealthComponent.CMD_SetHealth": "x0.8"
+   },
+   "skin": {
+    "package": "leap_cct/leaper.str",
+    "tag": "e",
+    "tint": null,
+    "tints": {},
+    "files": {},
+    "ghost": {
+     "package": "pack_boy_dementia_cct/pack_boy_dementia.str",
+     "material": "skinned_packdementia",
+     "template_textures": true,
+     "vfx": [
+      "dementia_land_pack_bufferdistortion_01.vfx",
+      "dementia_land_pack_bufferdistortion_02.vfx",
+      "dementia_land_pack_shadow.vfx",
+      "dementia_land_pack_tentacles.vfx"
+     ],
+     "replace": [
+      "aud_wpn_tk_beam_vail_projectile_lp.vfx",
+      "zombie_headexplode_head.vfx",
+      "dis_leapb_headsc.vfx",
+      "dis_leapb_tailupsc.vfx"
+     ],
+     "distortion": {
+      "archive": "ds2dat9/ch11_mtb/ch11_mtb/shared/design/npcs_mini_globals/npcs_mtb_escape_folderstream.str",
+      "vfx": "dementia_land_nicole_bufferdistortion_01.vfx",
+      "bone": "m_pelvis"
+     }
+    }
+   }
+  }
+ ]
+}

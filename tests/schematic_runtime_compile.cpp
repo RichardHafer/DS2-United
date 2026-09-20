@@ -1,0 +1,9 @@
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <mutex>
+#include <cstdio>
+#include "../src/generated_schematic_catalog.h"
+#include "../src/generated_schematic_blueprints.h"
+#include "../third_party/safetyhook/safetyhook.hpp"
+#include "../src/runtime_schematics.inc"
