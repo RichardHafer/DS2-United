@@ -45,7 +45,7 @@ ones went in. An unsupported build is left alone.
 
 ### Windows
 
-**[Download the latest release](https://github.com/RichardHafer/DeadSpace2Randomizer/releases/latest)**
+**[Download the latest release](https://github.com/RichardHafer/DS2-Randomizer/releases/latest)**
 
 You need the [Marker Patch](https://github.com/Wemino/MarkerPatch) installed
 first; it brings the ASI loader (`dinput8.dll`) that starts this plugin.
