@@ -82,15 +82,15 @@ const char* NameFor(uint32_t hash) {
 bool Install(FILE* log) {
     // push ecx / mov edx,[esp+8] / mov ecx,[edx] / push esi / mov esi,ecx / push edi / mov edi,[0x204CD8C]
     const unsigned char expected[] = {0x51,0x8B,0x54,0x24,0x08,0x8B,0x0A,0x56,0x8B,0xF1,0x57,0x8B,0x3D};
-    unsigned char actual[sizeof(expected)]{};
+    // The horde silence (runtime_more_enemies.inc) usually holds the first five
+    // bytes already. hook_site accepts that jmp and chains behind it; the table
+    // address sits past it and is checked here directly.
     uint32_t table = 0;
-    if (!Read(base + 0x356C60, actual, sizeof(actual)) || std::memcmp(actual, expected, sizeof(expected)) ||
-        !Read(base + 0x356C6D, &table, 4) || table != base + ds2::kMessageTableRva) {
-        std::fprintf(log, "message_trace send signature mismatch; trace off\n");
+    if (!Read(base + 0x356C6D, &table, 4) || table != base + ds2::kMessageTableRva) {
+        std::fprintf(log, "message_trace send signature mismatch (message table %08X); trace off\n", table);
         return false;
     }
-    sendHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x356C60), OnSend);
-    if (!sendHook) {
+    if (!hook_site::InstallMid(log, "message_trace send", base + 0x356C60, expected, sizeof(expected), OnSend, sendHook)) {
         std::fprintf(log, "message_trace hook failed; trace off\n");
         return false;
     }

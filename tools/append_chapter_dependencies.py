@@ -42,7 +42,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+from ds2_paths import MODDING_TOOLS, WORK  # noqa: E402
+sys.path.insert(0, str(MODDING_TOOLS))
 
 from ds2_assets import assets, simgroup  # noqa: E402
 from stream_framing import frame_stream  # noqa: E402
@@ -113,7 +114,7 @@ def repoint(pool_path, mapping):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--work", type=Path, default=Path(r"D:/SteamLibrary/steamapps/common/Dead Space 2/work"))
+    parser.add_argument("--work", type=Path, default=WORK)
     parser.add_argument("--pool", type=Path, default=ROOT / "analysis/runtime_stream/ds2_randomizer_pool.str")
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()

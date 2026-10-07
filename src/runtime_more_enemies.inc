@@ -71,7 +71,13 @@ thread_local bool moreEnemiesInside = false;
 // a leftover can never swallow a later room's honest death.
 // hordeCopy stays set while a repeat is dispatched, for diagnostics.
 unsigned swarmHorde = 6, packHorde = 4;
+// Filled once by LoadMoreEnemiesSettings, before any hook exists, and never
+// changed after that. Turning hordes off later only sets hordesOff, so the game
+// thread never reads the map while another thread clears it.
 std::map<std::string, unsigned> hordeSizes;
+volatile LONG hordesOff = 0;
+bool HordesActive() { return !hordeSizes.empty() && !InterlockedCompareExchange(&hordesOff, 0, 0); }
+void DisableHordes() { InterlockedExchange(&hordesOff, 1); }
 thread_local bool hordeCopy = false;
 struct HordeMark { uintptr_t spawner; DWORD tick; unsigned size; uint32_t deathHash; };
 // `passes` sends of `hash` go through before `pending` sends are swallowed.
@@ -154,7 +160,7 @@ void NoteReplacement(uintptr_t spawner, const std::string& family) {
 }
 
 void MarkHordeReplacement(uintptr_t spawner, const std::string& family, uint32_t deathHash) {
-    if (!spawner || hordeSizes.empty()) return;
+    if (!spawner || !HordesActive()) return;
     const auto size = hordeSizes.find(family);
     if (size == hordeSizes.end() || size->second <= 1) return;
     std::lock_guard<std::mutex> guard(hordeLock);
@@ -171,7 +177,7 @@ void MarkHordeReplacement(uintptr_t spawner, const std::string& family, uint32_t
 
 // The horde marked on this spawner (size 0 when there is none); the mark is spent.
 HordeMark TakeHordeMark(uintptr_t spawner) {
-    if (!spawner || hordeSizes.empty()) return {};
+    if (!spawner || !HordesActive()) return {};
     std::lock_guard<std::mutex> guard(hordeLock);
     const DWORD now = GetTickCount();
     for (auto& mark : hordeMarks) {
@@ -185,7 +191,7 @@ HordeMark TakeHordeMark(uintptr_t spawner) {
 
 // The same test without spending the mark.
 bool HasHordeMark(uintptr_t spawner) {
-    if (!spawner || hordeSizes.empty()) return false;
+    if (!spawner || !HordesActive()) return false;
     std::lock_guard<std::mutex> guard(hordeLock);
     const DWORD now = GetTickCount();
     for (const auto& mark : hordeMarks)
@@ -312,20 +318,101 @@ void RecheckStreamGraph();   // runtime_stream_probe.inc, included later
 ds2::ExtraSpawnRules extraSpawns;
 // Every FuncSpawn the game constructs (ctor 0x00EA5A40, `this` in ecx), so an
 // area rule has a spawner to drive before anything in the level has fired.
-// Pointers only; a candidate is verified by vtable and target lookup on use.
+// The GUID at +0x24 is not written yet when the constructor starts, so the
+// game thread records it shortly after (NameKnownSpawners) and every later use
+// requires the same GUID at the same address. The list is emptied when the
+// level's stream service retires, which frees every spawner of that level.
 constexpr uint32_t kFuncSpawnCtorRva = 0x00AA5A40;
+constexpr unsigned kKnownSpawnerCapacity = 256;
 safetyhook::MidHook spawnerCtorHook;
-uint32_t knownSpawners[256]{};
-volatile LONG knownSpawnerCount = 0;
+struct KnownSpawner { uint32_t pointer; Guid guid; unsigned attempts; };
+KnownSpawner knownSpawners[kKnownSpawnerCapacity]{};
+unsigned knownSpawnerCount = 0;   // total constructed since the last reset, under knownSpawnersLock
+std::mutex knownSpawnersLock;
+volatile LONG knownSpawnersPending = 0;   // constructed, not named yet
+DWORD knownSpawnersLastNaming = 0;
+volatile LONG knownSpawnersNamed = 0, knownSpawnersUnnamed = 0, knownSpawnersMoved = 0, knownSpawnersRetired = 0, knownSpawnersCleared = 0;
 void OnFuncSpawnConstructed(SafetyHookContext& ctx) {
-    const LONG index = InterlockedIncrement(&knownSpawnerCount) - 1;
-    knownSpawners[static_cast<unsigned>(index) % std::size(knownSpawners)] = static_cast<uint32_t>(ctx.ecx);
+    std::lock_guard<std::mutex> guard(knownSpawnersLock);
+    knownSpawners[knownSpawnerCount++ % kKnownSpawnerCapacity] = KnownSpawner{static_cast<uint32_t>(ctx.ecx), Guid{}, 0};
+    InterlockedIncrement(&knownSpawnersPending);
+}
+// The spawner history (recentSpawners) is kept for the editor; area rules
+// only take entries newer than this sequence.
+uint64_t recentSpawnerFloor = 0;
+// From OnStreamServiceRetired: every spawner of the old level is gone.
+void ClearKnownSpawners() {
+    {
+        std::lock_guard<std::mutex> guard(knownSpawnersLock);
+        for (auto& entry : knownSpawners) entry = KnownSpawner{};
+        knownSpawnerCount = 0;
+        InterlockedExchange(&knownSpawnersPending, 0);
+    }
+    {
+        const std::lock_guard<std::mutex> guard(spawnerToolsMutex);
+        recentSpawnerFloor = recentSpawnerSequence;
+    }
+    InterlockedIncrement(&knownSpawnersCleared);
+}
+// Game thread, at most every 50 ms: give fresh entries their GUID. An entry
+// that still reads no FuncSpawn identity after 64 tries is dropped.
+void NameKnownSpawners() {
+    if (InterlockedCompareExchange(&knownSpawnersPending, 0, 0) <= 0) return;
+    const DWORD now = GetTickCount();
+    if (now - knownSpawnersLastNaming < 50) return;
+    knownSpawnersLastNaming = now;
+    std::lock_guard<std::mutex> guard(knownSpawnersLock);
+    LONG pending = 0;
+    unsigned work = 0;
+    for (auto& entry : knownSpawners) {
+        if (!entry.pointer || entry.guid != Guid{}) continue;
+        if (++work > 16) { ++pending; continue; }
+        uint32_t vtable = 0;
+        Guid guid{};
+        if (Read(entry.pointer, &vtable, 4) && vtable == base + kFuncSpawnVtableRva &&
+            Read(entry.pointer + 0x24, guid.data(), sizeof(guid)) && guid != Guid{}) {
+            entry.guid = guid;
+            InterlockedIncrement(&knownSpawnersNamed);
+        } else if (++entry.attempts >= 64) {
+            entry = KnownSpawner{};
+            InterlockedIncrement(&knownSpawnersUnnamed);
+        } else {
+            ++pending;
+        }
+    }
+    InterlockedExchange(&knownSpawnersPending, pending);
+}
+
+// Still the spawner that was recorded: same vtable, same GUID, and not used up.
+// A spawner whose count reached its authored maximum was retired by SpawnDone
+// and sits on the engine's deletion list.
+bool KnownSpawnerUsable(uint32_t pointer, const Guid& recorded) {
+    uint32_t vtable = 0, attributes = 0;
+    Guid guid{};
+    if (!Read(pointer, &vtable, 4) || vtable != base + kFuncSpawnVtableRva ||
+        !Read(pointer + 0x24, guid.data(), sizeof(guid)) || guid != recorded) {
+        InterlockedIncrement(&knownSpawnersMoved);
+        return false;
+    }
+    int count = 0, max = -1;
+    if (!Read(pointer + kFuncSpawnAttributes, &attributes, 4) || !attributes ||
+        !Read(pointer + kFuncSpawnCount, &count, 4) || !Read(attributes + kSpawnAttrMaxSpawn, &max, 4) ||
+        (max > 0 && count >= max)) {
+        InterlockedIncrement(&knownSpawnersRetired);
+        return false;
+    }
+    return true;
 }
 // Area rules (`near:<m>` rows): fired from the tick, not from a spawner.
 ds2::ExtraAreaRules extraAreas;
 std::vector<bool> extraAreaFired;
+// A rule that found no usable spawner stays unfired and tries again after
+// kExtraAreaRetryMs; one spawner search costs up to 96 lookups on the game thread.
+std::vector<DWORD> extraAreaRetryAt;
+std::vector<unsigned> extraAreaMisses;
+constexpr DWORD kExtraAreaRetryMs = 5000;
 DWORD extraAreaLastPoll = 0;
-volatile LONG extraAreasFired = 0, extraAreasMade = 0, extraAreasNoSpawner = 0, extraAreasNoDonor = 0;
+volatile LONG extraAreasFired = 0, extraAreasMade = 0, extraAreasNoSpawner = 0, extraAreasNoDonor = 0, extraAreasRetried = 0;
 std::mutex extraLock;
 std::string extraSpawnsPath;
 bool extraSpawnsEnabled = true;
@@ -357,12 +444,16 @@ void LoadExtraSpawns(FILE* log) {
         extraSpawns = std::move(parsed);
         extraAreas = std::move(areas);
         extraAreaFired.assign(extraAreas.size(), false);
+        extraAreaRetryAt.assign(extraAreas.size(), 0);
+        extraAreaMisses.assign(extraAreas.size(), 0);
     }
     std::fprintf(log, "extra_spawns result=accepted spawners=%zu rows=%zu areas=%zu\n", extraSpawns.size(), ds2::extraSpawnCount(extraSpawns), extraAreas.size());
 }
 
+// An extra is the donor forced in OnLookup; without the selection hook the
+// spawner would build its own enemy and that would be counted as the extra.
 bool HasExtraSpawns(uintptr_t spawner) {
-    if (!extraSpawnsEnabled) return false;
+    if (!extraSpawnsEnabled || !selectionHook) return false;
     uint32_t attributes = 0;
     Guid guid{};
     if (!Read(spawner + kFuncSpawnAttributes, &attributes, 4) || !ReadSpawnerIdentity(static_cast<uint32_t>(spawner), attributes, guid)) return false;
@@ -527,11 +618,31 @@ struct RetireGuard {
     }
 };
 
+// An arrival OnBeforeSpawnDone parked that leaves OnAuthoredSpawnComplete
+// before the RetireGuard exists: pay the retirement SpawnDone skipped. When
+// even that fails the count is put back to the maximum, so the sentinel is
+// never left behind and the spawner cannot fire again.
+void PayOwedRetirement(uintptr_t spawner) {
+    if (!spawner || prePark.spawner != spawner) return;
+    prePark.spawner = 0;
+    const int max = prePark.authored + 1;
+    uint32_t attributes = 0;
+    if (Read(spawner + kFuncSpawnAttributes, &attributes, 4) && attributes && RetireVentSpawner(spawner, attributes, max)) {
+        InterlockedIncrement(&ventRetiredSynthetic);
+        return;
+    }
+    InterlockedIncrement(&ventRetireFailed);
+    uint32_t vtable = 0;
+    if (!Read(spawner, &vtable, 4) || vtable != base + kFuncSpawnVtableRva ||
+        !Writable(spawner + kFuncSpawnCount, sizeof(int)) || !WriteBytes(spawner + kFuncSpawnCount, &max, sizeof(max)))
+        InterlockedIncrement(&moreEnemiesRestoreFailed);
+}
+
 // 0x00ECB416, the authored arrival about to call SpawnDone; edi is the
 // FuncSpawn. The plugin's own repeats park the count themselves and are skipped.
 void OnBeforeSpawnDone(SafetyHookContext& ctx) {
     if (moreEnemiesInside || !moreEnemiesVentDelayMs) return;
-    if (!moreEnemies.enabled && hordeSizes.empty()) return;
+    if (!moreEnemies.enabled && !HordesActive()) return;
     // Only an arrival that OnAuthoredSpawnComplete will repeat is parked. With
     // MoreEnemies off and no horde or extra spawn for it, that hook returns
     // early and a parked count was never restored: the spawner kept a count of
@@ -607,18 +718,22 @@ bool DriveForcedSpawn(uintptr_t spawner, const ds2::ExtraSpawnRule& rule, size_t
 uintptr_t SpawnerForAreaRule() {
     uint32_t manager = 0;
     if (!Read(base + 0x1C1C0A0, &manager, 4) || !manager) return 0;
+    // Each candidate comes with the GUID recorded for it, so a pointer whose
+    // object was freed or replaced is refused before anything is called on it.
     uint32_t candidates[96]{};
+    Guid recorded[96]{};
     unsigned count = 0;
     // newest constructed spawners first
     {
-        const LONG total = InterlockedCompareExchange(&knownSpawnerCount, 0, 0);
-        const LONG limit = total < static_cast<LONG>(std::size(knownSpawners)) ? total : static_cast<LONG>(std::size(knownSpawners));
-        for (LONG back = 1; back <= limit && count < 48; ++back) {
-            const uint32_t p = knownSpawners[static_cast<unsigned>(total - back) % std::size(knownSpawners)];
-            if (!p) continue;
+        std::lock_guard<std::mutex> guard(knownSpawnersLock);
+        const unsigned total = knownSpawnerCount;
+        const unsigned limit = total < kKnownSpawnerCapacity ? total : kKnownSpawnerCapacity;
+        for (unsigned back = 1; back <= limit && count < 48; ++back) {
+            const auto& entry = knownSpawners[(total - back) % kKnownSpawnerCapacity];
+            if (!entry.pointer || entry.guid == Guid{}) continue;
             bool dup = false;
-            for (unsigned i = 0; i < count; ++i) if (candidates[i] == p) dup = true;
-            if (!dup) candidates[count++] = p;
+            for (unsigned i = 0; i < count; ++i) if (candidates[i] == entry.pointer) dup = true;
+            if (!dup) { recorded[count] = entry.guid; candidates[count++] = entry.pointer; }
         }
     }
     {
@@ -626,12 +741,12 @@ uintptr_t SpawnerForAreaRule() {
         // recentSpawners is a ring by sequence; take the newest entries
         uint64_t best = 0;
         for (const auto& entry : recentSpawners) if (entry.sequence > best) best = entry.sequence;
-        for (uint64_t seq = best; seq > 0 && count < std::size(candidates); --seq) {
+        for (uint64_t seq = best; seq > recentSpawnerFloor && count < std::size(candidates); --seq) {
             const auto& entry = recentSpawners[(seq - 1) % recentSpawners.size()];
-            if (entry.sequence != seq || !entry.pointer) continue;
+            if (entry.sequence != seq || !entry.pointer || entry.source == Guid{}) continue;
             bool dup = false;
             for (unsigned i = 0; i < count; ++i) if (candidates[i] == entry.pointer) dup = true;
-            if (!dup) candidates[count++] = entry.pointer;
+            if (!dup) { recorded[count] = entry.source; candidates[count++] = entry.pointer; }
             if (best - seq > 512) break;
         }
     }
@@ -647,6 +762,7 @@ uintptr_t SpawnerForAreaRule() {
         const uintptr_t spawner = candidates[i];
         uint32_t vtable = 0, attributes = 0;
         Guid target{};
+        if (!KnownSpawnerUsable(candidates[i], recorded[i])) continue;
         if (!Read(spawner, &vtable, 4) || vtable != base + kFuncSpawnVtableRva ||
             !Read(spawner + kFuncSpawnAttributes, &attributes, 4) || !attributes ||
             !Read(attributes + kSpawnAttrTargetGuid, target.data(), 16) || target == Guid{}) continue;
@@ -667,12 +783,15 @@ uintptr_t SpawnerForAreaRule() {
 void ResetExtraAreas() {
     std::lock_guard<std::mutex> guard(extraLock);
     std::fill(extraAreaFired.begin(), extraAreaFired.end(), false);
+    std::fill(extraAreaRetryAt.begin(), extraAreaRetryAt.end(), 0);
+    std::fill(extraAreaMisses.begin(), extraAreaMisses.end(), 0);
 }
 
 // Game thread, from the tick: an area rule fires once when the player is
 // within its radius of the spot.
 void ExtraAreaTick() {
-    if (!extraSpawnsEnabled) return;
+    if (!extraSpawnsEnabled || !selectionHook) return;
+    NameKnownSpawners();
     const DWORD now = GetTickCount();
     if (now - extraAreaLastPoll < 250) return;
     extraAreaLastPoll = now;
@@ -684,33 +803,56 @@ void ExtraAreaTick() {
         if (!placement::PlayerTransform(position, forward)) return;
         for (size_t i = 0; i < extraAreas.size(); ++i) {
             if (extraAreaFired[i]) continue;
+            if (extraAreaRetryAt[i] && static_cast<LONG>(now - extraAreaRetryAt[i]) < 0) continue;
             const auto& r = extraAreas[i].rule;
             const float dx = r.position[0] - position[0], dy = r.position[1] - position[1], dz = r.position[2] - position[2];
             if (dx * dx + dy * dy + dz * dz <= extraAreas[i].radius * extraAreas[i].radius) due.emplace_back(i, extraAreas[i]);
         }
     }
+    // At most one spawner search per pass: when it finds nothing, every other
+    // due rule would find nothing too and just waits for its retry.
+    bool searched = false, spawnerFound = false;
+    uintptr_t spawner = 0;
+    auto markFired = [](size_t index) {
+        std::lock_guard<std::mutex> guard(extraLock);
+        if (index < extraAreaFired.size()) extraAreaFired[index] = true;
+    };
     for (const auto& item : due) {
         const auto& rule = item.second.rule;
-        {
-            std::lock_guard<std::mutex> guard(extraLock);
-            if (item.first < extraAreaFired.size()) extraAreaFired[item.first] = true;
-        }
-        InterlockedIncrement(&extraAreasFired);
         char text[256]{};
         const size_t donor = DonorForKind(rule.kind);
         if (donor == SIZE_MAX) {
+            // the pool does not change during a session, so this never retries
+            markFired(item.first);
             InterlockedIncrement(&extraAreasNoDonor);
             std::snprintf(text, sizeof(text), "extra_area kind=%s at (%.1f %.1f %.1f): no donor in the pool", rule.kind.c_str(), rule.position[0], rule.position[1], rule.position[2]);
             placement::Queue(text);
             continue;
         }
-        const uintptr_t spawner = SpawnerForAreaRule();
-        if (!spawner) {
-            InterlockedIncrement(&extraAreasNoSpawner);
-            std::snprintf(text, sizeof(text), "extra_area kind=%s at (%.1f %.1f %.1f): no live spawner with a resolvable target; not fired", rule.kind.c_str(), rule.position[0], rule.position[1], rule.position[2]);
-            placement::Queue(text);
+        if (!searched) {
+            searched = true;
+            spawner = SpawnerForAreaRule();
+            spawnerFound = spawner != 0;
+        }
+        if (!spawnerFound) {
+            unsigned misses = 0;
+            {
+                std::lock_guard<std::mutex> guard(extraLock);
+                if (item.first < extraAreaRetryAt.size()) {
+                    extraAreaRetryAt[item.first] = (now + kExtraAreaRetryMs) | 1;
+                    misses = ++extraAreaMisses[item.first];
+                }
+            }
+            InterlockedIncrement(misses <= 1 ? &extraAreasNoSpawner : &extraAreasRetried);
+            // said once per rule and level, the retries only count
+            if (misses == 1) {
+                std::snprintf(text, sizeof(text), "extra_area kind=%s at (%.1f %.1f %.1f): no live spawner with a resolvable target; retrying every %lu s", rule.kind.c_str(), rule.position[0], rule.position[1], rule.position[2], kExtraAreaRetryMs / 1000);
+                placement::Queue(text);
+            }
             continue;
         }
+        markFired(item.first);
+        InterlockedIncrement(&extraAreasFired);
         unsigned made = 0;
         for (unsigned copy = 0; copy < rule.count; ++copy)
             if (DriveForcedSpawn(spawner, rule, donor)) ++made;
@@ -730,7 +872,7 @@ void DrainDeferredRepeats() {
     RecheckStreamGraph();
     placement::Poll();
     ExtraAreaTick();
-    if ((!moreEnemies.enabled && hordeSizes.empty()) || moreEnemiesInside) return;
+    if ((!moreEnemies.enabled && !HordesActive()) || moreEnemiesInside) return;
     if (InterlockedCompareExchange(&moreEnemiesDeferred, 0, 0) ==
         InterlockedCompareExchange(&moreEnemiesDeferredMade, 0, 0) +
         InterlockedCompareExchange(&moreEnemiesDeferredLost, 0, 0)) return;
@@ -835,13 +977,7 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     if (!moreEnemies.enabled && !horde && !extras) {
         // Parked anyway (the mark or the rules changed in between): the
         // retirement SpawnDone skipped is still owed.
-        if (ctx.edi && prePark.spawner == ctx.edi) {
-            prePark.spawner = 0;
-            uint32_t attributes = 0;
-            const bool retired = Read(ctx.edi + kFuncSpawnAttributes, &attributes, 4) && attributes &&
-                RetireVentSpawner(ctx.edi, attributes, prePark.authored + 1);
-            InterlockedIncrement(retired ? &ventRetiredSynthetic : &ventRetireFailed);
-        }
+        PayOwedRetirement(ctx.edi);
         return;
     }
 
@@ -858,6 +994,7 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
         !Read(attributes + kSpawnAttrCompletionMessage, &completion, 4) ||
         !Read(attributes + kSpawnAttrTargetGuid, target.data(), 16)) {
         CountMoreEnemies(ds2::MoreEnemiesStatus::AttributesUnreadable);
+        PayOwedRetirement(spawner);
         return;
     }
     // A pre-parked arrival (OnBeforeSpawnDone): the count read above is the
@@ -1108,7 +1245,7 @@ bool InstallMoreEnemies(FILE* log) {
                  static_cast<unsigned>(base + kBeforeSpawnDoneRva),
                  static_cast<unsigned>(base + kFuncSpawnSpawnDoneRva),
                  spawnDoneVerified ? "matches" : "MISMATCH");
-    if (!hordeSizes.empty() || moreEnemies.enabled) {
+    if (HordesActive() || moreEnemies.enabled) {
         // push ecx / mov edx,[esp+8] / mov ecx,[edx] / push esi / mov esi,ecx / push edi / mov edi,[0x0204CD8C]
         static const unsigned char kDispatch[] = {0x51,0x8B,0x54,0x24,0x08,0x8B,0x0A,0x56,0x8B,0xF1,0x57,0x8B,0x3D,0x8C,0xCD,0x04,0x02};
         // Other plugins wrap the same dispatch; the shared lock in hook_site.h
@@ -1117,7 +1254,7 @@ bool InstallMoreEnemies(FILE* log) {
                                               reinterpret_cast<void*>(OnDispatchMessage), messageHook);
         if (!silenceAvailable) {
             std::fprintf(log, "death message dispatch not hooked; hordes off, every repeat's death counts\n");
-            hordeSizes.clear();
+            DisableHordes();
         }
     }
     std::fprintf(log, "more_enemies hook installed at %08X; repeats authored arrivals only\n",
@@ -1131,7 +1268,7 @@ void WriteMoreEnemiesConfig(FILE* log) {
                       "max_per_trigger=%u per_second=%u default=%u swarm_horde=%u pack_horde=%u hordes_active=%d\n",
                  moreEnemies.enabled, moreEnemies.vents, moreEnemies.suppressCompletion, moreEnemies.crossFamily,
                  moreEnemies.perTrigger, moreEnemies.budgetPerSecond, moreEnemies.defaultTotal,
-                 swarmHorde, packHorde, hordeSizes.empty() ? 0 : 1);
+                 swarmHorde, packHorde, HordesActive() ? 1 : 0);
     for (const auto& entry : moreEnemiesFamilyTotals) {
         const bool guarded = ds2::moreEnemiesProtectedFamily(entry.first);
         if (entry.second <= 1 && !guarded) continue;
@@ -1153,11 +1290,16 @@ void WriteMoreEnemiesDiagnostics(FILE* log, LONG& flushed) {
         lastExtras = extrasNow;
     }
     static LONG lastAreas = -1;
-    const LONG areasNow = InterlockedCompareExchange(&extraAreasFired, 0, 0);
+    const LONG areasNow = InterlockedCompareExchange(&extraAreasFired, 0, 0) + InterlockedCompareExchange(&extraAreasNoSpawner, 0, 0) +
+                          InterlockedCompareExchange(&extraAreasNoDonor, 0, 0);
     if (areasNow != lastAreas) {
-        std::fprintf(log, "extra_areas fired=%ld made=%ld no_spawner=%ld no_donor=%ld\n", areasNow,
+        std::fprintf(log, "extra_areas fired=%ld made=%ld no_spawner=%ld retried=%ld no_donor=%ld\n", InterlockedCompareExchange(&extraAreasFired, 0, 0),
                      InterlockedCompareExchange(&extraAreasMade, 0, 0), InterlockedCompareExchange(&extraAreasNoSpawner, 0, 0),
-                     InterlockedCompareExchange(&extraAreasNoDonor, 0, 0));
+                     InterlockedCompareExchange(&extraAreasRetried, 0, 0), InterlockedCompareExchange(&extraAreasNoDonor, 0, 0));
+        std::fprintf(log, "extra_spawns spawner_registry named=%ld unnamed_dropped=%ld refused_identity=%ld refused_retired=%ld level_resets=%ld\n",
+                     InterlockedCompareExchange(&knownSpawnersNamed, 0, 0), InterlockedCompareExchange(&knownSpawnersUnnamed, 0, 0),
+                     InterlockedCompareExchange(&knownSpawnersMoved, 0, 0), InterlockedCompareExchange(&knownSpawnersRetired, 0, 0),
+                     InterlockedCompareExchange(&knownSpawnersCleared, 0, 0));
         lastAreas = areasNow;
     }
     LONG total = 0;

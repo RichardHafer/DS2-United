@@ -36,8 +36,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MODDING_TOOLS = Path(r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
-NPC_ROOT = Path(r"D:/SteamLibrary/steamapps/common/Dead Space 2/work/ds2dat10/global_assets/global_assets/ds_assets/char_str/npc")
+from ds2_paths import MODDING_TOOLS, WORK  # noqa: E402
+NPC_ROOT = WORK / "ds2dat10/global_assets/global_assets/ds_assets/char_str/npc"
 
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(MODDING_TOOLS))

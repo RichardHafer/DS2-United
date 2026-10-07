@@ -167,7 +167,11 @@ namespace DS2RandomizerConfig
             if (raw.Trim().Length == 0)
                 return "The file has an empty value; the game uses " + o.Display(Loaded[o.Id]) + ".";
             if (o.Kind == Kind.Bool && (raw.Trim() == "0" || raw.Trim() == "1")) return null;
-            if (WinInt.IsPlainNumber(raw) && raw.Trim().TrimStart('+') == Loaded[o.Id]) return null;
+            long v;
+            if (o.Kind == Kind.Int && long.TryParse(Loaded[o.Id], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out v) && (v < o.Min || v > o.Max))
+                return "The file says " + raw.Trim() + ", outside the range this window offers, so the box shows " + (v > o.Max ? o.Max : o.Min) +
+                    ". The game uses " + v + ", and saving keeps it unless you change this value.";
+            if (WinInt.IsPlainNumber(raw) && raw.Trim() == Loaded[o.Id]) return null;
             return "The file says \"" + raw + "\"; the game reads it as " + o.Display(Loaded[o.Id]) + ".";
         }
 
@@ -215,8 +219,23 @@ namespace DS2RandomizerConfig
         }
     }
 
+    sealed class SaveFailure : Exception
+    {
+        public readonly bool FileIntact;
+        public readonly string BackupPath;   // the previous version when the file is not intact
+
+        public SaveFailure(string message, bool intact, string backup, Exception inner) : base(message, inner)
+        {
+            FileIntact = intact;
+            BackupPath = backup;
+        }
+    }
+
     static class IniFile
     {
+        public const int BackupsKept = 2;
+        public const string TempMarker = ".saving-";
+
         public static bool SameBytes(byte[] a, byte[] b)
         {
             if (a.Length != b.Length) return false;
@@ -227,27 +246,116 @@ namespace DS2RandomizerConfig
         public static string BackupPath(string path)
         {
             string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            string backup = path + ".bak-" + stamp;
-            for (int n = 2; File.Exists(backup); n++) backup = path + ".bak-" + stamp + "-" + n;
+            // above every backup of the same second, even a pruned gap, so it sorts newest
+            string prefix = Path.GetFileName(path) + ".bak-" + stamp;
+            int next = 1;
+            foreach (var file in Backups(path))
+            {
+                string name = Path.GetFileName(file);
+                if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                int n = name.Length == prefix.Length ? 1 : int.Parse(name.Substring(prefix.Length + 1), CultureInfo.InvariantCulture);
+                next = Math.Max(next, n + 1);
+            }
+            string backup = next == 1 ? path + ".bak-" + stamp : path + ".bak-" + stamp + "-" + next;
+            while (File.Exists(backup)) backup = path + ".bak-" + stamp + "-" + ++next;
             return backup;
         }
 
-        // Applies the model's changes to the file as it is on disk now.
-        // Returns the changes; backupPath is null when nothing was written.
-        public static List<string> Save(string path, Model model, out string backupPath, out byte[] written)
+        // Applies the model's changes to the file as it is on disk now. The new
+        // text goes to a temp file in the same folder that then replaces the file,
+        // so a failure leaves the old file in place. Returns the changes;
+        // backupPath is null when nothing was written.
+        public static List<string> Save(string path, Model model, out string backupPath)
         {
             backupPath = null;
-            written = null;
             byte[] current = File.ReadAllBytes(path);
             var doc = IniDocument.Parse(current);
+            if (doc.Problem != null) throw new SaveFailure(doc.Problem, true, null, null);
             var changes = model.ApplyTo(doc);
             if (changes.Count == 0) return changes;
             byte[] output = doc.ToBytes();
-            backupPath = BackupPath(path);
-            File.WriteAllBytes(backupPath, current);
-            File.WriteAllBytes(path, output);
-            written = output;
+            string backup = null, temp = null;
+            try
+            {
+                backup = BackupPath(path);
+                File.WriteAllBytes(backup, current);
+                temp = path + TempMarker + Guid.NewGuid().ToString("N").Substring(0, 8);
+                using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    stream.Write(output, 0, output.Length);
+                    stream.Flush(true);
+                }
+                Replace(temp, path);
+            }
+            catch (Exception ex)
+            {
+                TryDelete(temp);
+                bool intact = false;
+                try { intact = File.Exists(path) && SameBytes(File.ReadAllBytes(path), current); }
+                catch (Exception) { }
+                // the backup only matters when the file itself was damaged
+                if (intact) { TryDelete(backup); backup = null; }
+                throw new SaveFailure(ex.Message, intact, backup, ex);
+            }
+            backupPath = backup;
+            PruneBackups(path, backup);
             return changes;
+        }
+
+        static void Replace(string temp, string path)
+        {
+            try
+            {
+                File.Replace(temp, path, null);
+                return;
+            }
+            // ReplaceFile is not supported on every file system
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (PlatformNotSupportedException) { }
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(temp, path);
+        }
+
+        static void TryDelete(string file)
+        {
+            if (file == null) return;
+            try { if (File.Exists(file)) File.Delete(file); }
+            catch (Exception) { }
+        }
+
+        // Backups of this INI, newest first: <name>.bak-yyyyMMdd-HHmmss[-n].
+        public static List<string> Backups(string path)
+        {
+            string dir = Path.GetDirectoryName(path), name = Path.GetFileName(path);
+            var pattern = new Regex("^" + Regex.Escape(name) + @"\.bak-(\d{8}-\d{6})(?:-(\d{1,9}))?$", RegexOptions.IgnoreCase);
+            var found = new List<KeyValuePair<string, string>>();
+            foreach (var file in Directory.GetFiles(dir, name + ".bak-*"))
+            {
+                var m = pattern.Match(Path.GetFileName(file));
+                if (!m.Success) continue;
+                int n = m.Groups[2].Success ? int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture) : 1;
+                found.Add(new KeyValuePair<string, string>(m.Groups[1].Value + "-" + n.ToString("D9", CultureInfo.InvariantCulture), file));
+            }
+            found.Sort((a, b) => string.CompareOrdinal(b.Key, a.Key));
+            var list = new List<string>();
+            foreach (var pair in found) list.Add(pair.Value);
+            return list;
+        }
+
+        // Keeps the backup just written and the newest others up to BackupsKept.
+        static void PruneBackups(string path, string keep)
+        {
+            List<string> all;
+            try { all = Backups(path); }
+            catch (Exception) { return; }
+            int kept = 1;
+            foreach (var file in all)
+            {
+                if (string.Equals(file, keep, StringComparison.OrdinalIgnoreCase)) continue;
+                if (kept < BackupsKept) { kept++; continue; }
+                TryDelete(file);
+            }
         }
     }
 

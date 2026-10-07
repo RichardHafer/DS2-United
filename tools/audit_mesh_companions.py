@@ -9,8 +9,8 @@ from inventory_parameter_ids import read_asset
 from resolve_pool_resources import header_guid
 
 ROOT = Path(__file__).resolve().parents[1]
-WORK = Path('D:/SteamLibrary/steamapps/common/Dead Space 2/work')
-sys.path.insert(0, 'D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools')
+from ds2_paths import MODDING_TOOLS, WORK
+sys.path.insert(0, str(MODDING_TOOLS))
 from ds2str import refpack_decompress
 
 

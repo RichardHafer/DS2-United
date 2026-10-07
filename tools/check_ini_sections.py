@@ -2,6 +2,11 @@
 
 A key in the wrong section is silently ignored (25.09.: LocalNamePatterns sat in
 [Gate], so the finale rule never ran). usage: python tools/check_ini_sections.py [ini ...]
+
+Each INI is checked against the sources of the plugin that reads it: DS2Coop.ini
+against everything, the randomizer INIs without the co-op and loader sources
+(the co-op [Necro] section reads a Leaper key, which is a family name in the
+randomizer tables).
 """
 import glob
 import re
@@ -10,16 +15,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PATTERNS = [r'GetPrivateProfile(?:Int|String)A\(\s*"(\w+)"\s*,\s*"(\w+)"', r'Config\w*\(ini,\s*"(\w+)",\s*"(\w+)"']
-code = set()
-for f in glob.glob(str(ROOT / "src" / "*.*")):
-    text = open(f, encoding="utf-8", errors="ignore").read()
-    for p in PATTERNS:
-        code.update(re.findall(p, text))
-    for m in re.finditer(r'ReadRuleSet\([^;]*?"(\w+)",\s*"(\w+)",\s*"[^"]*",\s*"(\w+)"', text):
-        code.add((m.group(1), m.group(2)))
-        code.add((m.group(1), m.group(3)))
+COOP_SOURCE = re.compile(r'^(coop_|runtime_coop|modloader\.cpp)')
+
+
+def read_sources(include_coop):
+    code = set()
+    for f in glob.glob(str(ROOT / "src" / "*.*")):
+        if not include_coop and COOP_SOURCE.match(Path(f).name):
+            continue
+        text = open(f, encoding="utf-8", errors="ignore").read()
+        for p in PATTERNS:
+            code.update(re.findall(p, text))
+        for m in re.finditer(r'ReadRuleSet\([^;]*?"(\w+)",\s*"(\w+)",\s*"[^"]*",\s*"(\w+)"', text):
+            code.add((m.group(1), m.group(2)))
+            code.add((m.group(1), m.group(3)))
+    return code
+
+
 bad = 0
 for ini in sys.argv[1:] or [str(ROOT / "DS2Coop.ini")]:
+    code = read_sources("coop" in Path(ini).name.lower())
     section, seen = None, {}
     for line in open(ini, encoding="utf-8", errors="ignore"):
         line = line.strip()
@@ -29,8 +44,9 @@ for ini in sys.argv[1:] or [str(ROOT / "DS2Coop.ini")]:
             seen.setdefault(line.split("=")[0].strip(), []).append(section)
     for key, sections in sorted(seen.items()):
         wanted = sorted({s for s, k in code if k == key})
-        if wanted and not set(sections) & set(wanted):
-            bad += 1
-            print(f"{ini}: {key} is in {sections}, the plugin reads it from {wanted}")
+        if not wanted or set(sections) & set(wanted):
+            continue
+        bad += 1
+        print(f"{ini}: {key} is in {sections}, the plugin reads it from {wanted}")
 print("ok" if not bad else f"{bad} misplaced key(s)")
 sys.exit(1 if bad else 0)

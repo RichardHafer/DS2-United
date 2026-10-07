@@ -345,9 +345,10 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
     return active;
 }
 
+// Counters only, all interlocked: no `lock` here, which the value hook takes
+// on the game thread.
 void WriteDiagnostics(FILE* log) {
     static LONG lastPrinted = -1;
-    std::lock_guard<std::mutex> guard(lock);
     const LONG total = InterlockedCompareExchange(&calls, 0, 0);
     if (!active || total == lastPrinted) return;
     lastPrinted = total;

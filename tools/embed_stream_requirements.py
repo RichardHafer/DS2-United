@@ -72,7 +72,8 @@ def zero_health_records(path):
     pool (toc.json field_patches) instead of shipping it."""
     import struct
     import sys
-    sys.path.insert(0, r"D:\SteamLibrary\steamapps\common\Dead Space 2\Dead Space 2 Modding Tools")
+    from ds2_paths import MODDING_TOOLS
+    sys.path.insert(0, str(MODDING_TOOLS))
     import ds2str
     import ds2_assets
     health = 0x6B435879   # CMD_SetHealth

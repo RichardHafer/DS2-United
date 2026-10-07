@@ -221,8 +221,31 @@ bool FileSlotsBusy() {
     if (slots && used + 2 >= slots) { InterlockedIncrement(&fileSlotWaits); return true; }
     return false;
 }
+// Written on the stream thread, printed by the worker. The writer formats
+// into a buffer of its own and publishes it under a sequence count (odd
+// while copying); the worker copies the note out and keeps the copy only
+// when the count did not move, so a second request can never tear a line.
 char poolRequestNote[512]{};
-volatile LONG poolRequestNoteReady = 0;
+volatile LONG poolRequestNoteSequence = 0;
+
+void PublishPoolRequestNote(const char* text) {
+    InterlockedIncrement(&poolRequestNoteSequence);
+    std::snprintf(poolRequestNote, sizeof(poolRequestNote), "%s", text);
+    InterlockedIncrement(&poolRequestNoteSequence);
+}
+
+// Worker: the newest complete note, once. False when there is none or it is
+// being written right now (then it is taken on the next pass).
+bool TakePoolRequestNote(char* out, size_t size, LONG& printed) {
+    const LONG before = InterlockedCompareExchange(&poolRequestNoteSequence, 0, 0);
+    if (!before || (before & 1) || before == printed || !size) return false;
+    // a fixed size copy: mid-write the note may have no terminator yet
+    std::memcpy(out, poolRequestNote, size < sizeof(poolRequestNote) ? size : sizeof(poolRequestNote));
+    out[size - 1] = 0;
+    if (InterlockedCompareExchange(&poolRequestNoteSequence, 0, 0) != before) return false;
+    printed = before;
+    return true;
+}
 void NotePoolRequest(uint32_t manager, uint32_t handle, uint32_t tocsBefore) {
     const auto after = ds2::native::inspectRegistry(manager, Read);
     const auto found = ds2::native::findDescriptor(after, 0, ds2::kPoolStreamName, Read);
@@ -284,14 +307,15 @@ void NotePoolRequest(uint32_t manager, uint32_t handle, uint32_t tocsBefore) {
             }
         }
     }
-    std::snprintf(poolRequestNote, sizeof(poolRequestNote),
+    char note[sizeof(poolRequestNote)]{};
+    std::snprintf(note, sizeof(note),
                   "pool_request handle=%08X tocs_before=%u tocs_after=%u registry=%s descriptor=%s cwd=%s toc_open_error=%lu toc_size=%lu"
                   " file_service=%08X slots_used=%u/%u engine_open=%u engine_size=%u engine_read=%u engine_relocated=%d engine_alloc=%08X allocator=%08X thread=%lu head=%02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
                   handle, tocsBefore, after.count, ds2::native::registryStatusName(after.status),
                   ds2::native::descriptorStatusName(found), cwd, openError, size, service, slotsUsed, slots, engineOpen, engineSize,
                   engineRead, engineRelocated, engineAlloc, engineAllocator, GetCurrentThreadId(), engineHead[0], engineHead[1], engineHead[2], engineHead[3], engineHead[4], engineHead[5], engineHead[6], engineHead[7],
                   engineHead[8], engineHead[9], engineHead[10], engineHead[11]);
-    InterlockedExchange(&poolRequestNoteReady, 1);
+    PublishPoolRequestNote(note);
 }
 
 bool VerifyStreamProbeFiles(FILE* log) {
@@ -331,6 +355,7 @@ void OnStreamServiceRetired(SafetyHookContext&) {
     streamSelectionHoldoff = 0;
     ClearHordeSilence();   // the enemies those counts belonged to are gone
     ResetExtraAreas();     // and the area rules may fire again in the next level
+    ClearKnownSpawners();  // the old level's spawners are freed with it
     uint32_t service = 0;
     if (Read(base + 0x1C1C0C8, &service, 4) && !service)
         InterlockedIncrement(&streamServiceEpoch);

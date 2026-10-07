@@ -38,13 +38,15 @@ namespace DS2RandomizerConfig
             { Diagnostics, "Only for bug reports. These make plugins\\DS2Randomizer.log bigger. The release ships with spawn logging on so a log sent in is always useful." },
         };
 
-        // Family lists as the INI files carry them.
+        // Family lists as the INI files carry them. Kinds without enemy catalog
+        // records (HiddenFamilies) are left out: their lines do nothing, and
+        // saving keeps them as they are.
         static readonly string[] AllFamilies = {
             "Zombie", "Exploder", "Leaper", "Lurker", "PackEnemy", "Pregnant", "Puker", "TubeBeetle", "Brute",
             "Infector", "Stalker", "Hunter", "Guardian", "GuardianPod", "GuardianTentacle", "Nest", "NestProjectile",
             "Landmine", "DividerCore", "DividerPart", "SwarmEnemy", "Tripod", "WindowTripod", "BossTripod",
-            "TripodProjectile", "Kong", "NicoleBoss", "DragTentacle", "LeviathanTentacle", "Polyp",
-            "SlamDragTentacle", "SlugTentacle", "StabTentacle" };
+            "TripodProjectile", "Kong", "NicoleBoss", "DragTentacle" };
+        public static readonly string[] HiddenFamilies = { "Polyp", "LeviathanTentacle", "SlamDragTentacle", "SlugTentacle", "StabTentacle" };
         static readonly string[] WeightFamilies = {
             "Zombie", "Exploder", "Leaper", "Lurker", "PackEnemy", "Pregnant", "Puker", "TubeBeetle", "Infector",
             "Stalker", "SwarmEnemy", "Brute", "DividerCore", "DividerPart", "Hunter" };
@@ -116,7 +118,7 @@ namespace DS2RandomizerConfig
                 .Warn(WhenOff(M("Enabled"), "The mod is off. Nothing gets randomized.")));
             add(I(General, Main, "Seed", 1, 0, 4294967295L, "Seed",
                 "Decides which enemy replaces which. The same seed always gives the same game. The schematic and bench randomizers use it too unless they have their own seed.")
-                .Raw().Keep()
+                .Keep()
                 .Note("Never change the seed in the middle of a playthrough: bench nodes you already bought and schematics you found would give something else.")
                 .Warn(m => m.IsChanged(m.ById[M("Seed")]) ? "Seed changed. Only do this when you start a new playthrough." : null));
             list.Last().Unsigned = true;
@@ -261,7 +263,7 @@ namespace DS2RandomizerConfig
             add(B(Schematics, "SchematicRandomizer", "Enabled", 0, "Schematic randomizer",
                 "Schematics you find unlock a different item in the store. Elite suits and other completion rewards stay out of the shuffle.").Raw());
             add(Make(Schematics, "SchematicRandomizer", "Seed", Kind.OptionalInt, 0, 0, 4294967295L, "Schematic seed",
-                "Own seed for the schematic shuffle. Checked: the main seed is used.").Raw().Keep()
+                "Own seed for the schematic shuffle. Checked: the main seed is used.").Keep()
                 .Note("Never change it mid-playthrough: the schematics would unlock different items.")
                 .Warn(m => m.IsChanged(m.ById["SchematicRandomizer.Seed"]) ? "Schematic seed changed. Only do this when you start a new playthrough." : null));
             add(B(Schematics, "SchematicRandomizer", "StoreFollowsSchematics", 1, "Store follows schematics",
@@ -277,7 +279,7 @@ namespace DS2RandomizerConfig
             add(B(Schematics, "BenchRandomizer", "ProtectStartPoints", 1, "Real upgrade at the start",
                 "A tree always opens on a real upgrade instead of an empty node.").Raw());
             add(Make(Schematics, "BenchRandomizer", "Seed", Kind.OptionalInt, 0, 0, 4294967295L, "Bench seed",
-                "Own seed for the bench shuffle. Checked: the main seed is used.").Raw().Keep()
+                "Own seed for the bench shuffle. Checked: the main seed is used.").Keep()
                 .Note("Never change it mid-playthrough: nodes you already bought would give something else.")
                 .Warn(m => m.IsChanged(m.ById["BenchRandomizer.Seed"]) ? "Bench seed changed. Only do this when you start a new playthrough." : null));
 
@@ -336,9 +338,9 @@ namespace DS2RandomizerConfig
                 "When the watchdog gives up on an enemy that never came alive or is still stuck in its vent, it sends that enemy's death message so the room can complete. Never for an enemy you simply have not reached.").Raw()
                 .Warn(WhenOff(M("WatchdogReleaseDeathMessage"), "Off: a room that counts deaths may never open.")));
             add(I(Watchdog, Main, "WatchdogSeconds", 90, 10, 3600, "Stuck timeout (s)",
-                "Seconds before a replaced enemy counts as stuck. An enemy you simply have not reached yet is normal.").Raw());
+                "Seconds before a replaced enemy counts as stuck. An enemy you simply have not reached yet is normal."));
             add(I(Watchdog, Main, "WatchdogVentSeconds", 30, 0, 600, "Timeout for rebound vents (s)",
-                "Timeout for enemies that came through a rebound vent, the ones that get stuck most. It replaces the per-kind timeout for them. 0 = use the per-kind or stuck timeout."));
+                "A shorter timeout for enemies that came through a rebound vent, the ones that get stuck most. They get this or their usual timeout (per kind, else the stuck timeout), whichever is shorter, so it never makes the wait longer. 0 = off."));
             add(I(Watchdog, Main, "WatchdogStateProbeSeconds", 6, 0, 120, "State check after (s)",
                 "The watchdog checks once what a replaced enemy is doing, after this many seconds or the vent time below, whichever is later. 0 = off, which also turns the vent check off."));
             add(I(Watchdog, Main, "WatchdogVentStuckSeconds", 8, 0, 120, "Stuck in vent after (s)",
@@ -390,11 +392,11 @@ namespace DS2RandomizerConfig
                 "Speed and size changes for variants. Needs Stat variants; not in this build."));
             add(I(Watchdog, Main, "InstallDelayMs", 3000, 0, 60000, "Hook install delay (ms)",
                 "Waits this long after the game is ready before installing hooks, so other plugins that check game bytes (the DS2 Debug Menu) go first.")
-                .Raw().Adjust(v => v < 0 ? 0 : v));
+                .Adjust(v => v < 0 ? 0 : v));
             list.Last().Max = 600000;
             add(I(Watchdog, Main, "PlacementHotkey", 121, 0, 255, "Placement readout key",
                 "Windows virtual-key code of the key that writes your position and the nearest spawners to the log, for the Spawner Editor. 121 = F10.")
-                .Raw().Adjust(v => v < 0 || v > 255 ? 121 : v));
+                .Adjust(v => v < 0 || v > 255 ? 121 : v));
 
             // ---- Diagnostics
             add(B(Diagnostics, Main, "ObserveSpawns", 0, "Log every spawn",

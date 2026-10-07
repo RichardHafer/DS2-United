@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from build_isolated_pool import isolate_many  # noqa: E402
 from ds2_assets import assets, simgroup  # noqa: E402
+from ds2_paths import MODDING_TOOLS, WORK  # noqa: E402
 
 
 def isolate_vent(data, index):
@@ -51,8 +52,8 @@ def isolate_vent(data, index):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", type=Path,
-                        default=Path(r"D:/SteamLibrary/steamapps/common/Dead Space 2/work"))
-    parser.add_argument("--tool-dir", default=r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+                        default=WORK)
+    parser.add_argument("--tool-dir", default=str(MODDING_TOOLS))
     parser.add_argument("--plan", type=Path, default=ROOT / "analysis/vent_pool_plan.json")
     parser.add_argument("--output", type=Path, default=ROOT / "analysis/vent_pool")
     parser.add_argument("--limit", type=int, default=0, help="stop after N donors, for a probe")

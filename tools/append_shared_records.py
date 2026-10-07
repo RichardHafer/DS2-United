@@ -33,7 +33,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+from ds2_paths import MODDING_TOOLS, WORK  # noqa: E402
+sys.path.insert(0, str(MODDING_TOOLS))
 
 import ds2str  # noqa: E402
 from ds2_assets import assets, simgroup, loose_images  # noqa: E402
@@ -45,7 +46,6 @@ from append_vent_donors import MAX_CHUNK, chunk, new_guid, trailing_padding  # n
 from append_direct_donors import refresh_manifest  # noqa: E402
 from append_boss_donors import pool_identities  # noqa: E402
 
-WORK = Path(r"D:/SteamLibrary/steamapps/common/Dead Space 2/work")
 CARRIED_CLASSES = {"BoneBoundCameraInfo", "PairedAnimCameraInfo", "ItemDropList", "TentacleControl"}
 NULL = "00000000-00000000-00000000-00000000"
 

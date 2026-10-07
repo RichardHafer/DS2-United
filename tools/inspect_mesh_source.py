@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, 'D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools')
+from ds2_paths import MODDING_TOOLS, WORK
+sys.path.insert(0, str(MODDING_TOOLS))
 from ds2str import refpack_decompress
 audit = json.loads((ROOT / 'analysis/resource_supplement_audit.json').read_bytes())
 for resource in audit['resources']:
@@ -13,7 +14,7 @@ for resource in audit['resources']:
     if 'zombiepod.geo' not in meta['path']:
         continue
     print(resource['guid'], meta)
-    with (Path('D:/SteamLibrary/steamapps/common/Dead Space 2/work') / meta['archive']).open('rb') as stream:
+    with (WORK / meta['archive']).open('rb') as stream:
         stream.seek(meta['chunk_offset'])
         for _ in range(10):
             at = stream.tell()

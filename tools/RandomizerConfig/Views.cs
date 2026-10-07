@@ -13,7 +13,6 @@ namespace DS2RandomizerConfig
         void Refresh(Model model);
         bool Matches(string filter);
         void SetWidth(int width);
-        IEnumerable<Editor> Editors { get; }
     }
 
     // Rows are placed by hand: nested auto-size panels took seconds per section switch.
@@ -74,7 +73,6 @@ namespace DS2RandomizerConfig
 
         public Control Root { get { return panel; } }
         public string Group { get { return opt.Group; } }
-        public IEnumerable<Editor> Editors { get { yield return editor; } }
         public bool Matches(string filter) { return filter.Length == 0 || searchText.Contains(filter); }
 
         public void SetWidth(int w)
@@ -218,7 +216,6 @@ namespace DS2RandomizerConfig
 
         public Control Root { get { return panel; } }
         public string Group { get { return info.Group; } }
-        public IEnumerable<Editor> Editors { get { return editors; } }
         public bool Matches(string filter) { return filter.Length == 0 || searchText.Contains(filter); }
 
         public void SetWidth(int w)

@@ -35,7 +35,8 @@ import struct
 import sys
 import zlib
 
-sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+from ds2_paths import MODDING_TOOLS
+sys.path.insert(0, str(MODDING_TOOLS))
 from ds2_assets import assets  # noqa: E402
 
 TEXTURE_PATH = re.compile(rb"/assets/[A-Za-z0-9_/]+_tdf\.xml")

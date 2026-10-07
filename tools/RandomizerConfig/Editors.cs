@@ -65,6 +65,9 @@ namespace DS2RandomizerConfig
     sealed class IntEditor : Editor
     {
         readonly SpinBox number;
+        // a file value outside the box range and the clamped text shown for it;
+        // Read returns the file value until the text is edited
+        string kept, keptText;
 
         public IntEditor(Option o)
         {
@@ -85,16 +88,26 @@ namespace DS2RandomizerConfig
         public override void Show(string value)
         {
             updating = true;
+            kept = null;
             decimal v;
             if (decimal.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out v))
+            {
                 number.Value = Math.Max(number.Minimum, Math.Min(number.Maximum, v));
+                if (number.Value != v) kept = value;
+            }
             number.Text = number.Value.ToString(CultureInfo.InvariantCulture);
+            keptText = number.Text.Trim();
             updating = false;
         }
 
         public override string Read()
         {
             string text = number.Text.Trim();
+            if (kept != null)
+            {
+                if (text == keptText) { Error = null; return kept; }
+                kept = null;
+            }
             long v;
             if (!long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.CurrentCulture, out v))
             {

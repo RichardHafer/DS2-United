@@ -18,7 +18,9 @@ HEADERS = ("source_guid\tmode", "source_guid\tmode\tfamilies",
 # name one and the plugin reads it from there instead of hunting through memory.
 DIFFICULTIES = ("casual", "normal", "survivalist", "zealot", "hardcore")
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PLUGINS = Path(r"D:\SteamLibrary\steamapps\common\Dead Space 2\plugins")
+# Shipped on its own in the release, so it reads DS2_GAME_DIR itself.
+DEFAULT_PLUGINS = Path(os.environ.get("DS2_GAME_DIR")
+                       or r"D:\SteamLibrary\steamapps\common\Dead Space 2") / "plugins"
 
 
 def difficulty_set(text):

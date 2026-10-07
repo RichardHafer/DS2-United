@@ -7,7 +7,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+from ds2_paths import MODDING_TOOLS
+sys.path.insert(0, str(MODDING_TOOLS))
 import ds2str  # noqa: E402
 
 from ds2_assets import assets, simgroup  # noqa: E402

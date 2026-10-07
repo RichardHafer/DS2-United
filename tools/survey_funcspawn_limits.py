@@ -10,13 +10,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, r"C:\Users\me\Programme\DeadSpace3-Mod\trainer")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "trainer"))
 from analyze_minidump import Dump  # noqa: E402
 
 VTABLE = 0x01B59C58
 VTABLE2 = 0x01B59C54
-CATALOG = Path(r"C:\Users\me\Programme\DeadSpace3-Mod\DeadSpace2Randomizer"
-               r"\src\generated_enemy_catalog.h")
+CATALOG = Path(__file__).resolve().parents[1] / "src" / "generated_enemy_catalog.h"
 
 ROW = re.compile(
     r"\{\{(0x[0-9A-Fa-f]+)u,(0x[0-9A-Fa-f]+)u,(0x[0-9A-Fa-f]+)u,(0x[0-9A-Fa-f]+)u\},"

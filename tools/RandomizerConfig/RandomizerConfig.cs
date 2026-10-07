@@ -221,7 +221,7 @@ namespace DS2RandomizerConfig
             // bottom: actions and status
             var bar = new Surface { Dock = DockStyle.Bottom, Height = Look.S(62), BackColor = Look.Panel, Edges = AnchorStyles.Top };
             int buttonHeight = Look.S(34);
-            var save = MakeButton("Save", true, delegate { Save(); }, "Write your changes (a backup is made first)  Ctrl+S");
+            var save = MakeButton("Save", true, delegate { Save(); }, "Write your changes (a backup is made first, the two newest are kept)  Ctrl+S");
             var reload = MakeButton("Reload", false, delegate { Reload(true); }, "Read the file again and drop unsaved changes");
             var resetAll = MakeButton("Reset all to recommended", false, delegate { ResetAll(); }, "Every option back to the release settings (seeds are kept)");
             var folder = MakeButton("Open plugins folder", false, delegate { OpenFolder(); }, null);
@@ -502,10 +502,12 @@ namespace DS2RandomizerConfig
             if (ask && model.ChangeCount > 0 &&
                 MessageBox.Show(this, "Drop your unsaved changes and read the file again?", "Reload",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+            IniDocument doc;
             try
             {
                 loadedBytes = File.ReadAllBytes(iniPath);
-                model.LoadFrom(IniDocument.Parse(loadedBytes));
+                doc = IniDocument.Parse(loadedBytes);
+                model.LoadFrom(doc);
             }
             catch (Exception ex)
             {
@@ -520,7 +522,15 @@ namespace DS2RandomizerConfig
                 return;
             }
             ShowAll();
+            if (doc.Problem != null && !problemShown)
+            {
+                problemShown = true;
+                MessageBox.Show(this, doc.Problem + "\n\nThe values shown may be wrong, and this window will not save the file.",
+                    "File format", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
+
+        bool problemShown;
 
         bool Save()
         {
@@ -547,8 +557,7 @@ namespace DS2RandomizerConfig
                         "Save", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     return false;
                 string backup;
-                byte[] written;
-                var changes = IniFile.Save(iniPath, model, out backup, out written);
+                var changes = IniFile.Save(iniPath, model, out backup);
                 Reload(false);
                 string message = changes.Count == 0 ? "Nothing to save" :
                     "Saved " + changes.Count + " change" + (changes.Count == 1 ? "" : "s") + ", backup written: " + Path.GetFileName(backup);
@@ -561,8 +570,17 @@ namespace DS2RandomizerConfig
                 status.Set(message, tone);
                 return true;
             }
+            catch (SaveFailure ex)
+            {
+                string text = ex.FileIntact ? "Saving failed, the file was not changed:\n" + ex.Message
+                    : "Saving failed and the file may be incomplete:\n" + ex.Message + "\n\nThe previous version is in\n" +
+                      ex.BackupPath + "\nRename it to " + Path.GetFileName(iniPath) + " to restore it.";
+                MessageBox.Show(this, text, "Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
             catch (Exception ex)
             {
+                // only reading the file comes before the write
                 MessageBox.Show(this, "Saving failed, the file was not changed:\n" + ex.Message, "Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }

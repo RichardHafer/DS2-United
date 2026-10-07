@@ -3,8 +3,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from ds2_paths import MODDING_TOOLS
 sys.path[:0] = [str(ROOT.parent / 'trainer'),
-    'D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools']
+    str(MODDING_TOOLS)]
 from analyze_minidump import Dump
 from ds2_assets import assets
 import ds2str

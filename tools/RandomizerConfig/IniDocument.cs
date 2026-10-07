@@ -13,55 +13,85 @@ namespace DS2RandomizerConfig
         public IniLine(string text, string eol) { Text = text; Eol = eol; }
     }
 
-    // Lossless INI editor. Bytes are mapped 1:1 to chars (Latin-1), so anything
-    // that is not touched is written back exactly as it was read.
+    // Lossless INI editor. ANSI and UTF-8 files map bytes 1:1 to chars (Latin-1),
+    // UTF-16 files are decoded and written back in the same byte order with
+    // their BOM. Anything that is not touched is written back exactly as read.
     sealed class IniDocument
     {
         static readonly Encoding Bytes1To1 = Encoding.GetEncoding(28591);
         static readonly byte[] Bom = { 0xEF, 0xBB, 0xBF };
 
-        public bool HasBom;
+        public bool HasBom;          // UTF-8 BOM
+        public Encoding Wide;        // UTF-16 LE or BE (BOM kept), null for byte files
+        public string Problem;       // why the file cannot be written back safely, or null
         public List<IniLine> Lines = new List<IniLine>();
+        bool WideBigEndian;
 
-        public static IniDocument Load(string path)
+        public string EncodingName
         {
-            return Parse(File.ReadAllBytes(path));
+            get
+            {
+                if (Wide != null) return WideBigEndian ? "UTF-16 BE" : "UTF-16 LE";
+                return HasBom ? "UTF-8 BOM" : "ANSI/UTF-8";
+            }
         }
 
         public static IniDocument Parse(byte[] bytes)
         {
             var doc = new IniDocument();
-            int start = 0;
-            if (bytes.Length >= 3 && bytes[0] == Bom[0] && bytes[1] == Bom[1] && bytes[2] == Bom[2])
+            string text;
+            bool le = bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE;
+            bool be = bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF;
+            if (le || be)
             {
-                doc.HasBom = true;
-                start = 3;
+                doc.WideBigEndian = be;
+                doc.Wide = new UnicodeEncoding(be, false, false);
+                text = doc.Wide.GetString(bytes, 2, bytes.Length - 2);
             }
-            string text = Bytes1To1.GetString(bytes, start, bytes.Length - start);
+            else
+            {
+                int start = 0;
+                if (bytes.Length >= 3 && bytes[0] == Bom[0] && bytes[1] == Bom[1] && bytes[2] == Bom[2])
+                {
+                    doc.HasBom = true;
+                    start = 3;
+                }
+                text = Bytes1To1.GetString(bytes, start, bytes.Length - start);
+            }
+            doc.Split(text);
+            if (le && bytes.Length >= 4 && bytes[2] == 0 && bytes[3] == 0)
+                doc.Problem = "The file is saved as UTF-32, which the game cannot read. Save it as ANSI, UTF-8 or Unicode (UTF-16) in a text editor.";
+            else if (doc.Wide != null && !IniFile.SameBytes(doc.ToBytes(), bytes))
+                doc.Problem = "The file is marked as Unicode (UTF-16) but is not valid UTF-16, so saving could damage it. Save it again as ANSI, UTF-8 or Unicode in a text editor.";
+            return doc;
+        }
+
+        void Split(string text)
+        {
             int lineStart = 0;
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
                 if (c != '\r' && c != '\n') continue;
                 string eol = (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n') ? "\r\n" : c.ToString();
-                doc.Lines.Add(new IniLine(text.Substring(lineStart, i - lineStart), eol));
+                Lines.Add(new IniLine(text.Substring(lineStart, i - lineStart), eol));
                 i += eol.Length - 1;
                 lineStart = i + 1;
             }
             if (lineStart < text.Length)
-                doc.Lines.Add(new IniLine(text.Substring(lineStart), ""));
-            return doc;
+                Lines.Add(new IniLine(text.Substring(lineStart), ""));
         }
 
         public byte[] ToBytes()
         {
             var sb = new StringBuilder();
             foreach (var line in Lines) sb.Append(line.Text).Append(line.Eol);
-            byte[] body = Bytes1To1.GetBytes(sb.ToString());
-            if (!HasBom) return body;
-            var all = new byte[body.Length + 3];
-            Array.Copy(Bom, all, 3);
-            Array.Copy(body, 0, all, 3, body.Length);
+            byte[] prefix = Wide != null ? (WideBigEndian ? new byte[] { 0xFE, 0xFF } : new byte[] { 0xFF, 0xFE })
+                : HasBom ? Bom : new byte[0];
+            byte[] body = (Wide ?? Bytes1To1).GetBytes(sb.ToString());
+            var all = new byte[prefix.Length + body.Length];
+            Array.Copy(prefix, all, prefix.Length);
+            Array.Copy(body, 0, all, prefix.Length, body.Length);
             return all;
         }
 

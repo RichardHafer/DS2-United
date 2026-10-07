@@ -314,25 +314,37 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
     return active;
 }
 
+// The construction hook takes `lock` on the game thread, so the counters and
+// details are copied out under it and written after it is released.
 void WriteDiagnostics(FILE* log) {
-    std::lock_guard<std::mutex> guard(lock);
     WriteStoreDiagnostics(log);
-    if (calls == lastPrinted) return;
+    std::array<unsigned long long, static_cast<size_t>(Outcome::Count)> countsCopy{};
+    std::array<Detail, kDetailCapacity> detailsCopy;
+    size_t detailCount = 0;
+    unsigned long long callsCopy = 0, droppedCopy = 0;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        if (calls == lastPrinted) return;
+        countsCopy = counts;
+        for (; detailCount < queued; ++detailCount) detailsCopy[detailCount] = details[detailCount];
+        queued = 0;
+        callsCopy = calls;
+        droppedCopy = dropped;
+        lastPrinted = calls;
+    }
     const char* names[] = {"read-failed", "wrong-class", "unknown-identity", "wrong-definition",
         "unexpected-reward", "unexpected-visual", "readonly-attributes", "readonly-actor",
         "attribute-write-failed", "actor-write-failed", "verification-failed", "applied", "already-selected"};
-    std::fprintf(log, "schematics summary: calls=%llu detailOverflow=%llu", calls, dropped);
-    for (size_t i = 0; i < counts.size(); ++i) std::fprintf(log, " %s=%llu", names[i], counts[i]);
+    std::fprintf(log, "schematics summary: calls=%llu detailOverflow=%llu", callsCopy, droppedCopy);
+    for (size_t i = 0; i < countsCopy.size(); ++i) std::fprintf(log, " %s=%llu", names[i], countsCopy[i]);
     std::fputc('\n', log);
-    for (size_t i = 0; i < queued; ++i) {
-        const auto& d = details[i];
+    for (size_t i = 0; i < detailCount; ++i) {
+        const auto& d = detailsCopy[i];
         std::fprintf(log, "schematics detail: result=%s actor=%08X attributes=%08X thread=%u source=%zu target=%zu entity=%08X-%08X-%08X-%08X original=%08X-%08X-%08X-%08X selected=%08X-%08X-%08X-%08X rollback=%u\n",
             names[static_cast<size_t>(d.outcome)], d.actor, d.attributes, d.thread, d.source, d.target,
             d.entity[0], d.entity[1], d.entity[2], d.entity[3],
             d.original[0], d.original[1], d.original[2], d.original[3],
             d.selected[0], d.selected[1], d.selected[2], d.selected[3], d.rollbackSucceeded ? 1u : 0u);
     }
-    queued = 0;
-    lastPrinted = calls;
 }
 }  // namespace ds2_schematic_runtime

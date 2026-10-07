@@ -13,7 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-sys.path.insert(0, r"D:/SteamLibrary/steamapps/common/Dead Space 2/Dead Space 2 Modding Tools")
+from ds2_paths import MODDING_TOOLS  # noqa: E402
+sys.path.insert(0, str(MODDING_TOOLS))
 from ds2_assets import assets, simgroup, loose_images  # noqa: E402
 import ds2str  # noqa: E402
 

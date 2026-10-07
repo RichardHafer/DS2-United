@@ -96,7 +96,8 @@ void RememberBadVentDonor(const ds2::Guid& guid) {
 }
 // A shorter leash for arrivals through a rebound vent, 0 to use the family
 // default. Those are the arrivals that strand enemies, and a quarantine
-// waits for every one of them.
+// waits for every one of them. It only ever shortens: the leash is the
+// smaller of this and the family's own.
 unsigned watchdogVentSeconds = 30;
 unsigned deathMessagesWritten = 0, deathMessagesCleared = 0, deathMessagesRefused = 0;
 unsigned deathMessagesUnregistered = 0;
@@ -205,8 +206,11 @@ void OnCreated(SafetyHookContext& ctx) {
         // two donor headers were handed to several enemies at once. A quarantine
         // waits for every one of them, so these get a shorter leash than the
         // family default rather than holding the room for the full 90 seconds.
-        if (allowKill && saved.binding.packet && watchdogVentSeconds)
-            leash = watchdogVentSeconds * 1000u;
+        if (allowKill && saved.binding.packet && watchdogVentSeconds) {
+            const unsigned family = leash ? leash : ds2_watchdog_runtime::timeoutMs;
+            const unsigned vent = watchdogVentSeconds * 1000u;
+            leash = vent < family ? vent : family;
+        }
         ds2_watchdog_runtime::Track(ctx.eax, saved.guid, allowKill, leash, reader);
         // A scripted room waits for the messages the authored enemy would have
         // sent: its death above all, and in fewer places the end of its spawn,
@@ -611,10 +615,16 @@ DWORD WINAPI Worker(void* module) {
         variant_runtime::enabled = variantsEnabled && ConfigInt(ini, "DS2Randomizer", "VariantRuntime", 0, 0, 1) != 0;
         if (variant_runtime::enabled && !variant_runtime::Install(log)) variant_runtime::enabled = false;
     }
+    // An extra spawn is the donor forced through the selection hook; without
+    // it the spawner builds its own enemy, so extras stay off.
+    if (extraSpawnsEnabled && !selectionHook) {
+        extraSpawnsEnabled = false;
+        std::fprintf(log, "extra_spawns off: the selection hook is not installed (see the lookup or selection hook line above)\n");
+    }
     // The repeat hook serves MoreEnemies and the swarm horde alike.
-    if ((moreEnemies.enabled || !hordeSizes.empty() || extraSpawnsEnabled) && !InstallMoreEnemies(log)) {
+    if ((moreEnemies.enabled || HordesActive() || extraSpawnsEnabled) && !InstallMoreEnemies(log)) {
         moreEnemies.enabled = false;
-        hordeSizes.clear();
+        DisableHordes();
         std::fprintf(log, "more_enemies disabled; authored spawns are untouched\n");
     }
     std::fprintf(log, "signature verified; post-create observer installed at %08X\n",
@@ -691,9 +701,10 @@ DWORD WINAPI Worker(void* module) {
         static LONG lastFileSlotWaits = 0;
         const LONG slotWaits = InterlockedCompareExchange(&fileSlotWaits, 0, 0);
         if (slotWaits != lastFileSlotWaits) { std::fprintf(log, "pool_request file_slot_waits=%ld\n", slotWaits); lastFileSlotWaits = slotWaits; }
-        if (InterlockedCompareExchange(&poolRequestNoteReady, 1, 1) == 1) {
-            std::fprintf(log, "%s\n", poolRequestNote);
-            InterlockedExchange(&poolRequestNoteReady, 0);
+        {
+            static LONG printedNote = 0;
+            char note[sizeof(poolRequestNote)]{};
+            if (TakePoolRequestNote(note, sizeof(note), printedNote)) std::fprintf(log, "%s\n", note);
         }
         const LONG probeResult = InterlockedCompareExchange(&streamProbeResult, 0, 0);
         if (streamProbe && probeResult != lastProbeResult) {
