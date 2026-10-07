@@ -3,8 +3,11 @@
 #include <mutex>
 #include <cstdio>
 #include <optional>
+#include <algorithm>
+#include <array>
 #include "generated_schematic_catalog.h"
 #include "generated_schematic_blueprints.h"
+#include "generated_schematic_store_levels.h"
 #include "../third_party/safetyhook/safetyhook.hpp"
 namespace ds2_schematic_runtime {
 using namespace ds2::schematics;
@@ -127,6 +130,109 @@ void OnConstructed(SafetyHookContext& context) {
     Record(detail, Outcome::Applied);
 }
 
+// The store chapter follows the schematic.
+//
+// PlayerStore::AddItem lists an item once its CMD_SetMinLevelReq is <= the
+// chapter ([PlayerStore+0x38]), found or not; a schematic pickup skips that
+// test (flag at entry+0x19). So a reward whose schematic was moved still came
+// back through the store at its authored chapter, usually one or two chapters
+// after its old place. Here every reward takes the store chapter of the place
+// its schematic now lies at: what was found at a place in vanilla, and when the
+// store would have offered it anyway, now belongs to that place.
+//
+//   00BB5A1D  mov eax,[esi+1Ch]   ; entry MinLevelReq (cached from the template)
+//   00BB5A20  cmp eax,[edi+38h]   ; chapter      <- hook, eax is replaced
+//   00BB5A23  jg  00BB5A2D        ; not yet
+// esi = store entry, its first 16 bytes the item GUID; edi = PlayerStore.
+constexpr uintptr_t kStoreGateRva = 0x7B5A20;
+bool CheckSignature(FILE* log, const char* name, uintptr_t rva, const unsigned char* expected, size_t size);
+struct StoreShift { Guid reward{}; int vanilla = -1, shifted = -1; const char* name = ""; LONG loggedChapter = -1; };
+std::array<StoreShift, kCount> storeShifts{};
+size_t storeShiftCount = 0;
+safetyhook::MidHook storeHook;
+volatile LONG storeChecks = 0, storeShifted = 0, storeMismatch = 0;
+struct StoreEvent { LONG ready; unsigned shift; int chapter; };
+std::array<StoreEvent, 96> storeEvents{};
+volatile LONG storeEventCount = 0;
+LONG storeEventsWritten = 0;
+
+int StoreLevelOf(const Guid& reward) {
+    for (const auto& level : kStoreLevels) if (level.reward == reward) return level.minLevel;
+    return -1;
+}
+
+void OnStoreGate(SafetyHookContext& context) {
+    Guid item{};
+    if (!ReadMemory(context.esi, item.data(), 16)) return;
+    for (size_t i = 0; i < storeShiftCount; ++i) {
+        auto& shift = storeShifts[i];
+        if (shift.reward != item) continue;
+        InterlockedIncrement(&storeChecks);
+        // Only the authored value is moved; anything else was set by someone on purpose.
+        if (static_cast<int>(context.eax) != shift.vanilla) { InterlockedIncrement(&storeMismatch); return; }
+        context.eax = static_cast<uintptr_t>(shift.shifted);
+        InterlockedIncrement(&storeShifted);
+        int chapter = 0;
+        ReadMemory(context.edi + 0x38, &chapter, 4);
+        // one line per item and chapter, the gate runs on every kiosk refresh
+        if (InterlockedExchange(&shift.loggedChapter, chapter) != chapter) {
+            const LONG slot = InterlockedIncrement(&storeEventCount) - 1;
+            if (slot >= 0 && slot < static_cast<LONG>(storeEvents.size())) {
+                storeEvents[slot].shift = static_cast<unsigned>(i);
+                storeEvents[slot].chapter = chapter;
+                InterlockedExchange(&storeEvents[slot].ready, 1);
+            }
+        }
+        return;
+    }
+}
+
+bool InstallStoreGate(const char* ini, FILE* log) {
+    if (GetPrivateProfileIntA("SchematicRandomizer", "StoreFollowsSchematics", 1, ini) == 0) {
+        std::fprintf(log, "schematics store: StoreFollowsSchematics=0, items unlock at their authored chapter\n");
+        return false;
+    }
+    for (size_t i = 0; i < kCount; ++i) {
+        Guid selected{};
+        if (policy->Select(kCampaignSources[i].entity, kCampaignSources[i].kind, kCampaignSources[i].reward, selected) != Result::Selected)
+            continue;
+        const int place = StoreLevelOf(kCampaignSources[i].reward), own = StoreLevelOf(selected);
+        const char* name = "?";
+        for (const auto& level : kStoreLevels) if (level.reward == selected) name = level.name;
+        if (place < 0 || own < 0) {
+            std::fprintf(log, "schematics store: no authored chapter for %s, left as it is\n", name);
+            continue;
+        }
+        auto& shift = storeShifts[storeShiftCount++];
+        shift.reward = selected; shift.vanilla = own; shift.shifted = place; shift.name = name;
+        std::fprintf(log, "schematics store: %s chapter %d -> %d\n", name, own, place);
+    }
+    // test dl,dl / jne / mov eax,[esi+1Ch] / cmp eax,[edi+38h] / jg +8 / mov eax,[esi+20h] / cmp eax,[edi+3Ch] / jle +7
+    const unsigned char gate[] = {0x84,0xD2,0x75,0x17,0x8B,0x46,0x1C,0x3B,0x47,0x38,0x7F,0x08,0x8B,0x46,0x20,0x3B,0x47,0x3C,0x7E,0x07};
+    if (!CheckSignature(log, "store chapter gate", kStoreGateRva - 7, gate, sizeof(gate))) return false;
+    storeHook = safetyhook::create_mid(reinterpret_cast<void*>(moduleBase + kStoreGateRva), OnStoreGate);
+    std::fprintf(log, "schematics store gate: %s at %08X, %zu rewards moved with their schematics\n",
+        storeHook ? "installed" : "FAILED", static_cast<unsigned>(moduleBase + kStoreGateRva), storeShiftCount);
+    return static_cast<bool>(storeHook);
+}
+
+void WriteStoreDiagnostics(FILE* log) {
+    while (storeEventsWritten < static_cast<LONG>(storeEvents.size()) &&
+           InterlockedCompareExchange(&storeEvents[storeEventsWritten].ready, 1, 1) == 1) {
+        const auto& e = storeEvents[storeEventsWritten++];
+        const auto& shift = storeShifts[e.shift];
+        std::fprintf(log, "schematics store: chapter=%d %s authored=%d now=%d %s\n", e.chapter, shift.name,
+            shift.vanilla, shift.shifted, shift.shifted <= e.chapter ? "offered" : "held back");
+    }
+    static LONG last = -1;
+    const LONG checks = InterlockedCompareExchange(&storeChecks, 0, 0);
+    if (!storeHook || checks == last) return;
+    last = checks;
+    std::fprintf(log, "schematics store summary: checks=%ld moved=%ld mismatched=%ld events_dropped=%ld\n", checks,
+        InterlockedCompareExchange(&storeShifted, 0, 0), InterlockedCompareExchange(&storeMismatch, 0, 0),
+        std::max<LONG>(0, InterlockedCompareExchange(&storeEventCount, 0, 0) - static_cast<LONG>(storeEvents.size())));
+}
+
 bool CheckSignature(FILE* log, const char* name, uintptr_t rva,
     const unsigned char* expected, size_t size) {
     std::array<unsigned char, 64> actual{};
@@ -199,6 +305,7 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
             kCampaignBlueprints[i].definition[0], kCampaignBlueprints[i].definition[1],
             kCampaignBlueprints[i].definition[2], kCampaignBlueprints[i].definition[3]);
     }
+    InstallStoreGate(ini, log);
     active = true;
     constructorHook = safetyhook::create_mid(reinterpret_cast<void*>(moduleBase + kConstructorRva), OnConstructed);
     if (!constructorHook) active = false;
@@ -209,6 +316,7 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
 
 void WriteDiagnostics(FILE* log) {
     std::lock_guard<std::mutex> guard(lock);
+    WriteStoreDiagnostics(log);
     if (calls == lastPrinted) return;
     const char* names[] = {"read-failed", "wrong-class", "unknown-identity", "wrong-definition",
         "unexpected-reward", "unexpected-visual", "readonly-attributes", "readonly-actor",

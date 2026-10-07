@@ -43,12 +43,15 @@ struct Lock {
 enum class State { Pristine, Hooked, Foreign };
 
 // What is at the site: the retail bytes, somebody's jmp rel32 followed by the
-// retail tail (safe to chain behind), or something else.
+// retail tail (safe to chain behind), or something else. safetyhook pads the
+// rest of an instruction it cut with NOPs, so those may sit between the jmp
+// and the retail tail.
 inline State Inspect(const unsigned char* actual, const unsigned char* expected, size_t size) {
     if (std::memcmp(actual, expected, size) == 0) return State::Pristine;
-    if (size > 5 && actual[0] == 0xE9 && std::memcmp(actual + 5, expected + 5, size - 5) == 0)
-        return State::Hooked;
-    return State::Foreign;
+    if (size <= 5 || actual[0] != 0xE9) return State::Foreign;
+    size_t tail = 5;
+    while (tail < size && actual[tail] == 0x90 && expected[tail] != 0x90) ++tail;
+    return std::memcmp(actual + tail, expected + tail, size - tail) == 0 ? State::Hooked : State::Foreign;
 }
 
 inline const char* StateName(State s) {
@@ -103,6 +106,40 @@ inline bool Install(FILE* log, const char* who, uintptr_t address, const unsigne
         }
         std::fprintf(log, "%s hook attempt %u at %08X failed: %s\n", who, attempt + 1,
                      static_cast<unsigned>(address), ErrorName(result.error()));
+        std::fflush(log);
+        Sleep(50);
+    }
+    return false;
+}
+
+// The same for a mid hook: the stream update at 0x34BBC0 is wanted by the
+// randomizer's pool request and by the co-op leaper's stream requests.
+inline bool InstallMid(FILE* log, const char* who, uintptr_t address, const unsigned char* expected,
+                       size_t size, safetyhook::MidHookFn destination, safetyhook::MidHook& hook) {
+    Lock lock(static_cast<uint32_t>(address));
+    unsigned char actual[64]{};
+    if (size > sizeof(actual)) size = sizeof(actual);
+    for (unsigned attempt = 0; attempt < 20; ++attempt) {
+        SIZE_T got = 0;
+        if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<const void*>(address), actual, size, &got) ||
+            got != size) {
+            std::fprintf(log, "%s site %08X unreadable\n", who, static_cast<unsigned>(address));
+            return false;
+        }
+        const State state = Inspect(actual, expected, size);
+        if (state == State::Foreign) {
+            std::fprintf(log, "%s site %08X has foreign bytes %02X %02X %02X %02X %02X; not installed\n",
+                         who, static_cast<unsigned>(address), actual[0], actual[1], actual[2], actual[3], actual[4]);
+            return false;
+        }
+        auto result = safetyhook::MidHook::create(reinterpret_cast<void*>(address), destination);
+        if (result) {
+            hook = std::move(*result);
+            std::fprintf(log, "%s installed at %08X (site was %s%s)\n", who, static_cast<unsigned>(address),
+                         StateName(state), attempt ? ", after retries" : "");
+            return true;
+        }
+        std::fprintf(log, "%s mid hook attempt %u at %08X failed\n", who, attempt + 1, static_cast<unsigned>(address));
         std::fflush(log);
         Sleep(50);
     }

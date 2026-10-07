@@ -9,8 +9,8 @@
 // package name (super_slasher, stalker_crawling ...), count how many, chance
 // in percent decided by the seed, x y z yaw the spot and facing from the
 // readout, arrival "direct" (placed at x y z) or "here" (left wherever the
-// spawner puts it, for vent spawners). Columns after chance may be empty,
-// in which case the enemy arrives like the spawner's own.
+// spawner puts it, for vent spawners). Columns after chance may be empty;
+// an empty arrival means direct when x y z are given and here otherwise.
 //
 // A row whose source_guid is `near` or `near:<metres>` (20.09.2026) is bound
 // to no spawner at all: it fires once when the player comes within that many
@@ -108,8 +108,11 @@ inline bool parseExtraSpawns(const std::string& text, ExtraSpawnRules& output, E
             if (!parseExtraNumber(columns[7], rule.yaw)) return false;
             rule.hasYaw = true;
         }
+        // An explicit "here" wins over a position: the editor fills x y z from
+        // the readout whatever arrival is picked.
         if (columns[8] == "direct") rule.arrival = ExtraArrival::Direct;
-        else if (columns[8] == "here" || columns[8].empty()) rule.arrival = rule.hasPosition ? ExtraArrival::Direct : ExtraArrival::Here;
+        else if (columns[8] == "here") rule.arrival = ExtraArrival::Here;
+        else if (columns[8].empty()) rule.arrival = rule.hasPosition ? ExtraArrival::Direct : ExtraArrival::Here;
         else return false;
         // "direct" without a spot has nowhere to go
         if (rule.arrival == ExtraArrival::Direct && !rule.hasPosition) return false;

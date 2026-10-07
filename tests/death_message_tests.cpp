@@ -107,7 +107,7 @@ int main() {
     assert(ds2::transplantScriptMessage(regions, regionCount, wanted, carried, read, write, matches, address) == DeathMessageResult::WrittenAsHash);
     assert(memory.words[kBase + 0x04] == kDonorString);
 
-    // A message that lives on another component of the same actor is found too -
+    // A message that lives on another component of the same actor is found too:
     // MSG_AWARE and the spawn-done message do not sit on the health component.
     memory = filled(kBase, kWindow, 0x1111);
     for (unsigned offset = 0; offset < kWindow; offset += 4) memory.words[kOther + offset] = 0x2222;
@@ -124,7 +124,7 @@ int main() {
     assert(ds2::transplantScriptMessage(regions, regionCount, wanted, carried, read, write, matches, address) == DeathMessageResult::Ambiguous);
     assert(memory.words[kBase + 0x08] == carried.hash && memory.words[kOther + 0x20] == carried.hash);
 
-    // Neither shape present: the layout is not what we think, leave it alone.
+    // Neither shape present: the layout is not the expected one, leave it alone.
     memory = filled(kBase, kWindow, 0x1111);
     assert(ds2::transplantScriptMessage(regions, regionCount, wanted, carried, read, write, matches, address) == DeathMessageResult::NotFound);
 
@@ -206,7 +206,7 @@ int main() {
         // The engine's message table, as the release function walks it: a bucket
         // array indexed by the low 12 bits of the hash, entries chained through
         // their first word, the key at +0x10. Only a name that is in here may be
-        // written - the release function decrements whatever the walk ends on
+        // written: the release function decrements whatever the walk ends on
         // and has no branch for "not found".
         constexpr uint32_t kBuckets = 0x50000, kEntry = 0x51000;
         layout.words[kModule + ds2::kMessageTableRva] = kBuckets;
@@ -243,14 +243,14 @@ int main() {
                kModule, wanted, carried, readIt, writeIt) == DeathMessageResult::WrittenAsHash);
         assert(layout.words[kAwarenessData + 0x20] == wanted.hash);
         // Four hashes written, four references taken on the entry, and every
-        // owner holds exactly one - what the release function will undo.
+        // owner holds exactly one, which is what the release function will undo.
         assert(layout.half(kEntry + 0x14) == 7);
         for (uint32_t owner : {kHealthData + 0x04, kHealthData + 0x10, kSpawningData + 0x48, kAwarenessData + 0x20})
             assert(layout.half(owner + 6) == 1);
 
         // A source name the table does not know is never written. On teardown the
         // release function would walk an empty bucket and then decrement whatever
-        // it ended on, which is null - the 0x007564B9 access violation. Zero is
+        // it ended on, which is null: the 0x007564B9 access violation. Zero is
         // the one value it checks for, so that goes in and the message is lost
         // rather than the process.
         {
@@ -277,7 +277,7 @@ int main() {
         }
         layout.words[kHealthData + 0x04] = wanted.hash;
 
-        // A donor with no message of its own is written anyway - that is half of
+        // A donor with no message of its own is written anyway. That is half of
         // them, and the reason searching could never help.
         layout.words[kHealthData + 0x04] = 0xDEADBEEF;
         assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),
@@ -286,6 +286,23 @@ int main() {
         // Already right.
         assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),
                kModule, wanted, {}, readIt, writeIt) == DeathMessageResult::NotNeeded);
+        // Other live actors of this donor hold the shared field: rewriting it
+        // would change their message too, so it is left for the death proxy.
+        {
+            layout.words[kHealthData + 0x04] = 0x55556666;
+            layout.words[kHealthData + 0x08] = 2u << 16;       // two holders
+            const uint16_t before = layout.half(kEntry + 0x14);
+            assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),
+                   kModule, wanted, {}, readIt, writeIt) == DeathMessageResult::SharedHolders);
+            assert(layout.words[kHealthData + 0x04] == 0x55556666);
+            assert(layout.half(kEntry + 0x14) == before && layout.half(kHealthData + 0x04 + 6) == 2);
+            // Clearing a foreign name is still allowed under any number of holders.
+            const ds2::ScriptMessage foreign{"foreign_name", 0x55556666u};
+            assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),
+                   kModule, {}, foreign, readIt, writeIt) == DeathMessageResult::Cleared);
+            assert(layout.words[kHealthData + 0x04] == 0);
+            layout.words[kHealthData + 0x08] = 1u << 16;
+        }
         // The donor's value has to be standing there when it has one.
         layout.words[kHealthData + 0x04] = 0x11112222;
         assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),
@@ -305,7 +322,7 @@ int main() {
         //
         // A name from another chapter is not in the engine's message table once
         // that chapter is gone, and the function that takes a reference has no
-        // branch for "not found" - it writes to null. Zero is the value it does
+        // branch for "not found": it writes to null. Zero is the value it does
         // check for, so zero is what has to be left behind.
         layout.words[kHealthData + 0x04] = carried.hash;
         assert(ds2::writeScriptMessage(parts, 3, ds2::kDeathFields, std::size(ds2::kDeathFields),

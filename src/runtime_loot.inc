@@ -51,11 +51,28 @@ bool CurrencyScaled(uint32_t data, int upper, int lower) {
     return false;
 }
 
-void RememberCurrency(uint32_t data, int upper, int lower) {
+// A slot for `data`: its own, a free one, or one whose block no longer holds
+// the scaled values (freed or decoded again). Never a live entry: overwriting
+// one let that block be scaled a second time, and two blocks taking turns in
+// the last slot of a full table compounded the scale on every pickup.
+// SIZE_MAX when every slot is live; the caller then leaves the block alone.
+size_t CurrencySlot(uint32_t data) {
     for (size_t i = 0; i < currencyBlockCount; ++i)
-        if (currencyBlocks[i].data == data) { currencyBlocks[i] = {data, upper, lower}; return; }
-    if (currencyBlockCount < std::size(currencyBlocks)) currencyBlocks[currencyBlockCount++] = {data, upper, lower};
-    else currencyBlocks[currencyBlockCount - 1] = {data, upper, lower};
+        if (currencyBlocks[i].data == data) return i;
+    if (currencyBlockCount < std::size(currencyBlocks)) return currencyBlockCount;
+    for (size_t i = 0; i < currencyBlockCount; ++i) {
+        int upper = 0, lower = 0;
+        if (!Read(currencyBlocks[i].data + 0x344, &upper, 4) || !Read(currencyBlocks[i].data + 0x348, &lower, 4) ||
+            upper != currencyBlocks[i].upper || lower != currencyBlocks[i].lower)
+            return i;
+    }
+    return SIZE_MAX;
+}
+
+void RememberCurrency(size_t slot, uint32_t data, int upper, int lower) {
+    if (slot >= std::size(currencyBlocks)) return;
+    currencyBlocks[slot] = {data, upper, lower};
+    if (slot == currencyBlockCount) ++currencyBlockCount;
 }
 
 int Scaled(int amount, unsigned percent) {
@@ -85,10 +102,11 @@ void OnAmountSettled(SafetyHookContext& ctx) {
         int upper = 0, lower = 0;
         if (Read(data + 0x344, &upper, 4) && Read(data + 0x348, &lower, 4) && upper > 0) {
             std::lock_guard<std::mutex> guard(currencyLock);
-            if (creditsPercent != 100 && !CurrencyScaled(data, upper, lower)) {
+            const size_t slot = creditsPercent != 100 && !CurrencyScaled(data, upper, lower) ? CurrencySlot(data) : SIZE_MAX;
+            if (slot != SIZE_MAX) {
                 const int newUpper = Scaled(upper, creditsPercent), newLower = lower > 0 ? Scaled(lower, creditsPercent) : lower;
                 if (WriteBytes(data + 0x344, &newUpper, sizeof(newUpper)) && WriteBytes(data + 0x348, &newLower, sizeof(newLower))) {
-                    RememberCurrency(data, newUpper, newLower);
+                    RememberCurrency(slot, data, newUpper, newLower);
                     InterlockedIncrement(&scaledCredits);
                     Record(ctx.esi, data, lower, newLower, "credits", "");
                     Record(ctx.esi, data, upper, newUpper, "credits", "");

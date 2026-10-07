@@ -2,14 +2,14 @@
 
 The pool exists so a replacement can come from anywhere in the game rather than
 from whatever the current room happens to carry. Its 34 donors are all direct
-arrivals though, so vents were left with the level's own entities - in chapter 1
+arrivals though, so vents were left with the level's own entities; in chapter 1
 that is slashers and nothing else.
 
 This appends isolated vent arrivals to `ds2_randomizer_pool.str`. Appending is
 safe in a way that rewriting is not: the container's existing chunks keep their
 offsets, only the trailing FILL padding is replaced. The TOC lists the stream's
-dependencies, not its assets - checked, none of the 120 asset names appears in
-it - so it does not have to change either.
+dependencies, not its assets (checked: none of the 120 asset names appears in
+it), so it does not have to change either.
 
 Every appended identity is rewritten into the RNDM/POOL namespace first. A pool
 entity that keeps its retail GUID is what made the game fault on the way back to

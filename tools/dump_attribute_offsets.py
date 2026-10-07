@@ -7,8 +7,8 @@ high half and its offset in the low half.
 
 The offset is relative to the data area, which is what a component points at:
 `[component+0x0C]` holds `header + 0x10`, and the row's offset is counted from
-there. `CMD_SetOnDeathMessage` on DismemberableHealthComponent reads 0x00010004 -
-index 1, offset 4 - and 0x10 + 4 = 0x14, exactly where the hash was measured in
+there. `CMD_SetOnDeathMessage` on DismemberableHealthComponent reads 0x00010004
+(index 1, offset 4), and 0x10 + 4 = 0x14, exactly where the hash was measured in
 the running game.
 
 So the address of an attribute is simply `[component+0x0C] + offset`.
@@ -18,7 +18,7 @@ import struct
 import sys
 from pathlib import Path
 
-sys.path.insert(0, r"C:\Users\me\Programme\DeadSpace3-Mod\trainer")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "trainer"))
 import dmpread  # noqa: E402
 
 BASE, IMAGE = 0x00400000, 0x03384000

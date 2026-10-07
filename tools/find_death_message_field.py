@@ -1,8 +1,8 @@
 """Find where a death message actually lives, by looking at the running game.
 
 The value is authored as a string, so at runtime it is either the engine's hash
-of that string or a pointer to it. Searching the plugin's own guesses failed -
-every `sites=` entry stayed zero - so this asks the process instead: with the
+of that string or a pointer to it. Searching the plugin's own guesses failed
+(every `sites=` entry stayed zero), so this asks the process instead: with the
 hospital lobby loaded, the four slashers must carry
 `hospital_lobby_slasher_dead` somewhere, and wherever that lands is the field.
 

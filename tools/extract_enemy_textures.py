@@ -179,7 +179,7 @@ def write_png(out_file, data, info):
         image = Image.open(io.BytesIO(dds_bytes(data, info["width"], info["height"],
                                                 info["format"].encode(), declared_mips(info))))
         image.load()
-    except Exception as error:  # noqa: BLE001 - any decode failure falls back to raw
+    except Exception as error:  # noqa: BLE001 (any decode failure falls back to raw)
         return "raw_only", "decode failed: %s" % (repr(error)[:120],), None
     if image.size != (info["width"], info["height"]):
         return "raw_only", "decoder returned %dx%d" % image.size, None

@@ -2,7 +2,7 @@
 //
 // Dump 2924 (20.09.2026): int3 at 0x005B480D, "System ran out of available
 // heap memory and will crash". The engine hands NavPower (bfx, the pathfinding
-// library) ONE fixed block for its system allocator: bfx::SystemCreate at
+// library) one fixed block for its system allocator: bfx::SystemCreate at
 // 0x005B4620, cdecl (memory, size, params, customAllocator), creates a
 // dlmalloc-style pool over that block (0x005A9E10 -> 0x005C5520). Retail size
 // is 0x90000 = 576 KiB (pool+0x1AC footprint in the dump); the block comes
@@ -15,10 +15,11 @@
 // so about 160 of them is where retail Dead Space 2 gives up, whatever the
 // frame rate says.
 //
-// The hook below sits on SystemCreate and swaps the block for a larger one of
-// our own (VirtualAlloc, committed, never freed: the system lives as long as
-// the process and SystemCreate returns early while [0x0202F4CC] is set). The
-// engine's 576 KiB block is simply left alone. Nothing else reads the size.
+// The hook below sits on SystemCreate and swaps the block for a larger one
+// (VirtualAlloc, committed, never freed). SystemCreate returns early while
+// [0x0202F4CC] is set; the system is re-created on level changes and every
+// creation gets the same block. The engine's 576 KiB block is simply left
+// alone. Nothing else reads the size.
 namespace navpower {
 constexpr uintptr_t kSystemCreateRva = 0x001B4620;
 constexpr unsigned kRetailPoolBytes = 0x90000;
@@ -55,8 +56,8 @@ void Load(const std::string& ini) {
 static const unsigned char kSig[] = {0x83,0x3D,0xCC,0xF4,0x02,0x02,0x00,0x0F,0x85,0xE1,0x00,0x00,0x00,0x56,0x8B,0x74,0x24,0x14,0x85,0xF6,0x57,0x8B,0x7C,0x24};
 
 // The race (20.09.2026, evening): the engine creates the NavPower system
-// early in its own start-up; our worker used to reach this hook after the
-// catalog and the pool were built, seconds later, and lost the race in two
+// early in its own start-up; the plugin's worker used to reach this hook after
+// the catalog and the pool were built, seconds later, and lost the race in two
 // sessions out of nine ("system already created"). The hook now goes in as
 // the very first thing the worker does, as soon as the executable is
 // unpacked: the site is polled until the retail bytes (or another plugin's

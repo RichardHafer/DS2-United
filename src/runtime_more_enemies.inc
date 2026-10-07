@@ -143,8 +143,8 @@ volatile LONG swarmHordes = 0, swarmHordeExtras = 0;
 // What the post-create hook made of this spawner's arrival: the donor family
 // that now stands there. Read once by the epilogue hook of the same
 // HandleEvents call (same thread), so the multiplier counts the enemy that
-// exists, not the one the level authored. Our own repeats (moreEnemiesInside)
-// leave no note: the authored arrival's decision covers them.
+// exists, not the one the level authored. The plugin's own repeats
+// (moreEnemiesInside) leave no note: the authored arrival's decision covers them.
 struct ReplacementNote { uintptr_t spawner = 0; std::string family; };
 thread_local ReplacementNote replacementNote;
 void NoteReplacement(uintptr_t spawner, const std::string& family) {
@@ -181,6 +181,16 @@ HordeMark TakeHordeMark(uintptr_t spawner) {
         return taken;
     }
     return {};
+}
+
+// The same test without spending the mark.
+bool HasHordeMark(uintptr_t spawner) {
+    if (!spawner || hordeSizes.empty()) return false;
+    std::lock_guard<std::mutex> guard(hordeLock);
+    const DWORD now = GetTickCount();
+    for (const auto& mark : hordeMarks)
+        if (mark.spawner == spawner) return now - mark.tick <= kHordeMarkMaxAgeMs && mark.size > 1;
+    return false;
 }
 
 volatile LONG moreEnemiesStatusCounts[static_cast<unsigned>(ds2::MoreEnemiesStatus::Count)]{};
@@ -255,8 +265,8 @@ void RecordMoreEnemiesDetail(uintptr_t spawner, uintptr_t attributes, const Guid
 // +0xD0, and when it cannot deliver now it reschedules through the timer at
 // 0x02050E24 with the delay constant at 0x01AAE2C8, 2.0 seconds. Its retry is
 // bound to the authored budget, which a repeat by definition exceeds, so it
-// cannot carry our extras. The delay it uses is worth copying though, so the
-// repeat waits the same 2 seconds and the vent is free again by then.
+// cannot carry the extras. Its delay is copied though: the repeat waits the
+// same 2 seconds and the vent is free again by then.
 //
 // Each entry is one copy. The dispatch itself is unchanged: the count is parked
 // and restored inside a single call, exactly as the immediate path does it.
@@ -454,9 +464,6 @@ void RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, ui
     if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &completion, sizeof(completion))) InterlockedIncrement(&moreEnemiesRestoreFailed);
 }
 
-// One repeat per tick at most, and only when its time has come. This is the
-// plugin's only periodic call on the game thread, so the stream graph recheck
-// rides along with it.
 // Vent spawners with an authored maximum (19.09.2026).
 //
 // Every deferred vent repeat of a spawner with authored_max=1 was lost while
@@ -469,7 +476,7 @@ void RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, ui
 // identity check.
 //
 // So for an arrival that would retire a vent spawner the count is parked
-// BEFORE SpawnDone runs (hook at 0x00ECB416, the call site), SpawnDone sends
+// before SpawnDone runs (hook at 0x00ECB416, the call site), SpawnDone sends
 // its completion message as always but sees no maximum, and the retirement is
 // owed: the last deferred repeat runs with count = max-1 so its own SpawnDone
 // retires the spawner the retail way, and whenever that cannot happen (no
@@ -521,10 +528,15 @@ struct RetireGuard {
 };
 
 // 0x00ECB416, the authored arrival about to call SpawnDone; edi is the
-// FuncSpawn. Our own repeats park the count themselves and are skipped.
+// FuncSpawn. The plugin's own repeats park the count themselves and are skipped.
 void OnBeforeSpawnDone(SafetyHookContext& ctx) {
     if (moreEnemiesInside || !moreEnemiesVentDelayMs) return;
     if (!moreEnemies.enabled && hordeSizes.empty()) return;
+    // Only an arrival that OnAuthoredSpawnComplete will repeat is parked. With
+    // MoreEnemies off and no horde or extra spawn for it, that hook returns
+    // early and a parked count was never restored: the spawner kept a count of
+    // about -2^30 and was never retired.
+    if (!moreEnemies.enabled && !HasHordeMark(ctx.edi) && !HasExtraSpawns(ctx.edi)) return;
     const uintptr_t spawner = ctx.edi;
     uint32_t vtable = 0, attributes = 0;
     int count = 0, max = 0;
@@ -711,6 +723,9 @@ void ExtraAreaTick() {
     }
 }
 
+// One repeat per tick at most, and only when its time has come. This is the
+// plugin's only periodic call on the game thread, so the stream graph recheck,
+// the placement key and the area rules ride along with it.
 void DrainDeferredRepeats() {
     RecheckStreamGraph();
     placement::Poll();
@@ -817,7 +832,18 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     replacementNote = ReplacementNote{};
     const bool horde = hordeSize > 1;
     const bool extras = HasExtraSpawns(ctx.edi);
-    if (!moreEnemies.enabled && !horde && !extras) return;
+    if (!moreEnemies.enabled && !horde && !extras) {
+        // Parked anyway (the mark or the rules changed in between): the
+        // retirement SpawnDone skipped is still owed.
+        if (ctx.edi && prePark.spawner == ctx.edi) {
+            prePark.spawner = 0;
+            uint32_t attributes = 0;
+            const bool retired = Read(ctx.edi + kFuncSpawnAttributes, &attributes, 4) && attributes &&
+                RetireVentSpawner(ctx.edi, attributes, prePark.authored + 1);
+            InterlockedIncrement(retired ? &ventRetiredSynthetic : &ventRetireFailed);
+        }
+        return;
+    }
 
     const uintptr_t spawner = ctx.edi;
     uint32_t attributes = 0, vtable = 0, handleEvents = 0;
@@ -858,6 +884,13 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
         return;
     }
 
+    // No extras or copies next to a scripted corpse: its spawner may loop.
+    if (IsCorpseTemplate(target)) {
+        CountMoreEnemies(ds2::MoreEnemiesStatus::CorpseTemplate);
+        RecordMoreEnemiesDetail(spawner, attributes, target, ds2::MoreEnemiesStatus::CorpseTemplate, 0, 0,
+                                authoredCount, authoredMax, nullptr);
+        return;
+    }
     if (extras) RunExtraSpawns(spawner, attributes, trigger, completion, handleEvents, target, authoredCount);
     if (!moreEnemies.enabled && !horde) return;
 

@@ -9,8 +9,8 @@
 // streams are in, and the pool this plugin requests during the load can still
 // be loading when the first spawns are decided. This hook takes the timing
 // over: the original runs with 0 seconds (held, the retail hold branch runs)
-// while our conditions say hold, and with a very large time (released, the
-// authored minimum is skipped) otherwise. The jb bytes are put back before the
+// while the conditions below say hold, and with a very large time (released,
+// the authored minimum is skipped) otherwise. The jb bytes are put back before the
 // first hold, whichever plugin was loaded first.
 namespace loading_hold {
 

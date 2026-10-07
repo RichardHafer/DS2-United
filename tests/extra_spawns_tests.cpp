@@ -24,6 +24,13 @@ int main() {
     // a position without an explicit arrival means direct
     Guid second{{0x35CAAF65u, 0x0DF7E020u, 0x44455257u, 0x38343145u}};
     assert(rules.at(second)[0].arrival == ExtraArrival::Direct && rules.at(second)[0].count == 1 && !rules.at(second)[0].hasYaw);
+    // an explicit "here" keeps the spawner's own spot even when the row carries a position
+    {
+        ExtraSpawnRules here;
+        assert(parseExtraSpawns(header +
+            "35CAAF64-AB812255-44455257-38343145\tZombie\t1\t100\t1\t2\t3\t90\there\n", here));
+        assert(here.at(first)[0].arrival == ExtraArrival::Here && here.at(first)[0].hasPosition);
+    }
     // area rows: bound to no spawner, fire near a spot
     {
         ExtraSpawnRules byGuid;

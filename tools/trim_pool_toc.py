@@ -1,7 +1,7 @@
 """Drop character packages the randomizer can never select from the pool TOC.
 
-Every name in the pool TOC is a stream the loader references for as long as our
-root is held, so each one stays resident for the whole game.  That residency is
+Every name in the pool TOC is a stream the loader references for as long as the
+pool root is held, so each one stays resident for the whole game.  That residency is
 not free: the game evicts what it can when it needs room, and the only entries
 it may evict are the ones nobody references, which includes the actors of a
 scripted scene that has not played yet.  Chapter 4 lost the Nicole scene that

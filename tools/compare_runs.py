@@ -1,7 +1,7 @@
 """Diff two randomizer logs: where did two runs decide differently, and why.
 
 Two players on the same seed should meet the same enemies. When they do not, the
-question is always the same - is it the seed, the configuration, or simply that
+question is always the same: is it the seed, the configuration, or simply that
 they played differently? The logs already carry every decision, so this answers
 it without anyone replaying anything.
 
@@ -13,7 +13,7 @@ bucket is the answer:
                 only applies on one difficulty
     too early   the pool was not resident yet on one side, so nothing was
                 replaced there
-    donor       both replaced, but a different donor won - that would be a real
+    donor       both replaced, but a different donor won; that would be a real
                 seed or configuration difference
     reached     only one side ever got to that spawn
 """

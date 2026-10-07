@@ -8,7 +8,7 @@ authored for. One of them is a scripted-event actor: the `pack_boy` copied from
 the only one. Such an NPC is driven by a level script that does not exist around
 it any more, and in the game it walked around and never attacked.
 
-Nothing is removed - a stream can only be appended to safely. The replacement is
+Nothing is removed: a stream can only be appended to safely. The replacement is
 appended next to it and the row names the root it supersedes, which the runtime
 then stops offering. The old entity stays in the file as dead weight.
 """

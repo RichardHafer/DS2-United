@@ -4,14 +4,12 @@
 // The DS1 patch grew a designer's workflow out of this: stand where a
 // Guardian should sit, press the key, copy the numbers into a rule. The DS2
 // player object is found through its constructor (0x008A6CA0, the target of
-// the "Player" class factory 0x0041A530; vtable 0x01B29768), and two dumps of
-// 15.09. agree on the fields: the feet position at +0x380 (x, y, z, 1) and
-// the facing at +0x300 (a unit vector, +x/+z), both live while the player is
-// standing still (dump 33076 shows +0x380, +0x3B0 and +0x3E0 all equal).
-// Spawners keep their own transform like every entity: rotation rows at
-// +0x60/+0x70/+0x80, position at +0xB0 (read in dump 17912 on six live
-// FuncSpawn objects), identity GUID at +0x24. The yaw printed here is the
-// angle the extra-spawn rule takes: forward = (sin yaw, 0, cos yaw).
+// the "Player" class factory 0x0041A530; vtable 0x01B29768), and position and
+// facing come from its entity transform (see below). Spawners keep their own
+// transform like every entity: rotation rows at +0x60/+0x70/+0x80, position
+// at +0xB0 (read in dump 17912 on six live FuncSpawn objects), identity GUID
+// at +0x24. The yaw printed here is the angle the extra-spawn rule takes:
+// forward = (sin yaw, 0, cos yaw).
 namespace placement {
 safetyhook::MidHook playerHook;
 bool installed = false;
@@ -23,8 +21,9 @@ uint32_t playerVtable = 0;
 // FuncSpawn's: rotation rows at +0x90/+0xA0/+0xB0, position at +0xC0. Both
 // dumps of 15.09. (33076 and 17912, objects with the primary vtable 01B294D0)
 // show a unit forward row there that agrees with the first row, and +0xC0
-// within two metres of the feet capsule at +0x740. The first readout used
-// +0x6C0 for the facing, which is a constant (0, 0, 1) and printed yaw 0.
+// within two metres of the feet capsule at +0x740. The first readouts used
+// +0x380/+0x300 and then +0x6C0 for the facing, a constant (0, 0, 1) that
+// printed yaw 0.
 constexpr uint32_t kPlayerPrimaryVtableRva = 0x17294D0;
 constexpr uint32_t kPlayerPosition = 0xC0, kPlayerForward = 0xB0;
 constexpr uint32_t kEntityPosition = 0xB0, kEntityForwardRow = 0x80, kEntityGuid = 0x24;
@@ -37,10 +36,10 @@ bool keyWasDown = false;
 // a second entry means something else went through the same constructor.
 volatile LONG playerConstructions = 0;
 volatile LONG playerObjects[4]{};
-// Capture the spawn call chain the first few times a Player is constructed, so
+// The spawn call chain of the first two Player constructions, so
 // SimManager::SpawnEntity/CreateEntity and the SpawnInfo that drives
-// Player::Init can be found from the log. Read-only stack walk on the existing
-// ctor hook, no new hook, no crash risk. Queued to the log, analysed offline.
+// Player::Init can be found from the log. A read-only stack walk on the
+// constructor hook, queued to the log.
 volatile LONG spawnChainCaptured = 0;
 void Queue(const char* text);   // defined below
 void CaptureSpawnChain(SafetyHookContext& ctx) {
@@ -61,10 +60,9 @@ void CaptureSpawnChain(SafetyHookContext& ctx) {
             used += std::snprintf(line + used, sizeof(line) - used, "%08X ", v);
     }
     Queue(line);
-    // Walk the true ebp frame chain: each frame gives its return address and
-    // its first args. The frame whose arg is a SpawnInfo (arg -> +4 transform,
-    // +0x20 small flags) is SimManager::CreateEntity/SpawnEntity -- exactly what
-    // we call to spawn a second Isaac.
+    // Walk the ebp frame chain: each frame gives its return address and its
+    // first arguments. The frame whose argument is a SpawnInfo (+4 transform,
+    // +0x20 small flags) is SimManager::CreateEntity/SpawnEntity.
     char line2[640];
     int u2 = std::snprintf(line2, sizeof(line2), "spawn_chain #%ld frames=", n);
     uint32_t fp = static_cast<uint32_t>(ctx.ebp);
@@ -90,7 +88,7 @@ void CaptureSpawnChain(SafetyHookContext& ctx) {
 void OnPlayerConstructed(SafetyHookContext& ctx) {
     // Ring buffer: playerConstructions only ever increments (checkpoint reloads keep
     // building new players), so a plain index overflows the array after a few
-    // reloads and stops recording the CURRENT players. Modulo keeps the most recent.
+    // reloads and stops recording the current players. Modulo keeps the most recent.
     const LONG count = InterlockedIncrement(&playerConstructions) - 1;
     const LONG index = count % static_cast<LONG>(std::size(playerObjects));
     if (index >= 0) InterlockedExchange(&playerObjects[index], static_cast<LONG>(ctx.ecx));
@@ -173,7 +171,7 @@ void Poll() {
     for (unsigned i = 0; i < found && used < static_cast<int>(sizeof(text)) - 80; ++i)
         used += std::snprintf(text + used, sizeof(text) - used, "\n placement spawner %08X-%08X-%08X-%08X distance=%.1f yaw=%.0f",
                               best[i].guid[0], best[i].guid[1], best[i].guid[2], best[i].guid[3], best[i].distance, best[i].yaw);
-    if (!found) used += std::snprintf(text + used, sizeof(text) - used, "\n placement spawner none seen yet in this session");
+    if (!found && used < static_cast<int>(sizeof(text)) - 60) used += std::snprintf(text + used, sizeof(text) - used, "\n placement spawner none seen yet in this session");
     if (used < static_cast<int>(sizeof(text)) - 120)
         std::snprintf(text + used, sizeof(text) - used, "\n placement area row (fires when you come within 20 m, no spawner needed): near:20\tGuardian\t1\t100\t%.2f\t%.2f\t%.2f\t%.0f\tdirect",
                       position[0], position[1], position[2], yaw);

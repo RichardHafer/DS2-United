@@ -253,7 +253,7 @@ public:
         return BuildResult::Built;
     }
 
-    // Fail closed: a hash we do not know keeps the game's own answer.
+    // Fail closed: an unknown hash keeps the game's own answer.
     bool Lookup(uint32_t nameHash, uint8_t& type) const {
         for (size_t i = 0; i < count_; ++i) {
             if (entries_[i].nameHash != nameHash) continue;

@@ -1,6 +1,9 @@
 #include "../src/generated_schematic_catalog.h"
 #include "../src/generated_schematic_blueprints.h"
+#include "../src/generated_schematic_store_levels.h"
 #include <cassert>
+#include <iterator>
+#include <map>
 #include <set>
 #include <cstdio>
 
@@ -121,6 +124,33 @@ int main() {
             assert(bad == original);
         }
     }
+    // Every reward has an authored store chapter, and moving the chapters with
+    // the schematics only reorders them: no chapter is lost or invented.
+    {
+        auto levelOf = [](const Guid& reward) {
+            for (const auto& level : kStoreLevels) if (level.reward == reward) return level.minLevel;
+            return -1;
+        };
+        std::multiset<int> authored;
+        for (const auto& source : kCampaignSources) {
+            assert(levelOf(source.reward) > 0);
+            authored.insert(levelOf(source.reward));
+        }
+        for (uint64_t seed = 1; seed <= 256; ++seed) {
+            Policy<std::size(kCampaignSources)> shuffled(kCampaignSources, seed, true);
+            std::map<Guid, int> shifted;   // reward -> chapter of the place it lies at now
+            for (const auto& source : kCampaignSources) {
+                Guid selected{};
+                assert(shuffled.Select(source.entity, source.kind, source.reward, selected) == Result::Selected);
+                assert(shifted.emplace(selected, levelOf(source.reward)).second);
+            }
+            assert(shifted.size() == std::size(kCampaignSources));
+            std::multiset<int> moved;
+            for (const auto& entry : shifted) moved.insert(entry.second);
+            assert(moved == authored);
+        }
+    }
+    std::puts("Schematic store chapters: 23 rewards with authored chapters, 256 seeds keep the chapter set");
     std::puts("Schematic policy: 23 rewards, 1024 bijections, reload/order stability and fail-closed guards passed");
     std::puts("Schematic attributes: 128 seeds, presentation consistency, original identity, immutable bytes and idempotence passed");
 }

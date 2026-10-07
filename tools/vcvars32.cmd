@@ -2,6 +2,9 @@
 rem Finds the Visual Studio 2022 x86 build environment, whichever edition is
 rem installed, and loads it. Called by every build_*.cmd next to this folder.
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+rem VS's own vcvars scripts call vswhere.exe by name; without it on PATH they
+rem print "vswhere.exe" not found on every build.
+if exist "%VSWHERE%" for %%d in ("%VSWHERE%") do set "PATH=%%~dpd;%PATH%"
 if exist "%VSWHERE%" (
   for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSDIR=%%i"
 )

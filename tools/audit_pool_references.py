@@ -4,7 +4,7 @@ guid_redirect only counts its misses (twin_missing=N), so a playtest reports a
 number and no names. This reads the built pool directly: every record identity it
 carries, every typed GUID reference (parameter fields with flags 12), and the
 difference. A reference is reported as dangling when the pool has no record with
-that identity AND the target is not resident elsewhere - global_assets is always
+that identity AND the target is not resident elsewhere; global_assets is always
 loaded, so a retail GUID pointing there resolves fine.
 """
 import json, struct, sys

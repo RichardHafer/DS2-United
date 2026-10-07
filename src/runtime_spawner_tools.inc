@@ -25,6 +25,18 @@ bool ReadSpawnerIdentity(uint32_t object, uint32_t attributes, Guid& guid) {
         actualAttributes == attributes && Read(object + 0x24, guid.data(), sizeof(guid)) && guid != Guid{};
 }
 
+// A template authored with 0 health spawns as a corpse on purpose
+// (tools/find_corpse_templates.py). The ch11 convergence spawns one every few
+// seconds and deletes it on a trigger it only reaches as a ragdoll, so a
+// living stand-in piles up until the game crashes during the eyepoke scene.
+bool IsCorpseTemplate(const Guid& guid) {
+    for (const auto& row : ds2::kCorpseTemplates)
+        if (guid[0] == row.guid[0] && guid[1] == row.guid[1] &&
+            guid[2] == row.guid[2] && guid[3] == row.guid[3])
+            return true;
+    return false;
+}
+
 // Which difficulty the player picked, straight out of the game's own settings.
 //
 // `Game.PDiff` in `%LOCALAPPDATA%\EA Games\Dead Space 2\settings.txt` is written

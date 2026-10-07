@@ -8,6 +8,10 @@ cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\policy_tests.cpp /Fobuild\policy_t
 if %errorlevel% neq 0 exit /b 1
 build\policy_tests.exe
 if %errorlevel% neq 0 exit /b 1
+cl /nologo /W4 /WX /EHsc /std:c++latest /MT /Ithird_party tests\hook_site_tests.cpp /Fobuild\hook_site_tests.obj /Febuild\hook_site_tests.exe
+if %errorlevel% neq 0 exit /b 1
+build\hook_site_tests.exe
+if %errorlevel% neq 0 exit /b 1
 cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\extra_spawns_tests.cpp /Fobuild\extra_spawns_tests.obj /Febuild\extra_spawns_tests.exe
 if %errorlevel% neq 0 exit /b 1
 build\extra_spawns_tests.exe

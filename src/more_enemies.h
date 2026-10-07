@@ -31,16 +31,16 @@ struct MoreEnemiesSettings {
 
 // Absolute limits. Configuration cannot raise these.
 inline constexpr unsigned kMoreEnemiesMaxPerTrigger = 8;
-// A window is SIXTEEN arrivals (kMoreEnemiesWindowArrivals), so this is the
+// A window is sixteen arrivals (kMoreEnemiesWindowArrivals), so this is the
 // budget for every arrival in the window at the largest total: 16 x (8 - 1).
 // 19.09.: with the old 64 and a total of 4 (three extras each) only four of
-// sixteen arrivals were multiplied - "MoreEnemies does nothing".
+// sixteen arrivals were multiplied ("MoreEnemies does nothing").
 inline constexpr unsigned kMoreEnemiesMaxPerSecond = 112;
 
 enum class MoreEnemiesStatus : unsigned {
     Disabled, Reentrant, AttributesUnreadable, UnknownTarget, UnsupportedArrival,
     ProtectedFamily, MultiplierOne, BudgetExhausted, CompletionNotWritable,
-    CountNotWritable, VtableMismatch, CrossFamilyRefused, SwarmSlot, Multiplied, Count
+    CountNotWritable, VtableMismatch, CrossFamilyRefused, SwarmSlot, Multiplied, CorpseTemplate, Count
 };
 
 inline const char* moreEnemiesStatusName(unsigned value) {
@@ -49,7 +49,7 @@ inline const char* moreEnemiesStatusName(unsigned value) {
         "unsupported_arrival", "protected_family", "multiplier_one",
         "budget_exhausted", "completion_message_not_writable",
         "spawn_count_not_writable", "handle_events_vtable_mismatch",
-        "cross_family_refused", "swarm_slot", "multiplied"
+        "cross_family_refused", "swarm_slot", "multiplied", "corpse_template"
     };
     return value < static_cast<unsigned>(MoreEnemiesStatus::Count) ? names[value]
                                                                   : "invalid_status";

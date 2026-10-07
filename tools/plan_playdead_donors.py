@@ -6,9 +6,9 @@ arrivals and 74 vent arrivals, so a corpse that gets up had nothing to be
 replaced with and the spawner tool reported "no compatible candidate".
 
 The contract is strict and stays strict. `compatibleScripted` demands the same
-family, the same context and the same scriptedKey - the hash over the whole
+family, the same context and the same scriptedKey (the hash over the whole
 authored spawning component, both animation names, the options, the activation
-flags and every message. Two corpses only swap when they were authored to play
+flags and every message). Two corpses only swap when they were authored to play
 exactly the same lying-down and getting-up animations, which is the only
 evidence that the donor's model can perform them.
 

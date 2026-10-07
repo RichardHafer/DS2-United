@@ -68,8 +68,8 @@ void OnSend(SafetyHookContext& ctx) {
 }
 
 // The names the plugin already carries: the four messages of every enemy in
-// the catalog. Everything else prints as its hash and is resolved offline with
-// tools/resolve_messages.py against the game's own files.
+// the catalog. Everything else prints as its hash and is resolved offline
+// against the game's own files.
 const char* NameFor(uint32_t hash) {
     if (!hash) return "none";
     for (const auto& row : ds2::kDeathMessages) {

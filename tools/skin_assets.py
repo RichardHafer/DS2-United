@@ -844,7 +844,7 @@ def build_skin(stream, model_id, variant, tint, tag, taken_ids, tints=None, file
                     struct.pack_into("<I", other_bank, at, new_hash)
             copies.append((other, bytes(other_bank), "BNK"))
         # A bank carries its own identity at +8 (unique per retail bank, no
-        # name hash we can reproduce). A copy that keeps it registers its
+        # name hash that can be reproduced). A copy that keeps it registers its
         # animation entries a second time under the same keys in the engine's
         # shared table, and the erase loop that unregisters an entry follows
         # duplicates through a lookup that always returns the first one: with

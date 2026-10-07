@@ -1,0 +1,301 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+namespace DS2RandomizerConfig
+{
+    sealed class IniLine
+    {
+        public string Text;   // without the line terminator
+        public string Eol;    // "\r\n", "\n", "\r" or "" on the last line
+
+        public IniLine(string text, string eol) { Text = text; Eol = eol; }
+    }
+
+    // Lossless INI editor. Bytes are mapped 1:1 to chars (Latin-1), so anything
+    // that is not touched is written back exactly as it was read.
+    sealed class IniDocument
+    {
+        static readonly Encoding Bytes1To1 = Encoding.GetEncoding(28591);
+        static readonly byte[] Bom = { 0xEF, 0xBB, 0xBF };
+
+        public bool HasBom;
+        public List<IniLine> Lines = new List<IniLine>();
+
+        public static IniDocument Load(string path)
+        {
+            return Parse(File.ReadAllBytes(path));
+        }
+
+        public static IniDocument Parse(byte[] bytes)
+        {
+            var doc = new IniDocument();
+            int start = 0;
+            if (bytes.Length >= 3 && bytes[0] == Bom[0] && bytes[1] == Bom[1] && bytes[2] == Bom[2])
+            {
+                doc.HasBom = true;
+                start = 3;
+            }
+            string text = Bytes1To1.GetString(bytes, start, bytes.Length - start);
+            int lineStart = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (c != '\r' && c != '\n') continue;
+                string eol = (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n') ? "\r\n" : c.ToString();
+                doc.Lines.Add(new IniLine(text.Substring(lineStart, i - lineStart), eol));
+                i += eol.Length - 1;
+                lineStart = i + 1;
+            }
+            if (lineStart < text.Length)
+                doc.Lines.Add(new IniLine(text.Substring(lineStart), ""));
+            return doc;
+        }
+
+        public byte[] ToBytes()
+        {
+            var sb = new StringBuilder();
+            foreach (var line in Lines) sb.Append(line.Text).Append(line.Eol);
+            byte[] body = Bytes1To1.GetBytes(sb.ToString());
+            if (!HasBom) return body;
+            var all = new byte[body.Length + 3];
+            Array.Copy(Bom, all, 3);
+            Array.Copy(body, 0, all, 3, body.Length);
+            return all;
+        }
+
+        // The terminator new lines get: whatever the file mostly uses.
+        public string NewLine
+        {
+            get
+            {
+                int crlf = 0, lf = 0, cr = 0;
+                foreach (var line in Lines)
+                {
+                    if (line.Eol == "\r\n") crlf++;
+                    else if (line.Eol == "\n") lf++;
+                    else if (line.Eol == "\r") cr++;
+                }
+                if (lf > crlf && lf >= cr) return "\n";
+                if (cr > crlf && cr > lf) return "\r";
+                return "\r\n";
+            }
+        }
+
+        public static string SectionName(string text)
+        {
+            string t = text.Trim();
+            if (t.Length < 2 || t[0] != '[') return null;
+            int close = t.IndexOf(']');
+            if (close < 0) return null;
+            return t.Substring(1, close - 1).Trim();
+        }
+
+        // Key of a "key=value" line, or null for comments, headers and blanks.
+        public static string KeyName(string text)
+        {
+            string t = text.TrimStart();
+            if (t.Length == 0 || t[0] == ';' || SectionName(text) != null) return null;
+            int eq = text.IndexOf('=');
+            if (eq <= 0) return null;
+            string key = text.Substring(0, eq).Trim();
+            return key.Length == 0 ? null : key;
+        }
+
+        // [start, end) of the value: after '=' and leading blanks, before
+        // trailing blanks. With numericOnly, only the leading number is
+        // covered, so a trailing inline note survives an edit.
+        public static void ValueSpan(string text, bool numericOnly, out int start, out int end)
+        {
+            int eq = text.IndexOf('=');
+            start = eq + 1;
+            while (start < text.Length && (text[start] == ' ' || text[start] == '\t')) start++;
+            end = text.Length;
+            while (end > start && (text[end - 1] == ' ' || text[end - 1] == '\t')) end--;
+            if (!numericOnly) return;
+            int len = WinInt.TokenLength(text, start, end);
+            if (len > 0) end = start + len;
+        }
+
+        // Windows uses the first matching section and the first matching key.
+        public int FindSection(string section)
+        {
+            for (int i = 0; i < Lines.Count; i++)
+            {
+                string name = SectionName(Lines[i].Text);
+                if (name != null && string.Equals(name, section, StringComparison.OrdinalIgnoreCase)) return i;
+            }
+            return -1;
+        }
+
+        public int SectionEnd(int header)
+        {
+            for (int i = header + 1; i < Lines.Count; i++)
+                if (SectionName(Lines[i].Text) != null) return i;
+            return Lines.Count;
+        }
+
+        public int FindKey(string section, string key)
+        {
+            int header = FindSection(section);
+            if (header < 0) return -1;
+            int end = SectionEnd(header);
+            for (int i = header + 1; i < end; i++)
+            {
+                string name = KeyName(Lines[i].Text);
+                if (name != null && string.Equals(name, key, StringComparison.OrdinalIgnoreCase)) return i;
+            }
+            return -1;
+        }
+
+        // The trimmed value, or null when the key is absent.
+        public string GetRaw(string section, string key)
+        {
+            int index = FindKey(section, key);
+            if (index < 0) return null;
+            int start, end;
+            ValueSpan(Lines[index].Text, false, out start, out end);
+            string value = Lines[index].Text.Substring(start, end - start);
+            if (value.Length >= 2 && (value[0] == '"' || value[0] == '\'') && value[value.Length - 1] == value[0])
+                value = value.Substring(1, value.Length - 2);
+            return value;
+        }
+
+        // Rewrites only the value part of an existing line, or adds the key
+        // (with a one-line comment) at the end of its section.
+        public void SetValue(string section, string key, string value, bool numeric, string comment)
+        {
+            int index = FindKey(section, key);
+            if (index >= 0)
+            {
+                string text = Lines[index].Text;
+                int start, end;
+                ValueSpan(text, numeric, out start, out end);
+                Lines[index].Text = text.Substring(0, start) + value + text.Substring(end);
+                return;
+            }
+            string nl = NewLine;
+            var added = new List<IniLine>();
+            int header = FindSection(section);
+            int insertAt;
+            if (header >= 0)
+            {
+                insertAt = header + 1;
+                int end = SectionEnd(header);
+                for (int i = header + 1; i < end; i++)
+                    if (KeyName(Lines[i].Text) != null) insertAt = i + 1;
+                // next to a commented-out template such as "; Seed=50", if there is one
+                for (int i = header + 1; i < end; i++)
+                {
+                    string t = Lines[i].Text.TrimStart();
+                    if (!t.StartsWith(";")) continue;
+                    string inner = t.Substring(1).TrimStart();
+                    if (KeyName(inner) != null && string.Equals(KeyName(inner), key, StringComparison.OrdinalIgnoreCase))
+                        insertAt = i + 1;
+                }
+            }
+            else
+            {
+                insertAt = Lines.Count;
+                if (Lines.Count > 0 && Lines[Lines.Count - 1].Text.Trim().Length > 0)
+                    added.Add(new IniLine("", nl));
+                added.Add(new IniLine("[" + section + "]", nl));
+            }
+            if (!string.IsNullOrEmpty(comment)) added.Add(new IniLine("; " + comment, nl));
+            added.Add(new IniLine(key + "=" + value, nl));
+            if (insertAt > 0 && Lines[insertAt - 1].Eol.Length == 0)
+            {
+                // the previous line ended the file without a terminator; keep it that way
+                Lines[insertAt - 1].Eol = nl;
+                added[added.Count - 1].Eol = "";
+            }
+            Lines.InsertRange(insertAt, added);
+        }
+
+        // Turns "Key=value" into "; Key=value", so the default applies again.
+        public bool CommentOut(string section, string key)
+        {
+            int index = FindKey(section, key);
+            if (index < 0) return false;
+            Lines[index].Text = "; " + Lines[index].Text.TrimStart();
+            return true;
+        }
+    }
+
+    // GetPrivateProfileInt semantics: leading blanks, a sign, an optional
+    // 0x/0o/0b prefix, digits until the first invalid character, 32-bit wrap.
+    static class WinInt
+    {
+        static int DigitValue(char c)
+        {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return 99;
+        }
+
+        static int Prefix(string s, int i, int end, out int radix)
+        {
+            radix = 10;
+            if (i + 1 < end && s[i] == '0')
+            {
+                char p = char.ToLowerInvariant(s[i + 1]);
+                if (p == 'x') { radix = 16; return 2; }
+                if (p == 'o') { radix = 8; return 2; }
+                if (p == 'b') { radix = 2; return 2; }
+            }
+            return 0;
+        }
+
+        // Length of the number token at start, 0 if there is none.
+        public static int TokenLength(string s, int start, int end)
+        {
+            int i = start;
+            if (i < end && (s[i] == '+' || s[i] == '-')) i++;
+            int radix;
+            int prefix = Prefix(s, i, end, out radix);
+            int digitsStart = i + prefix;
+            int j = digitsStart;
+            while (j < end && DigitValue(s[j]) < radix) j++;
+            if (j == digitsStart)
+            {
+                // "0x" with nothing after it still reads the 0
+                if (prefix > 0) return i + 1 - start;
+                return 0;
+            }
+            return j - start;
+        }
+
+        public static uint Parse(string s)
+        {
+            int i = 0, end = s.Length;
+            while (i < end && s[i] <= ' ') i++;
+            bool negative = false;
+            if (i < end && (s[i] == '+' || s[i] == '-')) { negative = s[i] == '-'; i++; }
+            int radix;
+            int prefix = Prefix(s, i, end, out radix);
+            if (prefix > 0 && (i + 2 >= end || DigitValue(s[i + 2]) >= radix)) return 0;
+            i += prefix;
+            uint value = 0;
+            while (i < end)
+            {
+                int d = DigitValue(s[i]);
+                if (d >= radix) break;
+                value = unchecked(value * (uint)radix + (uint)d);
+                i++;
+            }
+            return negative ? unchecked((uint)(-(int)value)) : value;
+        }
+
+        public static bool IsPlainNumber(string s)
+        {
+            s = s.Trim();
+            if (s.Length == 0) return false;
+            int i = s[0] == '-' ? 1 : 0;
+            if (i == s.Length) return false;
+            for (; i < s.Length; i++) if (s[i] < '0' || s[i] > '9') return false;
+            return true;
+        }
+    }
+}

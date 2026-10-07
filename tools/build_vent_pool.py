@@ -6,7 +6,7 @@ vent spawn can only ever be replaced by an entity the *level* happens to carry,
 and in chapter 1 that means slashers and nothing else.
 
 There is very little to add. A vent arrival's contract is the mode, the
-activation flags and a pointer to its vent, and the runtime rebinds the pointer -
+activation flags and a pointer to its vent, and the runtime rebinds the pointer,
 so what matters is only the first two. Across the whole game that leaves **31**
 distinct contracts, and the largest covers 290 of 402 vent spawns with 28 models
 across eight species behind it. `tools/verify_vent_coverage.py` prints the

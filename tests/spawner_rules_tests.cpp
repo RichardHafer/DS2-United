@@ -62,7 +62,7 @@ int main() {
 
     // A rule for one difficulty only. The game writes the player's choice into
     // its own settings file, so on every other difficulty the rule is simply not
-    // there - a Zealot-only block leaves Normal untouched.
+    // there: a Zealot-only block leaves Normal untouched.
     assert(parseSpawnerRules("source_guid\tmode\tfamilies\tdifficulty\n"
         "00000001-00000002-00000003-00000004\tblock\t\tzealot\n"
         "00000005-00000006-00000007-00000008\tdefault\tZombie\tnormal\n", rules));

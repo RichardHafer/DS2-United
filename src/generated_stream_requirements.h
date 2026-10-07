@@ -75,7 +75,7 @@ inline constexpr const char* kModelStreams[] = {
 };
 struct StreamProbeFile { const char* name; unsigned size; unsigned long long fingerprint; };
 inline constexpr StreamProbeFile kStreamProbeFiles[] = {
-    {"randomizer\\ds2_randomizer_pool.str", 2752512, 0x081FA4BB968FA842ull},
+    {"randomizer\\ds2_randomizer_pool.str", 2752512, 0x9985214CF8465017ull},
     {"randomizer\\ds2_randomizer_pool.toc", 4096, 0x2126678B8C79AB5Bull},
 };
 }

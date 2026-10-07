@@ -133,7 +133,7 @@ void RewriteTreeValues(uintptr_t tree, FILE* log) {
 // The trees are usually built before this plugin's worker gets to install
 // the hook above (the game runs player_upgrades.lua at start-up; 20.09.2026:
 // a session without a single `bench set` line, and the Pulse Rifle's start
-// cell offered "RELOAD by 25 sec" - Capacity2's authored 25 rounds under its
+// cell offered "RELOAD by 25 sec": Capacity2's authored 25 rounds under its
 // new stat). So on install the live trees are read once: every cell's
 // authored amount (node+0x30) becomes a record, exactly what the hook would
 // have recorded, and every tree is rewritten right away. A later reload of

@@ -7,7 +7,7 @@ from stream_framing import validate_framing
 root = Path(__file__).resolve().parents[1]
 stream_directory = root / "analysis/runtime_stream"
 manifest = json.loads((stream_directory / "ds2_randomizer_pool.toc.json").read_text())
-# Our own model streams (a skin's ds2_randomizer_<variant>) are forced by the
+# The randomizer's own model streams (a skin's ds2_randomizer_<variant>) are forced by the
 # pool's TOC and load with it, so they are not prerequisites the plugin waits
 # for before requesting the pool.
 entries = manifest["shared"] + [e for e in manifest["forced"] if not e[1].startswith("ds2_randomizer_")]
@@ -64,6 +64,48 @@ from read_stock_toc import parse as parse_toc
 toc_root = parse_toc((stream_directory / "ds2_randomizer_pool.toc").read_bytes())["entries"][0]["identity"]["name"]
 if toc_root.lower() != (folder + "ds2_randomizer_pool").lower():
     raise ValueError(f"TOC root name {toc_root!r} is not the request name {folder + 'ds2_randomizer_pool'!r}; rebuild the TOC")
+
+def zero_health_records(path):
+    """Pool records whose CMD_SetHealth is 0. Such an enemy dies the moment it
+    spawns and never sends its death message, so a room that counts it waits
+    forever (the ch11 arena super slasher, 29.09.2026). Fix the field in the
+    pool (toc.json field_patches) instead of shipping it."""
+    import struct
+    import sys
+    sys.path.insert(0, r"D:\SteamLibrary\steamapps\common\Dead Space 2\Dead Space 2 Modding Tools")
+    import ds2str
+    import ds2_assets
+    health = 0x6B435879   # CMD_SetHealth
+    stream = ds2str.StreamSet(str(path))
+    found, current = [], None
+    for position, _tag, body in stream.chunks():
+        inner = stream.tag(body[:4])
+        if inner == b"SHDR":
+            fields = struct.unpack_from(stream.end + "8I", body, 4)
+            kind = body[36:].split(b"\0")[2] if body[36:].count(b"\0") >= 2 else b""
+            current = {"kind": kind, "size": fields[7], "parts": [], "packed": False}
+            if kind == b"SimGroup":
+                found.append(current)
+        elif inner in (b"SDAT", b"Rpak") and current is not None:
+            current["packed"] |= inner != b"SDAT"
+            current["parts"].append(stream.payload(body)[1])
+    bad = []
+    for group in found:
+        data = b"".join(group["parts"])[:group["size"]]
+        instances, image_at = ds2_assets.simgroup(data)
+        images = ds2_assets.loose_images(data, image_at)
+        for instance in instances:
+            for image_id in [instance["image_id"]] + instance["component_images"]:
+                for field in images.get(image_id, {}).get("fields", []):
+                    if field["field_id"] == health and field["value"] == 0:
+                        bad.append(instance["guid"])
+    return bad
+
+
+zero = zero_health_records(stream_directory / "ds2_randomizer_pool.str")
+if zero:
+    raise ValueError("Pool records with CMD_SetHealth 0 (they die on spawn): " + ", ".join(zero))
+
 lines += ["};", "struct StreamProbeFile { const char* name; unsigned size; unsigned long long fingerprint; };",
           "inline constexpr StreamProbeFile kStreamProbeFiles[] = {"]
 files = [("ds2_randomizer_pool", manifest)]

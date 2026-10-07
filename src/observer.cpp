@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+// The plain CRT calls (fopen, sscanf, strncpy) are used on purpose; silences C4996.
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <array>
 #include <cstdio>
@@ -16,6 +18,7 @@
 #include "extra_spawns.h"
 #include "more_enemies.h"
 #include "generated_enemy_catalog.h"
+#include "generated_corpse_templates.h"
 #include "native_layout.h"
 #include "stream_registry.h"
 #include "stream_states.h"
@@ -98,9 +101,7 @@ unsigned watchdogVentSeconds = 30;
 unsigned deathMessagesWritten = 0, deathMessagesCleared = 0, deathMessagesRefused = 0;
 unsigned deathMessagesUnregistered = 0;
 const char* lastDeathMessageRefusal = "none";
-// Where each of the four messages was last found, keyed by message kind. The
-// component class is identified by its vtable, so an offset learned from one
-// enemy applies to every other enemy of that class.
+// Attribute header of the last message field that was handled, for the summary line.
 uint32_t lastDeathMessageHeader = 0;
 volatile LONG statusCounts[static_cast<unsigned>(ds2::SelectionStatus::Count)]{};
 bool observeDetails = false;
@@ -159,6 +160,7 @@ bool GlobalDonorAllowed(uint32_t handle);
 #include "runtime_frame_cap.inc"
 #include "runtime_texture_probe.inc"
 #include "runtime_stream_watch.inc"
+#include "runtime_zone_unload.inc"
 
 void OnCreated(SafetyHookContext& ctx) {
     SelectionFrame saved{};
@@ -212,9 +214,9 @@ void OnCreated(SafetyHookContext& ctx) {
         // donor's instead, so the count never completes: that is what a stuck
         // quarantine has always been, and it has nothing to do with vents.
         //
-        // Each value is found rather than assumed. The donor's own message is
-        // known too, so the actor's authored attributes are searched for exactly
-        // that value; one hit is the field, anything else leaves the enemy alone.
+        // The field is located through the component's class descriptor, and
+        // when the donor carries a message of its own, exactly that value has
+        // to be standing there. Anything else leaves the enemy alone.
         const auto sourceRecord = std::lower_bound(pool.begin(), pool.end(), saved.original,
             [](const auto& record, const ds2::Guid& guid) { return record.guid < guid; });
         const bool haveSource = sourceRecord != pool.end() && sourceRecord->guid == saved.original;
@@ -222,11 +224,11 @@ void OnCreated(SafetyHookContext& ctx) {
         // A swarmer or pack boy never comes alone: SpawnDone repeats this
         // spawner (horde). The source's death message goes along so the
         // sender can swallow the copies' deaths (runtime_more_enemies.inc).
-        // ... but only when it replaces another kind: a swarmer slot keeps
-        // its authored count, the room already has a dozen of them.
+        // Only when it replaces another kind: a swarmer slot keeps its
+        // authored count, the room already has a dozen of them.
         if (haveSource && haveDonor && donor->family != sourceRecord->family)
             MarkHordeReplacement(ctx.edi, donor->family, sourceRecord->deathMessage.hash);
-        // and the multiplier counts what stands there, not what was authored
+        // The multiplier counts what stands there, not what was authored.
         if (haveDonor) NoteReplacement(ctx.edi, donor->family);
         if (haveSource && haveDonor) {
             // Components, not the authored attribute header behind them: that
@@ -264,9 +266,9 @@ void OnCreated(SafetyHookContext& ctx) {
                  sourceRecord->healthModifiedMessage, donor->healthModifiedMessage},
                 {ds2::kSpawnDoneFields, std::size(ds2::kSpawnDoneFields),
                  sourceRecord->spawnDoneMessage, donor->spawnDoneMessage},
-                // MSG_AWARE (kAwareFields) is deliberately NOT here any more.
-                // The three above are messages the actor SENDS; MSG_AWARE is one
-                // it LISTENS for: the AwarenessComponent (descriptor 0x020A4D98)
+                // MSG_AWARE (kAwareFields) is deliberately not here any more.
+                // The three above are messages the actor sends; MSG_AWARE is one
+                // it listens for: the AwarenessComponent (descriptor 0x020A4D98)
                 // registers a listener node under that hash in its constructor
                 // and unregisters with the field's value in its destructor.
                 // Rewriting or clearing the field after creation leaves the node
@@ -297,9 +299,9 @@ void OnCreated(SafetyHookContext& ctx) {
                     ++deathMessagesUnregistered;
                 else if (result != ds2::DeathMessageResult::NotNeeded) {
                     ++deathMessagesRefused;
-                    // The death message above all: refused here means the room
-                    // will wait for a name this enemy can no longer send. The
-                    // watchdog says it for him when he dies (death proxy).
+                    // A refused death message means the room waits for a name
+                    // this enemy can no longer send. The watchdog says it for
+                    // the enemy when it dies (death proxy).
                     if (item.fields == ds2::kDeathFields && wanted.hash) {
                         ds2_watchdog_runtime::ProxyDeath(ctx.eax, wanted.hash, wanted.name);
                     }
@@ -335,7 +337,8 @@ void OnCreated(SafetyHookContext& ctx) {
     event.levelHandle = saved.levelHandle;
     event.donorHandle = saved.donorHandle;
     event.bindingApplied = saved.applied;
-    // At ECB2D0 the original lookup packet is still at ESP+30.
+    // At 0x00ECB2D0 the original lookup packet is still at ESP+30, its
+    // attributes field (+0x10) at ESP+40.
     event.readable = Read(ctx.ebp + 0x0C, event.target.data(), 16) &&
         Read(ctx.esp + 0x40, &event.packetAttributes, 4);
     InterlockedExchange(&event.ready, sequence);
@@ -387,10 +390,9 @@ DWORD WINAPI Worker(void* module) {
     const std::string ini = directory + "DS2Randomizer.ini";
     FILE* log = nullptr;
     // Keep the last runs. Comparing two players means comparing two runs, and
-    // starting the game once used to destroy the log that was being compared -
-    // by the time anyone asks for it, it is already gone. The most recent
-    // finished run is DS2Randomizer.1.log, the one before it .2.log, and so on
-    // up to .5.log; the oldest falls off the end.
+    // starting the game once used to destroy the log that was being compared.
+    // The most recent finished run is DS2Randomizer.1.log, the one before it
+    // .2.log, and so on up to .5.log; the oldest falls off the end.
     const std::string logPath = directory + "DS2Randomizer.log";
     constexpr unsigned kKeptLogs = 5;
     auto kept = [&](unsigned index) {
@@ -476,8 +478,9 @@ DWORD WINAPI Worker(void* module) {
     for (const char* family : {"Infector", "Stalker", "SwarmEnemy"})
         std::fprintf(log, "experimental_class=%s enabled=%d\n", family,
             ConfigInt(ini, "ExperimentalClasses", family, 0, 0, 1));
-    std::fprintf(log, "direct_donors=%d pack_boy_stand_in=%s\n", directDonors,
-                 directDonors ? "offered" : "withheld");
+    std::fprintf(log, "direct_donors=%d pack_boy_stand_in=%s withdrawn_donors=%u corpse_templates=%zu\n", directDonors,
+                 directDonors && !withdrawnDonors ? "offered" : "withheld", withdrawnDonors,
+                 std::size(ds2::kCorpseTemplates));
     std::fprintf(log, "variants enabled=%d offered=%u\n", variantsEnabled ? 1 : 0, variantsLoaded);
     if (!poolStageFailed.empty()) std::fprintf(log, "global_templates off at %s\n", poolStageFailed.c_str());
     if (!planDumpLine.empty()) std::fprintf(log, "%s\n", planDumpLine.c_str());
@@ -498,12 +501,10 @@ DWORD WINAPI Worker(void* module) {
     }
     // Enabled=0 is the master switch. Until 2026-09-17 it only stopped the
     // enemy replacement: the pool still loaded, the loading screen was still
-    // taken over (its ten authored seconds gone), hordes, loot and the
-    // watchdog still ran - I had it off and could not tell. With it off,
-    // only the frame cap stays, because a game above 60 FPS hangs in lifts.
-    // ObserveSpawns=1 does not override it: on 2026-09-17 it did, and the
-    // switch looked dead - the pool loaded and the loading screen was taken
-    // over exactly as before.
+    // taken over, and hordes, loot and the watchdog still ran. With it off
+    // only the frame cap is installed, for players who use it as their
+    // limiter. ObserveSpawns=1 does not override it (on 2026-09-17 it did,
+    // and the switch looked dead).
     if (!settings.enabled) {
         std::fprintf(log, "master off (Enabled=0): only the frame cap is installed (ObserveSpawns=%d ignored)\n", observeDetails ? 1 : 0);
         std::fflush(log);
@@ -646,6 +647,8 @@ DWORD WINAPI Worker(void* module) {
     // The loading screen stays up for MinimumLoadingSeconds and, while the
     // pool is requested but not ready, up to MaximumLoadingSeconds.
     loading_hold::Install(log, ini.c_str(), streamProbe);
+    // Only the pool's own references can hold a zone switch up.
+    if (streamProbe) zone_unload::Install(log, ini);
     std::fflush(log);
     LONG moreEnemiesFlushed = 0;
     for (;;) {
@@ -660,6 +663,7 @@ DWORD WINAPI Worker(void* module) {
         }
         ds2_watchdog_runtime::WriteDiagnostics(log);
         loading_hold::WriteDiagnostics(log);
+        zone_unload::WriteDiagnostics(log);
         if (streamWatch) PollStreamWatch(log);
         const LONG prerequisite = InterlockedCompareExchange(&streamProbePrerequisite, 0, 0);
         if (prerequisite >= 0 && prerequisite != lastPrerequisite &&
@@ -786,10 +790,10 @@ DWORD WINAPI Worker(void* module) {
                     {0, "global_assets\\global_assets_global"},
                     {0, "text_assets\\text_assets_global"}
                 };
-                for (const auto& prerequisite : prerequisites) {
-                    const auto result = ds2::native::findDescriptor(snapshot, prerequisite.hash, prerequisite.name, Read);
+                for (const auto& required : prerequisites) {
+                    const auto result = ds2::native::findDescriptor(snapshot, required.hash, required.name, Read);
                     std::fprintf(log, "stream_prerequisite name=%s result=%s residency=unverified\n",
-                        prerequisite.name, ds2::native::descriptorStatusName(result));
+                        required.name, ds2::native::descriptorStatusName(result));
                 }
                 const auto after = ds2::native::inspectRegistry(manager, Read);
                 std::fprintf(log, "stream_prerequisite_snapshot unchanged=%d\n",

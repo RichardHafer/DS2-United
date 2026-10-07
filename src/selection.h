@@ -8,6 +8,8 @@ namespace ds2 {
 // of it. The field is a string in the archives, so the name is what survives;
 // the hash is what a runtime header is likely to hold. See death_message.h.
 struct ScriptMessage { const char* name = ""; unsigned hash = 0; };
+// The catalog loader and the tests build records positionally up to
+// `ambiguous`, so the first fields keep their order.
 struct EnemyRecord {
     Guid guid{}, model{};
     std::string family, context;
@@ -38,8 +40,7 @@ struct EnemyRecord {
     ScriptMessage deathMessage{}, healthModifiedMessage{}, spawnDoneMessage{}, awareMessage{};
     // Seen stuck in a vent, or inert after a vent arrival, in an earlier run on
     // this machine. Such a donor is still fine walking in through a door, so it
-    // only stops being a vent candidate. Last on purpose: the tests build
-    // records positionally.
+    // only stops being a vent candidate.
     bool ventBlocked = false;
     // Authored so that it never attacks the player (the intro's psych hall
     // infector has both grapple chances at zero). Still a source, never a donor.
@@ -63,7 +64,7 @@ enum class SelectionStatus : unsigned {
     DonorUnavailable, PacketReplaced, SourceDisabled, AmbiguousSource,
     UnsupportedClass, UnsupportedArrival, ChanceSkipped, FrameLimit,
     InvalidDonor, DescriptorMismatch, InvalidManager, GlobalPoolUnavailable, SpawnerBlocked,
-    StreamProbeBusy, FamilyNotAllowed, OriginalKept, Count
+    StreamProbeBusy, FamilyNotAllowed, OriginalKept, CorpseTemplate, Count
 };
 inline const char* statusName(unsigned value) {
     static constexpr const char* names[] = {
@@ -72,7 +73,7 @@ inline const char* statusName(unsigned value) {
         "source_disabled", "ambiguous_source", "unsupported_class",
         "unsupported_arrival", "chance_skipped", "frame_limit",
         "invalid_donor", "descriptor_mismatch", "invalid_manager", "global_pool_unavailable", "spawner_blocked",
-        "stream_probe_busy", "family_not_allowed_here", "original_kept"
+        "stream_probe_busy", "family_not_allowed_here", "original_kept", "corpse_template"
     };
     return value < static_cast<unsigned>(SelectionStatus::Count) ? names[value] : "invalid_status";
 }

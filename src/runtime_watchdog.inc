@@ -87,17 +87,17 @@ volatile LONG tracked = 0, expired = 0, released = 0, unreadable = 0;
 volatile LONG killed = 0, killSkippedFamily = 0, componentMissing = 0, identityChanged = 0;
 
 // The second queue: actors whose scripted death message still has to be said.
-// Same rule as the kill queue - the worker only queues, the game thread calls.
+// Same rule as the kill queue: the worker only queues, the game thread calls.
 bool releaseEnabled = true;
 bool sendVerified = false;
 struct Stranded { uint32_t actor = 0, vtable = 0; Guid guid{}; bool inVent = false; };
 
 // Death proxies (19.09.2026, a friend's softlocks). The post-create hook
-// transplants the SOURCE enemy's death message into the replacement's
-// attributes; when that fails (the friend's run: 27 not_found, the donor's own
-// message is nowhere in its components - crawler `turret_crawler_01_dead`,
-// pack boy `var_inc_decompression_pack`, several TubeBeetle/PackEnemy donors)
-// the replacement dies with a message the room is not waiting for, and a
+// transplants the source enemy's death message into the replacement's
+// attributes. When that fails (the friend's run: 27 not_found, the donor's own
+// message nowhere in its components: crawler `turret_crawler_01_dead`, pack
+// boy `var_inc_decompression_pack`, several TubeBeetle/PackEnemy donors) the
+// replacement dies with a message the room is not waiting for, and a
 // quarantine that counts deaths never completes. Nothing caught that before:
 // ReleaseScriptedDeath only speaks for actors that could never die.
 //
@@ -105,14 +105,14 @@ struct Stranded { uint32_t actor = 0, vtable = 0; Guid guid{}; bool inVent = fal
 // source would have sent. The logging worker watches its state machines; the
 // first time the dead table shows up, the game thread dispatches that message
 // once (registered names only, identity re-checked). An actor that vanishes
-// without a witnessed death is dropped, not spoken for - a room left behind
+// without a witnessed death is dropped, not spoken for: a room left behind
 // must not have its door opened from afar.
 struct DeathProxy { uint32_t actor = 0, vtable = 0; Guid guid{}; uint32_t hash = 0; char name[48]{}; bool queued = false, announced = false; };
 constexpr size_t kDeathProxyCapacity = 64;
 DeathProxy deathProxies[kDeathProxyCapacity]{};
 DeathProxy deathQueue[16]{};
 volatile LONG deathQueued = 0;
-volatile LONG proxiesRegistered = 0, proxiesSent = 0, proxiesUnregistered = 0, proxiesLost = 0, proxiesFaults = 0, proxiesFull = 0;
+volatile LONG proxiesRegistered = 0, proxiesSent = 0, proxiesUnregistered = 0, proxiesLost = 0, proxiesFaults = 0, proxiesFull = 0, proxiesTeardown = 0;
 bool deathProxyEnabled = true;
 Stranded releaseQueue[kQueueCapacity]{};
 volatile LONG releaseQueued = 0;
@@ -125,12 +125,10 @@ bool ReadAt(uintptr_t address, void* output, size_t bytes) {
                                         output, bytes, &done) && done == bytes;
 }
 
-// A component whose vtable is one of the two health vtables and whose owner
-// points back at this actor. The back-pointer is what rules out a coincidence.
-// Every component the actor owns, recognised the same way the health component
-// is: a pointer inside the actor to an object whose owner field points back.
-// The four script messages sit on three different components, so a search that
-// only knows the health one misses two of them.
+// Every component the actor owns: a pointer inside the actor to an object
+// whose owner field points back at it. The four script messages sit on three
+// different components, so a search that only knows the health one misses two
+// of them.
 template<class Sink>
 void ForEachComponent(uint32_t actor, Sink sink) {
     // The same component pointer is stored at more than one offset inside an
@@ -156,6 +154,8 @@ void ForEachComponent(uint32_t actor, Sink sink) {
     }
 }
 
+// A component whose vtable is one of the two health vtables and whose owner
+// points back at this actor. The back-pointer is what rules out a coincidence.
 uint32_t FindHealthComponent(uint32_t actor) {
     const uint32_t health = static_cast<uint32_t>(moduleBase + kHealthVtableRva);
     const uint32_t dismemberable = static_cast<uint32_t>(moduleBase + kDismemberableVtableRva);
@@ -171,8 +171,6 @@ uint32_t FindHealthComponent(uint32_t actor) {
     return 0;
 }
 
-// Walks one actor's machine tree: root at tree+0x04, then children and
-// siblings. Bounded and cycle-guarded, because the memory may already be junk.
 // Where an actor stands, for the reports below: entity +0xC0 (x y z), the
 // same field the placement readout and the extra spawns use. "(?)" when the
 // actor cannot be read. A friend's softlock (21.09.2026, church sanctuary)
@@ -186,6 +184,8 @@ const char* ActorPositionText(uint32_t actor, Reader& read, char* out, size_t si
     return out;
 }
 
+// Walks one actor's machine tree: root at tree+0x04, then children and
+// siblings. Bounded and cycle-guarded, because the memory may already be junk.
 template<class Reader, class Visit>
 void ForEachMachine(uint32_t actor, Reader& read, Visit visit) {
     // The tree is embedded in the actor, not a pointer stored there: every
@@ -264,11 +264,12 @@ bool InstallKill(uintptr_t baseAddress, FILE* log) {
         killEnabled = false;
     }
     // The dispatch is checked from its sixth byte on. Its first five may already
-    // carry an inline hook of ours - the horde feature and the message trace both
-    // sit on that instruction - and reading a jmp there would look like the
-    // function had moved. What is checked instead cannot be coincidence: the
-    // exact instruction run that loads the message registry, plus the registry
-    // address it loads, which has to be the one this plugin already uses.
+    // carry one of this plugin's inline hooks (the horde feature and the message
+    // trace both sit on that instruction), and reading a jmp there would look
+    // like the function had moved. What is checked instead cannot be
+    // coincidence: the exact instruction run that loads the message registry,
+    // plus the registry address it loads, which has to be the one this plugin
+    // already uses.
     const unsigned char sendTail[] = {0x8B,0x0A,0x56,0x8B,0xF1,0x57,0x8B,0x3D};
     unsigned char tail[sizeof(sendTail)]{};
     uint32_t registry = 0;
@@ -399,9 +400,9 @@ __declspec(noinline) bool DispatchMessage(uintptr_t sendAddress, uint32_t hash) 
 // Say, on behalf of an actor that can no longer die, the thing the level was
 // waiting to hear. Game thread only.
 //
-// The message is deliberately NOT cleared afterwards. Two actors can share one
-// authored attribute block - spawn 14 and spawn 15 of the hospital lobby both
-// pointed at header 243873C0 on 2026-09-16 - so clearing one would silence the
+// The message is deliberately not cleared afterwards. Two actors can share one
+// authored attribute block (spawn 14 and spawn 15 of the hospital lobby both
+// pointed at header 243873C0 on 2026-09-16), so clearing one would silence the
 // other, which is the very failure this exists to undo. Each actor is queued at
 // most once, because the tracker retires it in the same breath, and an actor
 // that reaches here has already been condemned as unable to build a single
@@ -465,7 +466,16 @@ void ProxyDeath(uint32_t actor, uint32_t hash, const char* name) {
 // game thread. Gone without a witnessed death: dropped.
 template<class Reader>
 void PollDeathProxies(FILE* log, Reader& read) {
-    for (auto& p : deathProxies) {
+    // Classify first, report second. A checkpoint restart tears the level's
+    // enemies down in one go: several proxied actors vanish in the same pass and
+    // the rest sit in the dead table on their way out. Their messages would land
+    // in the level being rebuilt (friend log 20, 22.09.2026: 14 said, 16 lost in
+    // one second). Real multi-kills lose no actor, so two lost in one pass is the
+    // teardown signature.
+    size_t lostNow = 0;
+    bool dying[std::size(deathProxies)]{};
+    for (size_t i = 0; i < std::size(deathProxies); ++i) {
+        auto& p = deathProxies[i];
         if (!p.actor || p.queued) continue;
         if (!p.announced) {
             // the post-create hook has no log handle; the worker announces
@@ -480,14 +490,32 @@ void PollDeathProxies(FILE* log, Reader& read) {
             InterlockedIncrement(&proxiesLost);
             std::fprintf(log, "watchdog death_proxy lost actor=%08X message=%s (actor gone before a death was seen)\n", p.actor, p.name);
             p = DeathProxy{};
+            ++lostNow;
             continue;
         }
-        bool dead = false;
         ForEachMachine(p.actor, read, [&](uint32_t sm) {
             uint32_t id = 0;
-            if (read(sm + machine::kTableId, &id, 4) && id == machine::kDeadTable) dead = true;
+            if (read(sm + machine::kTableId, &id, 4) && id == machine::kDeadTable) dying[i] = true;
         });
-        if (!dead) continue;
+    }
+    if (lostNow >= 2) {
+        // whatever still waits for the game thread belongs to the same teardown
+        InterlockedExchange(&deathQueued, 0);
+        LONG dropped = 0;
+        for (size_t i = 0; i < std::size(deathProxies); ++i) {
+            if (!dying[i] && !deathProxies[i].queued) continue;
+            deathProxies[i] = DeathProxy{};
+            ++dropped;
+        }
+        InterlockedExchangeAdd(&proxiesTeardown, dropped);
+        if (dropped)
+            std::fprintf(log, "watchdog death_proxy teardown lost=%zu dropped=%ld (level restart, deaths not said)\n",
+                         lostNow, dropped);
+        return;
+    }
+    for (size_t i = 0; i < std::size(deathProxies); ++i) {
+        auto& p = deathProxies[i];
+        if (!dying[i]) continue;
         const LONG count = InterlockedCompareExchange(&deathQueued, 0, 0);
         if (count >= static_cast<LONG>(std::size(deathQueue))) continue;   // next second
         deathQueue[count] = p;
@@ -519,7 +547,8 @@ void SayProxiedDeath(const DeathProxy& p) {
     for (auto& q : deathProxies) if (q.actor == p.actor && q.hash == p.hash) q = DeathProxy{};
 }
 
-// Game thread. Hot path: a single atomic read and out when nothing is queued.
+// Game thread, on every state machine update. With nothing queued it only runs
+// the table check and the game-thread work; each queue is one atomic read.
 void OnTick(SafetyHookContext& context) {
     OnMachineTick(context.ecx);
     if (gameThreadWork) gameThreadWork();
@@ -798,14 +827,11 @@ void Poll(FILE* log, Reader& read) {
             // would open a door in front of a living enemy, which is a worse
             // bug than the one being fixed.
             //
-            // Below the kill decision on purpose. A full kill queue breaks out
-            // above and leaves the entry tracked, so the same actor comes back
-            // through this case on the next pass. Queued before that break, its
-            // message would be said twice, and a room that counts deaths would
-            // count one enemy as two.
-            // A queued kill produces the real death and with it the message; a
-            // release on top would say it twice, and a room that counts deaths
-            // would count one enemy as two (21.09.2026).
+            // Below the kill decision on purpose, and never next to a queued
+            // kill: a full kill queue breaks out above and the actor comes back
+            // on the next pass, and a queued kill produces the real death with
+            // its message. Either way a release here would say it twice, and a
+            // room that counts deaths would count one enemy as two (21.09.2026).
             if (releaseEnabled && sendVerified && (!living || (stillInVent && !willKill))) {
                 const LONG waiting = InterlockedCompareExchange(&releaseQueued, 0, 0);
                 if (waiting < static_cast<LONG>(kQueueCapacity)) {
@@ -879,10 +905,11 @@ void WriteDiagnostics(FILE* log) {
     {
         LONG pending = 0;
         for (const auto& p : deathProxies) if (p.actor) ++pending;
-        std::fprintf(log, "watchdog death_proxy registered=%ld sent=%ld unregistered=%ld lost=%ld faults=%ld full=%ld pending=%ld\n",
+        std::fprintf(log, "watchdog death_proxy registered=%ld sent=%ld unregistered=%ld lost=%ld faults=%ld full=%ld pending=%ld teardown=%ld\n",
                      InterlockedCompareExchange(&proxiesRegistered, 0, 0), InterlockedCompareExchange(&proxiesSent, 0, 0),
                      InterlockedCompareExchange(&proxiesUnregistered, 0, 0), InterlockedCompareExchange(&proxiesLost, 0, 0),
-                     InterlockedCompareExchange(&proxiesFaults, 0, 0), InterlockedCompareExchange(&proxiesFull, 0, 0), pending);
+                     InterlockedCompareExchange(&proxiesFaults, 0, 0), InterlockedCompareExchange(&proxiesFull, 0, 0), pending,
+                     InterlockedCompareExchange(&proxiesTeardown, 0, 0));
     }
     std::fprintf(log, "watchdog release: messages=%ld no_message=%ld unregistered=%ld "
                       "identity_changed=%ld faults=%ld queued=%ld\n",

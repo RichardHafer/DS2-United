@@ -12,15 +12,16 @@ volatile LONG streamProbeCalls = 0, streamProbeResult = 0, streamProbeHandle = 0
 volatile LONG streamProbePrerequisite = -1;
 DWORD streamProbeThread = 0, streamProbeTick = 0, streamResumeTick = 0;
 unsigned streamProbeAttempts = 0;
-// A request that never completes used to hold our lock for the rest of the run,
-// because only the Waiting state was bounded. One sample per second, so 120s.
+// A request that never completes used to keep the pool locked for the rest of
+// the run, because only the Waiting state was bounded. One sample per second,
+// so 120 s.
 unsigned streamLoadingAttempts = 0;
 constexpr unsigned kStreamLoadingCeiling = 120;
-// Our private root is locked, so the native cleanup pass skips it. Its
+// The private pool root is locked, so the native cleanup pass skips it. Its
 // prerequisites are ordinary shared character streams and are not skipped, so a
-// room change can free the state tables of NPCs we built from the pool while
+// room change can free the state tables of NPCs built from the pool while
 // those NPCs are still ticking. Pinning holds a reference on each verified
-// prerequisite for as long as we hold the root.
+// prerequisite for as long as the root is held.
 bool pinPrerequisites = false;
 constexpr unsigned kMaxPinnedStreams = 64;
 uint32_t pinnedStreams[kMaxPinnedStreams]{};
@@ -216,7 +217,7 @@ volatile LONG fileSlotWaits = 0;
 bool FileSlotsBusy() {
     uint32_t slots = 0;
     const uint32_t used = FileSlotsUsed(slots);
-    // slot 0 is never handed out, so "slots - 1" is the real capacity
+    // slot 0 is never handed out, so the real capacity is one less than `slots`
     if (slots && used + 2 >= slots) { InterlockedIncrement(&fileSlotWaits); return true; }
     return false;
 }
@@ -343,7 +344,7 @@ void OnStreamServiceRetired(SafetyHookContext&) {
 // release, stream-manager destruction, and just before the streaming service is
 // destroyed. Every one of them crashed somewhere else. None of it was the
 // timing. The pool carried retail entity identities, so a level entity ended up
-// bound to our stream and outlived the teardown that should have taken it.
+// bound to the pool stream and outlived the teardown that should have taken it.
 //
 // With unique identities in the pool this point works, which is also the point
 // the engine uses for every stream of its own.
@@ -351,10 +352,10 @@ bool releasePoolAtLevelRelease = true;
 
 // Never release the pool at all. Off, and it should stay off.
 //
-// It was written when every release point still crashed in the teardown of our
-// own stream, and it does remove the crash, by hanging instead. The transition
-// waits for the streams to go, our locked root never does, and the loading
-// screen stays up forever with the game happily ticking behind it.
+// It was written when every release point still crashed in the teardown of the
+// pool stream, and it does remove the crash, by hanging instead. The transition
+// waits for the streams to go, the locked root never does, and the loading
+// screen stays up forever with the game ticking behind it.
 //
 // The crashes were the identity collision, not the timing: once every entity in
 // the pool carried its own GUID, releasing at the level's own release point
@@ -429,7 +430,7 @@ void OnServiceTeardown(SafetyHookContext&) {
     const uint32_t manager = streamLifetime.manager;
     ReleasePoolRoot(manager);
     // Unlocking only clears the skip flag. The level's release point suppressed
-    // the native sweep for our root, so nothing has actually torn the stream
+    // the native sweep for the pool root, so nothing has actually torn the stream
     // down, and its consumers still hold resource references that they hand
     // back through the streaming service when SimManager cleanup destroys them
     // at 0x00413904, by which time the service is gone. Run the same sweep the
@@ -440,7 +441,7 @@ void OnServiceTeardown(SafetyHookContext&) {
     //             0074B060(manager, record, 0)
     //
     // At this point the level's own pass has already been through, so the only
-    // record left for it to find is ours.
+    // record left for it to find is the pool's.
     using Sweep = void (__thiscall*)(void*);
     reinterpret_cast<Sweep>(base + 0x34B8D0)(reinterpret_cast<void*>(manager));
     InterlockedIncrement(&streamReleaseSwept);
@@ -503,14 +504,14 @@ void OnStreamUpdate(SafetyHookContext& ctx) {
             InterlockedExchange(&streamProbeResult, 15); return;
         }
         streamLifetime.finishTeardown();
-          streamTransition.reset();
-          streamProbeAttempts = 0;
-          streamLoadingAttempts = 0;
-          streamProbeTick = 0;
-          streamSelectionHoldoff = 0;
-          InterlockedExchange(&streamSelectionAllowed, 0);
-          InterlockedExchange(&streamProbeHandle, 0);
-          InterlockedIncrement(&streamResumes);
+        streamTransition.reset();
+        streamProbeAttempts = 0;
+        streamLoadingAttempts = 0;
+        streamProbeTick = 0;
+        streamSelectionHoldoff = 0;
+        InterlockedExchange(&streamSelectionAllowed, 0);
+        InterlockedExchange(&streamProbeHandle, 0);
+        InterlockedIncrement(&streamResumes);
     }
     if (!streamLifetime.attach(manager)) return;
     const auto now = GetTickCount();
@@ -570,7 +571,7 @@ void OnStreamUpdate(SafetyHookContext& ctx) {
         if (status == 3) {
             streamLoadingAttempts = 0;
         } else if (++streamLoadingAttempts > kStreamLoadingCeiling) {
-            // Give the lock back rather than hold a level hostage to our own request.
+            // Give the lock back rather than hold a level hostage to the pool request.
             ReleaseModelStreams(manager);
             if (streamProbeLocked && streamLifetime.handle) {
                 using Unlock = bool (__thiscall*)(void*, uint32_t);
@@ -637,27 +638,43 @@ void RecheckStreamGraph() {
     InterlockedExchange(&streamProbeResult, 19);
 }
 
+constexpr uint32_t kStreamUpdateRva = 0x34BBC0, kStreamLoadRva = 0x34BDD0;
+constexpr char kStreamUpdateBytes[] = "\x83\xEC\x08\x53\x8B\xD9\xE8\x45\xCF\x0C\x00";
+
 bool InstallStreamProbe(FILE* log) {
     if (!VerifyStreamProbeFiles(log)) return false;
+    // Held through the check and the install, so a co-op hook is never seen half written.
+    hook_site::Lock siteLock(static_cast<uint32_t>(base + kStreamUpdateRva));
+    hook_site::Lock loadLock(static_cast<uint32_t>(base + kStreamLoadRva));
     const struct { uint32_t rva; const char* bytes; size_t size; } signatures[] = {
         {0x10686, "\x8B\x0D\x98\xC0\x01\x02\xE8\x3F\xB2\x33\x00", 11},
         {0x138E8, "\x8B\x0D\x28\x13\x02\x02\xE8\xAD\xC1\x39\x00", 11},
         {0x138D6, "\x8B\x0D\xC8\xC0\x01\x02\x85\xC9\x74\x08", 10},
         {0x34B8D0, "\x56\x57\x8B\xF9\x8B\x47\x7C\x85\xC0\x74\x22", 11},
-        {0x34BBC0, "\x83\xEC\x08\x53\x8B\xD9\xE8\x45\xCF\x0C\x00", 11},
+        {kStreamUpdateRva, kStreamUpdateBytes, sizeof(kStreamUpdateBytes) - 1},
         {0x34BC90, "\x83\xEC\x1C\x56\x8B\xF1\x33\xC9", 8},
-        {0x34BDD0, "\x81\xEC\x24\x01\x00\x00\x53\x55\x8B\xE9", 10},
+        {kStreamLoadRva, "\x81\xEC\x24\x01\x00\x00\x53\x55\x8B\xE9", 10},
         {0xDAA0, "\x8B\x44\x24\x04\x50\xE8\x91\x68\xFF\xFF", 10},
         {0x34AC80, "\x8B\x44\x24\x04\x53\x50\x32\xDB\xE8\xAE\x96\xCB\xFF", 13},
         {0x34ACB0, "\x8B\x44\x24\x04\x53\x50\x32\xDB\xE8\x7E\x96\xCB\xFF", 13},
         {0x376440, "\x8B\x44\x24\x0C\x8B\x54\x24\x08\x56\x50\x52\xE8\xC0\xFE\xFF\xFF", 16}
     };
+    // Function entries may carry another plugin's hook: the stream update is
+    // hooked by the co-op leaper (this hook chains behind it), and Load, which
+    // is only called here, by DS2Coop's render stall probe (the call runs
+    // through it). Until 05.10. any such hook made the probe give up the pool.
+    const uint32_t entries[] = {kStreamUpdateRva, kStreamLoadRva, 0x34B8D0, 0xDAA0, 0x34AC80, 0x34ACB0, 0x376440};
     for (const auto& signature : signatures) {
         unsigned char actual[16]{};
-        if (!Read(base + signature.rva, actual, signature.size) ||
-            std::memcmp(actual, signature.bytes, signature.size)) {
+        const auto bytes = reinterpret_cast<const unsigned char*>(signature.bytes);
+        const bool entry = std::find(std::begin(entries), std::end(entries), signature.rva) != std::end(entries);
+        const auto state = Read(base + signature.rva, actual, signature.size)
+            ? hook_site::Inspect(actual, bytes, signature.size) : hook_site::State::Foreign;
+        if (state == hook_site::State::Foreign || (state == hook_site::State::Hooked && !entry)) {
             std::fprintf(log, "stream_probe signature_mismatch rva=%08X\n", signature.rva); return false;
         }
+        if (state == hook_site::State::Hooked)
+            std::fprintf(log, "stream_probe rva=%08X carries another plugin's hook; calling through it\n", signature.rva);
     }
     streamServiceCreateHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x138E8), OnStreamServiceRetired);
     if (!streamServiceCreateHook) return false;
@@ -671,8 +688,9 @@ bool InstallStreamProbe(FILE* log) {
     if (!streamServiceTeardownHook) {
         streamDestroyHook.reset(); streamLevelReleaseHook.reset(); streamServiceCreateHook.reset(); return false;
     }
-    streamUpdateHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x34BBC0), OnStreamUpdate);
-    if (!streamUpdateHook) {
+    if (!hook_site::InstallMid(log, "stream_probe stream update", base + kStreamUpdateRva,
+                               reinterpret_cast<const unsigned char*>(kStreamUpdateBytes), sizeof(kStreamUpdateBytes) - 1,
+                               OnStreamUpdate, streamUpdateHook)) {
         streamServiceTeardownHook.reset(); streamDestroyHook.reset();
         streamLevelReleaseHook.reset(); streamServiceCreateHook.reset(); return false;
     }

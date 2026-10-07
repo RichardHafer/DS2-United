@@ -566,7 +566,7 @@ def main():
                 row=1 + index // 3, column=index % 3, sticky="w", padx=(0, 18))
             boxes[name] = variable
         # Row 0 is the heading, then ceil(n/3) rows of checkboxes, then the note
-        # and the buttons - each on its own row, or they land in the same cell.
+        # and the buttons, each on its own row, or they land in the same cell.
         last = 1 + (len(families) - 1) // 3
         ttk.Label(body, text="No tick at all removes the restriction. The INI stays above this: a family "
             "switched off there is never selected, whatever is ticked.", wraplength=520).grid(

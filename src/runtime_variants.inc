@@ -67,8 +67,9 @@ void OnSetAnimSpeed(SafetyHookContext& ctx) {
         if (!entry.actor || entry.actor != ctx.ecx || entry.speed == 1.0f) continue;
         uint32_t vtable = 0;
         Guid guid{};
+        // A stale entry for a reused address must not hide a newer one behind it.
         if (!Read(entry.actor, &vtable, 4) || vtable != entry.vtable ||
-            !Read(entry.actor + 0x24, guid.data(), 16) || guid != entry.guid) return;
+            !Read(entry.actor + 0x24, guid.data(), 16) || guid != entry.guid) continue;
         float value = 0.0f;
         if (!Read(ctx.esp + 4, &value, 4)) return;
         if (WriteFloat(ctx.esp + 4, value * entry.speed)) InterlockedIncrement(&callsScaled);
@@ -115,7 +116,7 @@ void OnAttachModel(SafetyHookContext& ctx) {
     Guid current{};
     Read(ctx.esp + 4, &entry, 4);
     if (entry) Read(entry + 0x1C, current.data(), 16);
-    // interesting: a pool copy, a variant copy, or a model any skin is about
+    // logged: a pool copy, a variant copy, or a model any skin is about
     const bool copy = guid[2] == 0x4D444E52u && (guid[3] == 0x4C4F4F50u || guid[3] == 0x56415249u);
     bool skinModelOfAnyone = false;
     for (const auto& owner : ds2::kSkinOwners)
@@ -148,13 +149,12 @@ void FlushAttach(FILE* log) {
 }
 
 // Sound events reach the audio system through the Lua bridge
-// LuaToEarsAudioGlue::PlayEntityEmx (PC 0x007B07E0, lua C function at
-// 0x7B0BC0): argument 1 is the event name ("exploder_attack.emx"), argument 5
-// the entity. Argument 1 is only type checked; the event name is Lua argument 7,
-// no: argument 1 is the name; it is kept in a stack slot and loaded into edx at 0x007B0A33 for
-// Entity::PlaySound (vtable+0xA8). At 0x007B0A37 edx is that name and ebx the
-// entity in ebx (resolved through 0x404D72 with class hash 38523FC3). A
-// skinned variant's events are renamed here, the DS1 way: the string in the
+// LuaToEarsAudioGlue::PlayEntityEmx (PC 0x007B07E0, Lua C function at
+// 0x007B0BC0): argument 1 is the event name ("exploder_attack.emx"), argument 5
+// the entity. The name is kept in a stack slot and loaded into edx at
+// 0x007B0A33 for Entity::PlaySound (vtable+0xA8). At 0x007B0A37 edx is that
+// name and ebx the entity (resolved through 0x404D72 with class hash
+// 38523FC3). A skinned variant's events are renamed here, the DS1 way: the string in the
 // animation bank turned out not to be what is played (13.09., "mixed" sounds
 // with every bank layout), so the swap happens where the name is consumed.
 // Every call of an owner, and of any entity whose name mentions a skin's

@@ -2,8 +2,8 @@
 // handful of texture identities: the skin's own textures and the base
 // exploder's. A tg4h creates the texture entry, a tg4d looks the entry up by
 // crc32(group + name) (0x013D4260) and downloads the pixels (0x013DBFA0).
-// The first skin test drew black, so which of these steps our copies reach is
-// what this records. Read only, off unless TextureProbe=1.
+// The first skin test drew black, so this records which of these steps the
+// skin copies reach. Read only, off unless TextureProbe=1.
 namespace texture_probe {
 safetyhook::MidHook headerHook, lookupHook, downloadHook;
 bool enabled = false;

@@ -1,7 +1,7 @@
 """Embed the message an enemy sends when it dies.
 
 A scripted room does not count corpses, it counts messages. Each authored enemy
-carries one on its health component - `CMD_SetOnDeathMessage` - and the level
+carries one on its health component (`CMD_SetOnDeathMessage`), and the level
 waits for it: the four slashers in the hospital lobby all send
 `hospital_lobby_slasher_dead`, and names like `var_op_slasher_count_decre` say
 plainly what the listener does with it.
@@ -35,7 +35,7 @@ def main():
     index = {(r["archive"], r["asset"], int(r["entity_index"])): g for g, r in targets.items()}
 
     # The field is a self-relative string pointer (flags 17), so the number in
-    # the archive is a file offset and means nothing at runtime - embedding it
+    # the archive is a file offset and means nothing at runtime; embedding it
     # was the reason the first attempt reported not_found every single time.
     # The name is what survives, so both the name and the engine's hash of it go
     # into the table and the runtime can look for either.

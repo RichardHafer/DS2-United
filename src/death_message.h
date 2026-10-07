@@ -8,11 +8,10 @@ namespace ds2 {
 //
 // A scripted room counts messages, not corpses. `CMD_SetOnDeathMessage` on the
 // health component is the one the level listens for: the hospital lobby waits
-// for five times `hospital_lobby_slasher_dead` - read out of the running game on
+// for five times `hospital_lobby_slasher_dead` (read out of the running game on
 // 2026-09-16, where a `VariableOperator` adds one per message and a
-// `VariableWatcher` opens up at a threshold of five; an earlier guess of four in
-// this comment was wrong. Names like `var_op_slasher_count_decre` say what the
-// listener does with it. Three more
+// `VariableWatcher` opens up at a threshold of five). Names like
+// `var_op_slasher_count_decre` say what the listener does with it. Three more
 // fields behave the same way: the end of a spawn, a health change, and noticing
 // the player. A donor carries its own, from its own level, so the count never
 // completes and the door stays shut.
@@ -22,9 +21,9 @@ namespace ds2 {
 // what survives, so a message is carried as both the name and the engine's hash
 // of it, and the runtime looks for whichever the header actually holds.
 //
-// Nothing is written on a guess. The donor's own message is known too, so the
-// header is searched for exactly that: found once, that is the field; found
-// twice or not at all, the enemy is left alone.
+// Nothing is written on a guess. The field is found through the component's
+// class descriptor, and the donor's own message, when it has one, has to be
+// standing there. Anything else leaves the enemy alone.
 struct ScriptMessages {
     ScriptMessage death{}, healthModified{}, spawnDone{}, aware{};
     bool any() const {
@@ -52,7 +51,7 @@ inline unsigned deathMessageFor(const Guid& guid) {
 
 enum class DeathMessageResult : unsigned {
     NotNeeded, SourceHasNone, DonorHasNone, HeaderUnreadable, NotFound, Ambiguous,
-    WrittenAsHash, WrittenAsPointer, WriteFailed, Cleared, ClearedUnregistered
+    WrittenAsHash, WrittenAsPointer, WriteFailed, Cleared, ClearedUnregistered, SharedHolders
 };
 
 inline const char* deathMessageResultName(DeathMessageResult result) {
@@ -68,6 +67,7 @@ inline const char* deathMessageResultName(DeathMessageResult result) {
         case DeathMessageResult::WriteFailed: return "write_failed";
         case DeathMessageResult::Cleared: return "cleared_foreign";
         case DeathMessageResult::ClearedUnregistered: return "cleared_unregistered";
+        case DeathMessageResult::SharedHolders: return "shared_holders";
     }
     return "unknown";
 }
@@ -223,7 +223,7 @@ inline constexpr uint32_t kMessageKeyOffset = 0x10;
 // Writing zero is safe because the caller checks for it first. Writing a hash
 // is only safe if the name is registered, so ask before writing.
 inline constexpr uint32_t kMessageCountOffset = 0x14;   // 16-bit, on the table entry
-inline constexpr uint32_t kOwnerCountOffset = 0x06;     // 16-bit, on the field we write
+inline constexpr uint32_t kOwnerCountOffset = 0x06;     // 16-bit, on the field that is written
 
 // The table entry for this name, or 0 when the engine does not know it.
 template<class Read>
@@ -249,8 +249,8 @@ bool messageRegistered(uint32_t moduleBase, uint32_t hash, Read read) {
 }
 
 // What the engine's own reference function (0x00756380) does after it has
-// found the entry: one on the entry's count, one on the owner's. The field we
-// write IS that owner (the hash sits at +0, the 16-bit count at +6), and the
+// found the entry: one on the entry's count, one on the owner's. The field
+// written here is that owner (the hash sits at +0, the 16-bit count at +6), and the
 // release function undoes exactly this pair. A hash that was written without
 // this step is released against an entry that was never told about it; when
 // the level's own holders let go and the entry is freed, that release walks an
@@ -354,16 +354,24 @@ DeathMessageResult writeScriptMessage(const MemoryRegion* components, size_t com
     // Two actors can share one authored attribute block when the randomizer
     // sends two spawn points to the same pool record. The first writes the
     // source's hash; the second then finds neither its donor's hash nor an
-    // empty field and used to be counted as `not_found`. Nothing was wrong -
-    // the field held exactly what the second one wanted, and it did send the
-    // right message - but the log said `refused=1`, and a refusal in the log is
-    // what a stuck door gets blamed on. Seen on 2026-09-16 with spawns 15 and 16
+    // empty field and used to be counted as `not_found`. Nothing was wrong (the
+    // field held exactly what the second one wanted, and it did send the right
+    // message), but the log said `refused=1`, and a refusal in the log is what
+    // a stuck door gets blamed on. Seen on 2026-09-16 with spawns 15 and 16
     // of the hospital lobby, both pointing at header 38C08F58, in a run whose
     // quarantine counter reached its full five.
     if (before == wanted.hash) return DeathMessageResult::NotNeeded;
     // When the donor carries a message of its own, that is what has to be
     // standing there. It confirms the offset on every single use.
     if (carried.hash && before != carried.hash) return DeathMessageResult::NotFound;
+    // The field sits in the attribute block every spawn of this donor shares, and
+    // the count at +6 says how many live actors hold it. A new name written under
+    // other holders becomes theirs too: in the ch03 funeral chapel an infector
+    // from slot 6 would report slot 15. Only the actor built just now may hold it;
+    // otherwise the death proxy says the message for this one.
+    uint16_t holders = 0;
+    if (wanted.hash && (!read(target + kOwnerCountOffset, &holders, 2) || holders > 1))
+        return DeathMessageResult::SharedHolders;
     // The source's own name should be registered while its level is up, but
     // "should" is what the release function does not check either. If it is not
     // there, zero is the only value that cannot crash on teardown. The message

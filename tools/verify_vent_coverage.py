@@ -1,7 +1,7 @@
 """Check offline which vent spawns can be replaced, by whom, and whether the
 donor can actually get out of the vent.
 
-This reproduces the plugin's own rule - `compatibleVent` in `src/selection.h` -
+This reproduces the plugin's own rule (`compatibleVent` in `src/selection.h`)
 against the data the plugin actually carries, `src/generated_enemy_catalog.h`,
 so a mismatch between rule and data shows up here instead of in the game.
 

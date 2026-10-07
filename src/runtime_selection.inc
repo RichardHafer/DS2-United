@@ -108,6 +108,10 @@ std::set<std::string> ventFamilyBlocked;
 unsigned ventFamilyBlockedRecords = 0;
 unsigned poolFamilyUnpackaged = 0;
 unsigned poolPassiveDonors = 0;
+unsigned withdrawnDonors = 0;
+const Guid kWithdrawnDonors[] = {
+    {0x30CA2DABu, 0x7FED4260u, 0x4D444E52u, 0x4C4F4F50u},   // pack boy stand-in, no state machines
+};
 bool directDonors = false;
 bool variantsEnabled = false;
 unsigned variantsLoaded = 0;
@@ -169,6 +173,15 @@ void LoadEnemyPool(const std::string& ini) {
     // that is understood it stays off unless asked for.
     directDonors = ConfigInt(ini, "DS2Randomizer", "DirectDonors", 0, 0, 1) != 0;
     if (globalTemplates && directDonors && !ds2::appendDirectDonors(pool)) { globalTemplates = false; poolStageFailed = "direct_donors"; }
+    // Withdrawn donors stay in the file but are never offered. The pack boy
+    // stand-in came up without a single state machine in three friend logs
+    // (18-22.09.2026). With DirectDonors=1 the root it supersedes stays off too.
+    for (auto& record : pool)
+        for (const auto& withdrawn : kWithdrawnDonors)
+            if (record.guid == withdrawn && record.targetEnabled) {
+                record.targetEnabled = false;
+                ++withdrawnDonors;
+            }
     // The Divider and the Ubermorph. Their records are in the pool either way;
     // whether they are ever picked is the ExperimentalClasses switch of their
     // family, which is what decides `ordinary` for the copied source above.
@@ -235,14 +248,14 @@ void LoadEnemyPool(const std::string& ini) {
     // cost is variety in vents and nothing else.
     //
     // It rides on the same ventBlocked flag the blocklist sets, so there is no
-    // second gate to keep in step with compatibleVent - and no second way for
+    // second gate to keep in step with compatibleVent, and no second way for
     // the two to disagree.
     unsigned familyBlocked = 0;
     ventFamilyBlocked.clear();
     for (auto& record : pool) {
         // Only records that could ever have been a vent donor in the first place.
         // Setting the flag on the other 44 of the 57 Lurker records would change
-        // nothing - compatibleVent never sees them - but it would make the log
+        // nothing (compatibleVent never sees them), but it would make the log
         // claim a cost four times the real one.
         if (record.ventBlocked || !record.targetEnabled || !ds2::ventContext(record.context))
             continue;
@@ -309,6 +322,10 @@ void OnLookup(SafetyHookContext& ctx) {
     }
     Guid original{};
     if (!Read(ctx.ebp + 0x0C, original.data(), 16)) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::SourceReadFailed); return; }
+    if (forcedDonorIndex >= pool.size() && IsCorpseTemplate(original)) {
+        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::CorpseTemplate);
+        return;
+    }
     if (ctx.eax == ctx.esp + 0x30) {
         uint32_t levelHandle = 0;
         if (Read(ctx.eax + 0x08, &levelHandle, 4) && levelHandle)

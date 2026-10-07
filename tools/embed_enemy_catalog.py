@@ -24,7 +24,7 @@ arrival_keys = {}
 cross_arrival_keys = {}
 # The same contract with the vent reference taken out. A vent spawn's
 # DSNPCSpawningComponent holds only the mode, the activation flags and a GUID
-# pointing at the vent it uses - verified on all 427 extracted vent spawns, that
+# pointing at the vent it uses. Verified on all 427 extracted vent spawns, that
 # GUID is the row's own vent_guid. So two vent spawns of different species differ
 # in nothing but which vent they were placed on, and the runtime can point a
 # donor at the source's vent. This key is what is left once that pointer is
@@ -37,9 +37,9 @@ scripted_keys = {}
 def chapter_of(name):
     """The chapter an archive belongs to, e.g. ds2dat7\\ch01_hos\\... -> ch01_hos.
 
-    A chapter's NPC design streams are loaded together - a session log shows
+    A chapter's NPC design streams are loaded together (a session log shows
     npcs_observation, npcs_psycho_dev, npcs_surg_ward and npcs_tube_crawl
-    resident at the same time - so a donor from the same chapter is a reasonable
+    resident at the same time), so a donor from the same chapter is a reasonable
     second choice when the source's own archive has none.
     """
     parts = name.split("\\")
@@ -128,7 +128,7 @@ with (root / "analysis/catalog/entities.jsonl").open(encoding="utf-8") as stream
                     # be part of the contract: only a donor authored with the very
                     # same message could be trusted to send it. The runtime now
                     # writes the source's message onto the replacement instead,
-                    # which is what makes a looser key defensible - 26 of the 35
+                    # which is what makes a looser key defensible: 26 of the 35
                     # vent spawns that no donor can reach are held back by this one
                     # field alone. It is the only message field a spawning
                     # component ever carries.

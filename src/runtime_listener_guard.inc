@@ -26,16 +26,10 @@ int __fastcall OnListener(void* self, void*, void* entity, int flag) {
 bool Install(FILE* log) {
     // push esi / mov esi,ecx / test byte [esi+4],1 / jne +0xFC / push edi / mov edi,[esp+0xC]
     static const unsigned char kSite[] = {0x56,0x8B,0xF1,0xF6,0x46,0x04,0x01,0x0F,0x85,0xFC,0x00,0x00,0x00,0x57,0x8B,0x7C};
-    unsigned char actual[sizeof(kSite)]{};
-    if (!Read(base + 0x9C5260, actual, sizeof(actual)) || std::memcmp(actual, kSite, sizeof(kSite)) != 0) {
-        std::fprintf(log, "listener_guard signature_mismatch at %08X; not installed\n", static_cast<unsigned>(base + 0x9C5260));
+    // DS2Coop's world prop hits wrap the same function; whichever comes second chains.
+    if (!hook_site::Install(log, "listener_guard", base + 0x9C5260, kSite, sizeof(kSite),
+                            reinterpret_cast<void*>(OnListener), hook))
         return false;
-    }
-    hook = safetyhook::create_inline(reinterpret_cast<void*>(base + 0x9C5260), reinterpret_cast<void*>(OnListener));
-    if (!hook) {
-        std::fprintf(log, "listener_guard hook_failed at %08X\n", static_cast<unsigned>(base + 0x9C5260));
-        return false;
-    }
     installed = true;
     std::fprintf(log, "listener_guard installed at %08X; null entity returns 0\n", static_cast<unsigned>(base + 0x9C5260));
     return true;

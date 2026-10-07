@@ -1,7 +1,7 @@
 """Decode the authored bench upgrade trees from player_upgrades.lua.
 
 The bench is not packed data: every node and base value is plain Lua text that
-UpgradeManager executes at load. This reads it without running it, so a node we
+UpgradeManager executes at load. This reads it without running it, so a node it
 cannot classify is reported rather than guessed.
 """
 import argparse
