@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace weapon_probe {
 safetyhook::InlineHook hook;
 volatile LONG calls = 0, missing = 0, invalid = 0, wrongOwner = 0, dropped = 0;

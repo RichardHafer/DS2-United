@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Voice packs for the players' characters (runtime_coop_voices.inc): pure logic,
 // no game memory and no audio device. A pack is a folder under plugins\voices

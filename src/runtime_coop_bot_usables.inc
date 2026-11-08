@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // --- power node doors and stasis stations ----------------------------------------------
 // Both are usables in the TargetingManager list ("store rooms") that the game offers a
 // bot like any Player (Player+0x3F4 == entity+0x230) and starts on its use press

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace terminalprop {
 #include "generated_terminal_props.h"
 bool Placed(const uint32_t* guid) {

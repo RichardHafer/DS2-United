@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Guard for a swarm transition check that reads a missing target.
 //
 // Crash 2026-10-09 21:44 at 0x012DB473, campaign with three bots, right after

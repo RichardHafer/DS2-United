@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Pure logic of the multiplayer-map visit (runtime_coop_mpmap.inc): the double
 // key press, map names, GUID text, the per-map entity table lookup, the stream

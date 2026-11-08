@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Frame cap. The elevator hangs of 10.09. and 12.09. were not the game's own
 // high FPS trouble but a load race between the level and the pool request
 // (see runtime_zone_unload.inc); a cap only made the pool win it. The cap stays

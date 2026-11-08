@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Direct actor and camera steps verified in the initiating scene's retail MultiManager.
 namespace scenechain {
 // Mixed listeners in Ellie's street encounter were verified separately in the level scripts.

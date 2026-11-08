@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The survival director without a game: configuration and the shipped
 // template, wave plans and endless growth, substitution, the spawn queue,
 // pacing, spawn point rules, the stuck verdict, rewards, the best-wave file and

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The peer table, checked without a game or a socket.
 #include <cassert>
 #include <cstdio>

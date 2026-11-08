@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/global_stream_lifetime.h"
 #include <cassert>
 #include <iostream>

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The game's own difficulty for the game modes and co-op ([Difficulty], coop_difficulty.h).
 // Evidence: analysis/DIFFICULTY_NATIVE_2026-10-20.md.
 // - Pick (0 off, 1 the SP02 screen, 2 the difficulty row in the map picker): any picker sets the

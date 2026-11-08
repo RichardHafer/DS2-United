@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The aiming laser of the own Isaac's gun ([Coop] LaserDiag, on by default, log only).
 // Players saw it stay on while reloading and stay red (the empty-clip laser) after a reload
 // (02.11.). Gun::UpdateAimingVFX (0x00DC8340, thiscall(gun), returns an Entity*) runs every

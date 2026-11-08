@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The main menu lobby for online survival (coop_lobby.h has the protocol).
 //
 // "host co-op" opens the lobby on [Coop] Port + 2000 and then the map picker;

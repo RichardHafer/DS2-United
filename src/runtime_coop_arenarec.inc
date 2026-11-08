@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Arena recorder ([Arena] in DS2United.ini). RecordKey starts a recording and the
 // next press saves it; MarkKey marks the spot the player stands on. A campaign
 // arena is built from what a walk through its rooms shows:

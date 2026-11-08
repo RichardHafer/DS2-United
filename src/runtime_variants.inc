@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Speed and size for the stat variants, applied at runtime.
 //
 // Neither is authored. The animation playback factor lives in the CCT AnimView,

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The companion bot's decisions, checked without a game.
 #include <cassert>
 #include <cmath>

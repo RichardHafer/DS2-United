@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Re-ghosting after a partner's world was rebuilt.
 //
 // 2026-09-17: sometimes the others stopped seeing the host, mostly after a

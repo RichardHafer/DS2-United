@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/more_enemies.h"
 #include "../src/generated_enemy_catalog.h"
 #include <cassert>

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Included from runtime_coop_templates.inc (kept apart so tests/coop_template_tests.cpp builds the old path alone).
 namespace templates {
 // --- sticky, per partner ([Lifecycle] StickyTemplates) -------------------------------------------

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Effect colours ([Visuals] StasisColor, KinesisColor, LaserColor, WeaponColor and one key per
 // gun, BloodColor; analysis/DS2_FX_COLORS_2026-10-15.md). Every effect buffer passes
 // TFXSequencer::PatchInit 0x006DA2C0 (cdecl(data), AL, only caller VFXManager::LoadInit

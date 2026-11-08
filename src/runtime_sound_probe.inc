@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Which enemies ask for sounds and which of those the audio system finds
 // (DS2Randomizer.ini SoundProbe=1, read only). LuaToEarsAudioGlue::PlayEntityEmx
 // (PC 0x007B07E0) calls Entity::PlaySound(name, opts) at 0x007B0A45. At

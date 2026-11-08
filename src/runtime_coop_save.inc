@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace save_guard {
 safetyhook::InlineHook hook;
 volatile LONG calls = 0, blocked = 0, passed = 0, unknown = 0, dropped = 0;

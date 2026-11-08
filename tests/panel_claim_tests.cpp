@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/coop_panel_claims.h"
 #include <algorithm>
 #include <cassert>

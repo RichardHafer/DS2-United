@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Kinesis for partners.
 //
 // The player's kinesis is a state machine on the local Player only,

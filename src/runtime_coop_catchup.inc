@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Catch up with the partner on a key ([Coop] CatchUpKey, 0 = off).
 //
 // 25.09., ch11 marker test bed: the host shot the glowing fuse next to the

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Profile XP, weapon levels and the MP upgrades they unlock ([Progress];
 // coop_progress.h, analysis/MP_UPGRADES_EFFECTS_2026-10-15.md).
 //

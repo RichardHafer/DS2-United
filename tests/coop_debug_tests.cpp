@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Debug menu: cursor, checkpoint rows, chapter jumps, confirmation, the map.txt table.
 #include <cassert>
 #include <cstdio>

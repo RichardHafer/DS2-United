@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Survival music on the MP maps (runtime_coop_survmusic.inc): pure logic, no
 // game memory. The original MP round music: eight PlayAudioStreams in

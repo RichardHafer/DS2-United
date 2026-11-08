@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The pause menu does not stop the world in co-op ([Coop] PauseKeepsRunning).
 //
 // The engine already knows this rule: PauseManager::PauseLogic (Xbox

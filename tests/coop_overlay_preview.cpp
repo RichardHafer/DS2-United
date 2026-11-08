@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The supply terminal's drawing code (runtime_coop_overlay.inc) against a real
 // Direct3D 9 device, without the game: a pure device with the game's behaviour
 // flags (0x54) draws the panel into 1080p, 1440p and 2160p frames that are saved

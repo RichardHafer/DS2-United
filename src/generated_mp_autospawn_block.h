@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Generated 2026-09-21 from DS2DAT9 global_mp_assets\global_mp_assets.str (SimGroup
 // {34CA0992-6965-6DFC-4152-424F4C454441}): every entity the stream spawns on load
 // (spawn_flags=1) except MPLevelSettings, BoneAimingData, NavAnimSettings and

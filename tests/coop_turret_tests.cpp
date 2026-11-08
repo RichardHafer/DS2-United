@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The turret's arithmetic without a game: placement, target and part choice,
 // the friendly line check, turning, fire pacing, ammunition and heat, and the
 // choices behind the feedback effects.

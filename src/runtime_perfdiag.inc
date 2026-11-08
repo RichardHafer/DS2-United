@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Performance and memory over a long run ([DS2Randomizer] PerfDiag, on by default).
 // For the two open problems of long survival runs: the host's frame rate falls over
 // a run (142 -> 24 fps on 19.10.), and from about wave 27 the inventory loses its

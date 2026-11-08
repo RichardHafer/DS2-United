@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // The bots' state beside one campaign save: a small text file, keyed by the
 // save's own header hash (SDBM over header and body, header +4) and body size

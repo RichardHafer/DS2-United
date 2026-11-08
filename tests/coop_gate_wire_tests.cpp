@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The vote on the wire, checked without a game.
 #include <cassert>
 #include <cstdio>

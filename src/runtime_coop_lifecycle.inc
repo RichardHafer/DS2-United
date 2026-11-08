@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The player lifecycle in the match modes ([Lifecycle], 02.11.): survival, the clock modes,
 // Versus, on the MP maps and in the campaign arenas. Included from runtime_coop_respawn.inc.
 // Design and evidence: analysis/COOP_LIFECYCLE_MODES_2026-11-02.md.

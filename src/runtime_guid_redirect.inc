@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Global record lookup by GUID, redirected to the pool twin on a miss.
 //
 // Pool copies keep the retail records' first two GUID words and swap the

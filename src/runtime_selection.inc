@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 ds2::PoolSettings settings;
 std::vector<ds2::EnemyRecord> pool;
 std::vector<ds2::SelectionPlan> plans;

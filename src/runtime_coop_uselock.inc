@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Machines one player at a time ([Coop] PanelLock): hacking panels, power node doors
 // and the eye poke machine.
 //

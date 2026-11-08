@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Which of the MP maps' vents are open. A VentMarker takes part from its
 // m_activateSelection message until its m_deactivateSelection (the MP necro
 // player's vent choice and the map's own slashers; Marker Lab opens its second

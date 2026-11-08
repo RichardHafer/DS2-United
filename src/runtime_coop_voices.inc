@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Voice packs ([Voices] in DS2United.ini; coop_voices.h). Every player and bot speaks
 // with recorded lines from plugins\voices\<pack>\, played by our own XAudio2 engine
 // (xaudio2_9.dll, loaded at start; X3DAudio comes from the same DLL) at the

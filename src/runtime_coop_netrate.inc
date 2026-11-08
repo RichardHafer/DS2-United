@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The ghost's update rate.
 //
 // Measured in the 16:28 client dump (connection 0x34ABF820): TNL's rate

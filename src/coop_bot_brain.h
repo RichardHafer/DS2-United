@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The companion bot's decisions, without the game.
 //
 // The runtime (runtime_coop_bot.inc) fills a Perception every tick from the

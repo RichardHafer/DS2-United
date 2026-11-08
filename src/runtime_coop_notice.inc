@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // On-screen notices through the RIG announcement, the "RIPPER Schematic
 // Acquired" banner.
 //

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Campaign arenas ([Arena] Arenas in DS2United.ini): survival in a recorded part
 // of the campaign (arenas/*.txt -> tools/build_arenas.py -> generated_arenas.h).
 // - Picked in the survival map picker like an MP map. The level loads at the

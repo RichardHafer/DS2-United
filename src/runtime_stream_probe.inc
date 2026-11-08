@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Native stream ownership and bounded loading diagnostics.
 
 ds2::GlobalStreamLifetime streamLifetime;

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Extra spawns: enemies a spawner brings along, placed where the designer
 // stood. One row per placement in plugins\DS2ExtraSpawns.tsv:

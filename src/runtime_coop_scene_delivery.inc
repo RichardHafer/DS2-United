@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace scene_delivery {
 constexpr uint32_t kAck = 0x31414353;
 constexpr DWORD kPeriod = 150;

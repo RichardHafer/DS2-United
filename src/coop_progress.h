@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Profile and weapon progression (15.10.): the profile level comes from XP
 // (Survival waves and results, the Versus match score), each gun levels by its

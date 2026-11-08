@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Death delivery, checked without a game.
 //
 // This is the one message the mod cannot afford to lose. Every other one is

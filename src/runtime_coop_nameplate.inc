@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Names over the partners' and the bots' heads with the game's own multiplayer
 // nameplate ([Nameplate] in DS2United.ini; analysis/DS2_NATIVE_NAMEPLATES_2026-10-10.md).
 //

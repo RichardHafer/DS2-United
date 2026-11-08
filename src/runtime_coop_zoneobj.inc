@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Hold the Zone opens the MP map ([Zone] OpenObjectives in DS2United.ini).
 //
 // On a Zone visit every machine completes the map's objectives itself, one step

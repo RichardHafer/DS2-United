@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Spawn multiplier runtime adapter.
 //
 // Hook site is FuncSpawn::HandleEvents + 0x24E (RVA 0x00ACB41E), the first

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The mod's own block at the start of the credits (18.10., user). The original credits stay
 // untouched and follow it.
 //

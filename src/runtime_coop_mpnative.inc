@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Versus on the game's own multiplayer systems ([Versus] in DS2United.ini;
 // analysis/DS2_MP_INFRASTRUCTURE_2026-10-11.md). The BlazeHub stays null; the
 // native systems get their answers about players from our roster instead.

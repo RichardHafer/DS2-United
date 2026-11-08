@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // How many corpses, body parts and trash pieces stay in the world ([Lifetime]). The game keeps
 // them in EnemyLifetimeManager ([0x02021350], vtable 0x01B6A840): Bucket[5] at +0x14, stride
 // 0x18, the limit at +0x10 of each (eLifetime 0 CORPSE, 1 BODYPART, 2 TRASH, 3 and 4 the MP

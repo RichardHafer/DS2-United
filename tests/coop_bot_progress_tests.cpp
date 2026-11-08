@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The bots' loadout progression outside the campaign, checked without a game.
 #include <cstdio>
 #include "../src/coop_bot_progress.h"

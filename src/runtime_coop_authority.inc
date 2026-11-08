@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Authority transfer, observation only.
 //
 // Kinesis in the engine's own multiplayer works by handing an object's

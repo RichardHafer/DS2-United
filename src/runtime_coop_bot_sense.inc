@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // What the companion bot knows about the world ([Bot], runtime_coop_bot.inc).
 //
 // One pass over the NetReflectable chain (0x0205B744, entity = node-0x5C,

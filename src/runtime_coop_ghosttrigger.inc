@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Ghosts pull triggers; this is where they let go.
 //
 // TriggerBox::HandleEvents (PC 0x00EBAE30) walks the entities inside its

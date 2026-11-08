@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Two engine crashes co-op exposes ([Coop] CrashGuards). Dumps of 12.10.:
 //
 // Submix release (32996, both machines at once on a Versus exit): with

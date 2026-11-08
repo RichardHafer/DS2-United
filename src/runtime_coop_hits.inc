@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Client hits on host-owned objects.
 //
 // The engine refuses to broadcast damage from a peer that does not own the

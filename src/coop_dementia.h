@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The Dementia mutator's sanity meter (runtime_coop_dementia.inc), without the game.
 #pragma once
 #include <algorithm>

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Campaign arenas: names, the area test, the member merge and the generated table.
 #include <cassert>
 #include <cstdio>

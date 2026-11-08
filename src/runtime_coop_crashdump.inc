@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Crash dumps ([Coop] CrashDumps). 12.10.: the client crashed at
 // deadspace2+0xFB44D7 during a followed scene and nothing was left but the
 // Windows event (no WER dump, no log line). An unhandled exception now writes

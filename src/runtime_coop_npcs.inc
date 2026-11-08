@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace npcs {
 bool enabled = false, client = false;
 // Scripted actors are local. The stasis room (ch01, 17:50): the necromorph

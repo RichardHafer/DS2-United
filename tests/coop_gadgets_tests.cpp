@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The stasis mine's and heal field's arithmetic without a game: reach, target
 // filtering, stasis values, heal clamping, durations, charges and key actions.
 #include <cassert>

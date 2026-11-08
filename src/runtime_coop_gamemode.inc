@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Game modes, picked in the native map picker (MP20, [Menu] Modes): up/down
 // cycles the mode and the map row reads "titan mines [mercenaries]". The
 // survival director asks DS2Coop_GameMode when a run arms; a campaign arena plays

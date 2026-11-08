@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Standalone campaign co-op plugin.
 //
 // The co-op work grew inside the randomizer observer and ended up borrowing

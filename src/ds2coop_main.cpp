@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // DS2United.asi: the randomizer (observer.cpp) and the co-op plugin
 // (coop_plugin.cpp) in one module. Each half keeps its own worker thread, log
 // and settings section; built with DS2COOP_MODULE, their lookups of each

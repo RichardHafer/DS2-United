@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The survival status line ([Hud] in DS2United.ini): wave, enemies left and the
 // break's countdown, small at the top centre of the overlay instead of RIG
 // notices (10.10.: the banners covered the middle of the screen).

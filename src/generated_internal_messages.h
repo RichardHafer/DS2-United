@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Generated from analysis/ds2_message_names_live_2026-09-17.json: every
 // registered message whose name starts with "iMsg": the engine talking to
 // itself (stream loads, renders, gun equips, achievements). Neither held by

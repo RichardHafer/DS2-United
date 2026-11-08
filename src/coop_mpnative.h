@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Versus on the game's own multiplayer systems (analysis/DS2_MP_INFRASTRUCTURE_2026-10-11.md):
 // the roster every machine keeps (who plays, on which team, with which weapon,

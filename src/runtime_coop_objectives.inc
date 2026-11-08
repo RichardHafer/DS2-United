@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The MP objectives' damage on our MP-map visits ([MpMap] ObjectiveDamage).
 // The objectives are DamageableProps with an MPDamageFilter GUID at attrs+0x124
 // and a fixed authored health. In an MP round MPDamageFilter::ApplyFilter

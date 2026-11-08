@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Each Isaac's aim light points where that Isaac aims.
 //
 // The light a Player switches on while aiming is its Flashlight (Player+0x418;

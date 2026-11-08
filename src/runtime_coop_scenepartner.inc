@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The partner in cutscenes ([ScenePartner], off by default; analysis/COOP_CUTSCENES_2026-10-18.md).
 // Every machine plays a cutscene on its own Isaac and hides the partners' ghosts
 // (runtime_coop_cutscene.inc). A scene whose mode is "puppet" shows the partners'

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Respawn on the MP maps instead of reloading the level ([Respawn] in DS2United.ini).
 //
 // The native core of the MP respawn, without the MP-only parts (spawn point

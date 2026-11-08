@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Exercise the production probe without a game process or executable trampoline.
 #include <algorithm>
 #include <array>

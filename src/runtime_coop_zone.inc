@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Hold the Zone on this machine ([Zone] in DS2United.ini shows it, DS2Survival.ini
 // [Zone] plays it). The survival director says where the zone is and how it
 // stands through DS2Coop_SurvivalZone; a host passes that on to its partners

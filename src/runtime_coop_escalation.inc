@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The survival escalation on the co-op side ([Escalation] in DS2Survival.ini,
 // computed by the randomizer's director for the current wave): the companion
 // bots' hits shrink, shop prices grow, and the Ubermorph and the Brute shrug off

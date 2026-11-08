@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // hook_site::Inspect: pristine bytes, a chained jmp with safetyhook's NOP
 // padding, and foreign bytes, at the two sites the randomizer and DS2Coop share.
 #include "../src/hook_site.h"

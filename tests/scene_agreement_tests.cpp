@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Build and run from the project directory:
 // c++ -std=c++17 tests/scene_agreement_tests.cpp -o scene_agreement_tests && ./scene_agreement_tests
 #include <algorithm>

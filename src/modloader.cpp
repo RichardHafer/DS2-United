@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // DS2ModLoader.asi: loose-file mods for Dead Space 2, without touching the .DAT archives.
 //
 // How the game finds a file (read from the 2026-09-19 dump, rw::core::filesystem):

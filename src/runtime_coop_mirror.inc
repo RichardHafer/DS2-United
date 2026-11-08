@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // World mirror: what happens to the host's world happens to everybody's.
 //
 // Each machine runs its own copy of the level logic, and the logic is driven

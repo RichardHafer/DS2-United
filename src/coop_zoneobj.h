@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Hold the Zone opens the MP maps (runtime_coop_zoneobj.inc): pure logic, no
 // game memory. The plans come from tools/build_zone_objectives.py

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The supply terminal's panel, drawn with Direct3D 9 inside the game's own
 // frame (runtime_coop_shop.inc fills the View, coop_shop.h has the layout).
 //

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // A multiplayer map in single player ([MpMap], 2026-10-09).
 //
 // Research: analysis/DS2_MP_MAPS_IN_SP_2026-10-09.md. The engine picks SP or MP

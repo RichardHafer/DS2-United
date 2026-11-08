@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Snapshot only; never repair ownership while entities are being initialized.
 namespace ownership {
 char report[8192]{};

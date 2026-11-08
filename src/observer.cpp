@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 // The plain CRT calls (fopen, sscanf, strncpy) are used on purpose; silences C4996.

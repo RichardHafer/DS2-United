@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The progression gate, checked without a game.
 //
 // The property that matters more than all the others: a held message must

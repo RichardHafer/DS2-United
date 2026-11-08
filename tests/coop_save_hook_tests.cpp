@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Exercise the production callback with a counted original and no game process.
 #include <algorithm>
 #include <cassert>

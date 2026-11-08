@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The game's own difficulty in co-op and the game modes (runtime_coop_difficulty.inc),
 // without the game: names, the picker's rules, the packet fields and the generation
 // rules that keep every machine on the host's value.

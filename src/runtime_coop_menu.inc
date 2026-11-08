@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Survival in the main menu ([Menu] in DS2United.ini).
 //
 // The PC main menu (PC01) shows "survival" in place of "multiplayer" and opens

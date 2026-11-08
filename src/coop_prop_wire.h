@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 constexpr uint32_t kWorldMagic = 0x474D4457; // WDMG
 constexpr uint32_t kWorldVersion = 1;

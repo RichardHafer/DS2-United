@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Map pictures for the campaign arenas and the Outbreak maps ([Menu] MapPictures, on;
 // analysis/ARENA_MAP_PICTURES_2026-10-16.md). The picker (MP20) and the lobby (MP02) pick
 // their picture in ActionScript: gotoAndStop("map" + GetVar("mMapIndex")). mMapIndex is the

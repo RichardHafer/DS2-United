@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Waypoints on the screen ([Marks] in DS2United.ini): the Hold the Zone zone and the
 // Mercenaries time capsules, drawn by the overlay at the camera's projection
 // (runtime_coop_overlay.inc, coop_marks.h). The zone comes from zone::shown (the

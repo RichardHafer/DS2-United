@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // RIG and visor colours ([Visuals] RigColor, VisorColor). The textures the TexMod RIG and
 // visor colour packs replace are found the way TexMod finds them, by the CRC32 of the top
 // level without the final inversion, when TX_ReplaceTextureContents (0x013C9030,

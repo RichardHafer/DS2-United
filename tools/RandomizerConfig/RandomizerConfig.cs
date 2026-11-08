@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -425,7 +426,7 @@ namespace DS2CoopConfig
             else if (e.KeyCode == Keys.F1) { e.SuppressKeyPress = true; ShowAbout(); }
         }
 
-        const string Author = "Hafer (RichardHafer)";
+        const string Author = "Richard Hafer";
         const string RepoUrl = "https://github.com/RichardHafer/DS2-United";
         const string DiscordUrl = "https://discord.com/invite/sWMRkYJ5JV";
 

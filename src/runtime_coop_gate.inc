@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Progression gate: nobody rides the elevator alone. Design and the offline
 // half in coop_gate.h; the wire half in coop_gate_protocol.h. This file is the
 // part that touches the game.

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Who just appeared (18.10.: a foreign mod's spawn menu places an unused zero-G tripod that half
 // works and sometimes crashes). Twice a second the SimManager's objects are walked as for the
 // debug menu's "show all enemies"; every enemy the level did not have a moment ago gets one line

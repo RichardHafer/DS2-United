@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Hold the Zone on the co-op side: the wire format the host sends its partners
 // and the direction text each machine shows for its own Isaac.

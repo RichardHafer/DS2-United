@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 using System;
 using System.Collections.Generic;
 using System.IO;

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Two quick gadgets for the local player ([Gadgets], arithmetic in coop_gadgets.h,
 // evidence in analysis/DS2_GADGETS_2026-10-09.md).
 //

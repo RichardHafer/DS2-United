@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // A co-op client's own progress beside the host's campaign (user, 16.10.2026: every client
 // session started with 0 credits and the four starting items, because every client save is

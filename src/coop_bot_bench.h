@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Which upgrade node a companion bot buys next, without the game.
 //
 // One tree is a grid of nodes linked to their four neighbours. A node can be

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The pause menu's rows (SP10PauseMenu, the menu of the campaign and of the MP maps
 // as we play them: 0 checkpoint restart, 1 settings, 2 tutorials, 3 friends list,
 // 4 quit; OnInput_Select 0x00A98D90 switches on the row). Tutorials and the friends

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // The main menu lobby for online survival (runtime_coop_lobby.inc): pure logic,
 // no game memory. A host announces the map it picked; joiners say hello, get a

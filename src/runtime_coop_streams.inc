@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Areas: nobody's room is unloaded while they are still in it.
 //
 // Approach (2026-09-17 17:10): stop reasoning about who waited for whom

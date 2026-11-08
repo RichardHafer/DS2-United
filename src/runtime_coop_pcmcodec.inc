@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The Outbreak maps' sounds (DS2DAT12: 154 .snu streams, 294 bank sounds) are
 // EA codec 2, 16 bit big endian PCM ("P6B0"). The PC build carries that decoder
 // (descriptor 0x01C6D57C, byte swap in 0x00562CF0) but registers only L32S,

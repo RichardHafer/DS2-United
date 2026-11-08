@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Experimental campaign co-op through the retail TNL session.
 // Uniform loading, player replication and whole-world replication are separate
 // options. MPUniformStreams has a successful local body test; network behavior

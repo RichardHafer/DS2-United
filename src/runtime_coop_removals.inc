@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The host's removals of scenery reach the clients ([Mirror] SharedRemovals).
 //
 // 25.09., ch01 psych hall: the client had two props floating at knee height

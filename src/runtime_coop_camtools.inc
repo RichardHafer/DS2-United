@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Trailer camera ([CameraTools], off by default; analysis/DS2_TRAILER_CAMERA_2026-10-16.md):
 // a free camera flown with the gamepad while Isaac answers keyboard and mouse, slow
 // motion, and a camera path that is recorded and replayed.

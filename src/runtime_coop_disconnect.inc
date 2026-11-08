@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // A partner that stops sending has to leave, and leave properly.
 //
 // Until now nothing removed one. A machine that crashed, was killed, or lost

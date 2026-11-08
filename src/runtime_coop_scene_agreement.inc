@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The host grants one owner for a shared scene. The owner starts after every
 // current participant has voted for this grant in the same loaded world.
 namespace agreement {

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Gabe Weller's patrol helmet (18.10., user: the only difference of Weller's suits is the helmet of
 // his patrol suit). The retail Patrol Suit (Uniform 31CB7561-1B516549) names its helmet template
 // 31CB7561-7F92A9B3 (CMD_SetUniformHelmetGUID, playersecurityhelmetweller with the shared security

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Checkpoint follow: the clients restart where the host restarts.
 //
 // Observed 2026-09-17: a client saved at a kiosk, the host had a plain game

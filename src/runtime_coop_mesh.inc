@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The host's session table ([Coop] MeshRoster) and its seed ([Coop] SeedSync).
 // TNL hands no ghost on to a third connection, so with three or more players every
 // machine has to dial every other one. The lobby only tells a joiner about the

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The bug key ([Coop] BugReportKey, Ctrl+F12 by default). A press saves what a report
 // needs into one folder: C:\DS2CrashDumps\bug_<time>_<id>_m<machine>_<pid> (else
 // plugins\DS2BugReports): the logs (all kept runs), the INIs, a screenshot, a small

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/death_message.h"
 #include <cassert>
 #include <cstdio>

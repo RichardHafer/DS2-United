@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Persistence manager after the world is gone.
 //
 // Crash family 0x00DB64F0 (dumps 42544 and 58180 of 22.09., 60844, 62708 and

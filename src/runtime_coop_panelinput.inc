@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Keyboard and mouse for the overlay's panels, the supply terminal and the debug
 // menu (10.10.: not everybody has a numpad). W/S the row, A/D the tab, Q/E a
 // page (the debug menu: a chapter), Space uses the row. The mouse: moving it

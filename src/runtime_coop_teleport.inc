@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Scripted teleports of the local Isaac, from the engine's own marker (analysis/
 // SIMGROUP_INTERCEPT_2026-10-17.md). Entity::SetTeleporting (0x007D0A80, thiscall, plain ret;
 // it writes the frame number to entity+0x178) runs after every scripted move:

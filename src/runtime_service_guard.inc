@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Returning a resource handle after the streaming service is gone.
 //
 // The level-to-menu teardown destroys the streaming service first and cleans up

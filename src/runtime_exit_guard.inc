@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Level exit guard (15.10.). Every way out of a level, the main menu included,
 // runs through the level manager's load states. Five of them (1, 2, 5, 7, 8)
 // leave only on iMsgStreamLoadComplete with both stream queues empty (handler

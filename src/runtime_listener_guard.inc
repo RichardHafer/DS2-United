@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Guard for damage processing with a dead damage record.
 //
 // Dump 17912 (2026-09-15 13:32): IDamageable::HandleEvents (0x00DD1B80)

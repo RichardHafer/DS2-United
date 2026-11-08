@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Each inclusion constructs a separate copy of the game-facing globals and the protocol.
 using DWORD = uint32_t;
 using LONG = int32_t;

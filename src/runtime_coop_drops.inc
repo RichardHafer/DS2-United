@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Loot drops, stage one: see them.
 //
 // An enemy's drop is ItemDropListComponent::DropItem (PC 0x010B44E0,

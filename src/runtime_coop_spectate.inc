@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Spectator after death in story co-op ([Spectate], off by default;
 // analysis/SPECTATOR_AFTER_DEATH_2026-10-16.md). A human who dies while another human
 // lives restarts nobody: his death keeps the dead Player in slot 0 (the MP-map respawn's

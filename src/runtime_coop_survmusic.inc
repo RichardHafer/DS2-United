@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Survival music on the MP maps ([SurvivalMusic] in DS2United.ini; logic in
 // coop_survmusic.h, evidence in analysis/DS2_SURVIVAL_MUSIC_2026-10-09.md).
 //

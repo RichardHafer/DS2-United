@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The supply terminal for survival on the multiplayer maps ([Shop], logic in
 // coop_shop.h, the panel in runtime_coop_overlay.inc).
 //

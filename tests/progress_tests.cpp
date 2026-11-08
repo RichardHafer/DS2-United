@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Profile and weapon progression without a game: gun lookup, weapon levels and
 // tiers, the profile rows, XP amounts, payment dedup and the progress percent.
 #include <cassert>

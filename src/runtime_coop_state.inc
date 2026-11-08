@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Retail PlayerManager slot zero is the local campaign BasePlayer.
 constexpr uint32_t kPlayerManagerRva = 0x1C1C0D4;
 uint32_t LocalCampaignPlayer() {

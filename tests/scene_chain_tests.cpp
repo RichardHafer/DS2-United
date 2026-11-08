@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

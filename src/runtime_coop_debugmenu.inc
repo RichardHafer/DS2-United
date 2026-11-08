@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The debug menu ([Debug] in DS2United.ini): our own, drawn on the shop's overlay.
 // Insert opens and closes it; A/D change the tab, W/S the row, Q/E jump a
 // chapter in LEVELS, Space uses the row; the mouse selects, clicks and scrolls

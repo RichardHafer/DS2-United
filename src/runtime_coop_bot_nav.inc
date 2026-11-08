@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Paths for the companion bot from the game's own NavPower mesh.
 //
 // The game asks exactly this for the locator line (PlayerNavHelpSM::NavSearch,

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The Dementia mutator ([Dementia]): a sanity meter for this machine's Isaac. Fighting alone
 // (no partner or bot within AloneMeters) fills it, staying together drains it, and the stage
 // it reaches brings hallucinations: whispers and a faint vignette first, then flicker, glitch

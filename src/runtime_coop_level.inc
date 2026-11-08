@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Level follow: a client that joins plays where the host plays.
 //
 // Eight-player run, 2026-09-17: one instance had been started from a different

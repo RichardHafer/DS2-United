@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // The last runs of a log: name.log -> name.prev.log -> name.prev2.log -> name.prev3.log
 // (16.10.: two quick restarts after a crash rotated the crashed session's log away).

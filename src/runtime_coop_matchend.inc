@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Leaving the match ends it for everybody (user, 16.10.: when the host leaves, the whole
 // lobby closes and everyone is thrown out; afterwards host or join works again without a
 // restart). [Coop] EndWithHost, on.

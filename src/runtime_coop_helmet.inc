@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Helmet open or closed, mirrored onto the ghost bodies.
 //
 // A level's PlayerHelmetCommand node (vtable 0x01B2686C) executes on a given

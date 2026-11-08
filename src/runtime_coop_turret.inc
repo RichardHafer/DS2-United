@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // A placeable turret for the local player ([Turret], arithmetic in coop_turret.h,
 // evidence in analysis/DS2_TURRET_2026-10-08.md).
 //

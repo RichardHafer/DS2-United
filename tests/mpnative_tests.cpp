@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The Versus roster without a game: refs, the roster table, the team split,
 // round 2's swap and the MP level from XP.
 #include <cassert>

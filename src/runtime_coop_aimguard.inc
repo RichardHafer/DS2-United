@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The registry that holds dead aiming data.
 //
 // Four dumps from 22.09., 17:20 to 17:28, both instances crashing at the same

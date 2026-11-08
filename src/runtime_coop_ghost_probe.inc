@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace ghost_probe {
 constexpr uint32_t kCreate = 0x3D1F00;
 safetyhook::InlineHook hook;

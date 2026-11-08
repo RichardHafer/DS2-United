@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Voice packs: pack files, line picks, who speaks with which pack, hearing, WAV, the wire.
 #include <cassert>
 #include <cstdio>

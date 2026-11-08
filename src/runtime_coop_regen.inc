@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The Ubermorph's (Hunter's) regrown limbs reach the clients ([Coop] ShareRegeneration).
 //
 // A Hunter regrows what was cut off in CadaverousRegenerationSM: the regrowth

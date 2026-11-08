@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/component_rebinding.h"
 #include <cassert>
 #include <cstring>

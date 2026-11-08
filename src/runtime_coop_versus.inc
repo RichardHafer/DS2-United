@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Versus matches on the game's own round systems ([Versus] and [VersusPoints] in
 // DS2United.ini; spec: analysis/mp_infrastructure/spec_ingame.md). The roster, the
 // player refs and the team seams live in runtime_coop_mpnative.inc; this file

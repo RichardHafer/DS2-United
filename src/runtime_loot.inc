@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Loot amounts: more ammo and credits per pickup.
 //
 // Every pickup decides its quantity once, in PickupItem's constructor

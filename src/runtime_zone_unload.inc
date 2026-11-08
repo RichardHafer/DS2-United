@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Zone switches held up by the pool's character packages.
 //
 // The pool root depends on the stock character packages (char_str\npc\*),

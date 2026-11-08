@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Overflow for the sound bank heap. The memory class "soundbank" (0x7A10372B)
 // is a fixed 96 MB heap ([0x0201C130], registered at 0x00411AA0; base +0x0C,
 // size +0x10, inner allocator +0x48). The Outbreak maps' banks are uncompressed

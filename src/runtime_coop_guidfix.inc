@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Two Isaacs, one GUID.
 //
 // The partner's ghost Player is built from the replicated Player of the

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The supply terminal's logic without a game: prices, catalogue, cursor, key
 // repeat and swallowing, the open gate, the wave line, upgrade plans, text
 // fitting, glyph sizes, panel geometry and the rows the overlay draws.

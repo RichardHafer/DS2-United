@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Drawing the Outbreak maps (DS2DAT12). Their meshes keep the Xbox 360
 // primitive type: 6 is a triangle strip there, restarted at index 0xFFFF, but a
 // triangle fan in D3D9, which has no restart either. That tears every mesh.

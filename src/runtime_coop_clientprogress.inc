@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // A co-op player's own progress (user, 16.10.: "bau client fortschritt";
 // analysis/COOP_SAVE_STATIONS_2026-10-16.md F4). Every client save is held (the host's world
 // is the save), so every client session began with 0 credits and the four starting items.

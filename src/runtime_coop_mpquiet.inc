@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Our own item calls without the multiplayer bits.
 //
 // While a Versus round runs, the level manager carries the multiplayer (0x2) and

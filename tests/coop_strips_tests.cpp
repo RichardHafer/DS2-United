@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Restart strips to plain D3D9 strips: fixed cases and a random check that the
 // stitched strip draws exactly the segments' triangles with the same winding.
 #include <algorithm>

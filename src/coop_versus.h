@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Versus match traffic (runtime_coop_versus.inc): pure logic, no game memory.
 // The host owns the match: scoring events, the end of each round, the side

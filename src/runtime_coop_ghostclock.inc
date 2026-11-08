@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Ghost movement on a slow link: the engine's timeline, not ours.
 //
 // Every ghost (the partner's Isaac, the host's enemies on a client) keeps a

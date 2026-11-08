@@ -214,7 +214,7 @@ so an unsupported build fails safely and reports what it could not find.
 
 ## Credits
 
-Made by Hafer (RichardHafer).
+Made by Richard Hafer.
 
 - The [Dead Space Modding](https://discord.com/invite/sWMRkYJ5JV) community for research, tests and feedback
 - [safetyhook](https://github.com/cursey/safetyhook) and [Zydis](https://github.com/zyantific/zydis) for hooking

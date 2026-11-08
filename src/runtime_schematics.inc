@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Include at file scope. Install once before loading a campaign.
 #include <windows.h>
 #include <mutex>

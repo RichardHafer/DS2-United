@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The multiplayer-map visit without a game: double press, map names, GUID text,
 // the generated entity table, the member filter, the watchdog, the visit phases
 // and the spawn point choice.

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Side logs next to DS2United.log, each with the N-th copy's number as DS2United.N.log
 // and the last run kept as .prev.log:
 //   DS2Versus.log  the menu lobby, the game's lobby screen, the Versus roster and

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // World calls: state the host's world changes by C++ call, not by message.
 //
 // The vent. A necromorph leaving a vent does not send the VentMarker

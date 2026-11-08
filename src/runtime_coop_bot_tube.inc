@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Bots never crawl through vent tubes: following the leader through them was taken
 // out (13.10.). A bot waits at the hatch and the catch-up puts it by him afterwards.
 // The game would still let a bot in on its own: PlayerTubeCrawlingSM::CheckEnterTube

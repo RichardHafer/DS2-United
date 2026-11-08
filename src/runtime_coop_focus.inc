@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Frame rate with and without window focus ([Coop] BackgroundFullSpeed).
 //
 // The game itself does not slow down in the background: on WM_ACTIVATEAPP it

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Pure logic of the trailer camera (runtime_coop_camtools.inc): flying the free
 // camera with a gamepad, and recording and replaying a camera path. No game

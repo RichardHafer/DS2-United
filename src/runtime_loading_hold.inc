@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Minimum loading screen time, and a wait for the randomizer's own streams.
 //
 // The loading screen ends when UILoadingScreenData::HasHoldTimeElapsed(float

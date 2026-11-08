@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The Objective mode's ears on the MP maps: which objective messages the level
 // has sent since it began (generated_objective_table.h). Every map announces its
 // five objectives with obj_1_new .. obj_5_new, feeds its round clock through

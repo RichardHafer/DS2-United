@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The MP maps' player spawn points and when each is in use
 // (generated_mp_spawn_windows.h): a point is active from its m_activateMessage
 // until its m_deactivateMessage; Marker Lab moves its humans to the power area

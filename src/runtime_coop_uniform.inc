@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Retail uniform lifecycle. Addresses and layouts are verified from PC memory.
 namespace coop_uniform {
 constexpr uint32_t kManager = 0x1C1C0DC, kManagerVtable = 0x175CA78;

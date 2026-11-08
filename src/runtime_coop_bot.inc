@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // A companion bot: a second, local Isaac the game itself runs ([Bot]).
 //
 // The bot is a full, non-ghost Player spawned from the level's own Player

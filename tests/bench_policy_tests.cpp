@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/bench_policy.h"
 #include "../src/generated_bench_catalog.h"
 #include <cassert>

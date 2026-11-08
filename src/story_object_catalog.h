@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Retail campaign placements. Spawn templates can identify multiple live actors.
 #pragma once
 namespace story_objects {

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Survival waves on a multiplayer map ([Survival] in plugins\DS2Survival.ini).
 //
 // Design, evidence and the test procedure: analysis/DS2_SURVIVAL_2026-10-09.md.

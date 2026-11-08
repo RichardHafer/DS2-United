@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/generated_schematic_catalog.h"
 #include "../src/generated_schematic_blueprints.h"
 #include "../src/generated_schematic_store_levels.h"

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The game's own pre-game lobby screens in front of our menu lobby
 // ([NativeLobby] in DS2United.ini; evidence: analysis/DS2_NATIVE_LOBBY_2026-10-11.md).
 //

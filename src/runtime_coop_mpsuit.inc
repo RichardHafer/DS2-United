@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The MP suits of the suit select in Versus and Mercenaries ([Loadout] ApplySuit;
 // analysis/MP_SUITS_APPLY_2026-10-15.md). Until 15.10. every MP row wore the
 // campaign Security suit as a stand-in.

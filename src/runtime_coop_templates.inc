@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace gate { void Event(const char* format, ...); }   // runtime_coop_gate.inc
 namespace templates {
 bool enabled = false, sticky = false;   // sticky: [Lifecycle] StickyTemplates, below

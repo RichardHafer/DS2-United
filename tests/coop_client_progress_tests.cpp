@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/coop_client_progress.h"
 
 #include <cstdio>

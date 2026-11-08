@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Xbox 360 triangle strips restart at index 0xFFFF; D3D9 strips cannot. The
 // segments are joined into one strip with degenerate triangles: the last index

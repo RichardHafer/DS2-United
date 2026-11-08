@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // What a companion bot gets outside the campaign and when (runtime_coop_bot.inc,
 // "progression"). Mercenaries and Versus: the Pulse Rifle, one more gun and a suit

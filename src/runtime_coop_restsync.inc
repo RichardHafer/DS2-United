@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Where loose objects and corpses come to rest ([Physics] RestSync).
 //
 // Every machine simulates its own physics; only kinesis-held bodies were

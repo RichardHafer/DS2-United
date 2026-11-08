@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #include "story_object_catalog.h"
 namespace story_objects {
 constexpr uint32_t kMagic = 0x314F5453; // STO1

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Who comes back when on the MP maps (runtime_coop_respawn.inc): pure logic, no
 // game memory.

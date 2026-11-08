@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include <winsock2.h>
 #include <cassert>
 #include <cstdio>

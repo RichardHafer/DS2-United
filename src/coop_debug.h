@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Pure logic of the debug menu (runtime_coop_debugmenu.inc): tabs, the cursor,
 // the checkpoint rows from map.txt (generated_checkpoints.h), the cheat rows and

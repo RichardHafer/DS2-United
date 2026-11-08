@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Play as a necromorph in the campaign (2026-09-21).
 //
 // The multiplayer's playable necromorph is a complete class (NecroPlayer) whose

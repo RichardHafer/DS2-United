@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/coop_mpmap.h"
 #include "../src/coop_zoneobj.h"
 

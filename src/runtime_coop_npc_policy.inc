@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 namespace npc_policy {
 enum class Classification { Other, NPC, Unknown };
 Classification Classify(uint32_t descriptor) {

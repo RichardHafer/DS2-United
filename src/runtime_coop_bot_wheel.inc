@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The human's mouse wheel and the PC-only key events, kept away from the bots.
 //
 // The PC ControllerManager (vtable 0x01B7890C) answers "is event E active /

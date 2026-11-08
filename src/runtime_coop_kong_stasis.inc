@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 struct KongStasis {
     uint32_t magic, token, sequence, map, generation, guid[4];
     int32_t phase;

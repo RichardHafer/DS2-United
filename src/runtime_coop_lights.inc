@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Room lights switched by script travel as a state (analysis/SIMGROUP_INTERCEPT_2026-10-17.md).
 // A light is in the world only with both of its flags: +0xE9 stream visible (set by the
 // LightingManager on iMsgStreamVisible) and +0xEA script visible, which only an AnimateLight

@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The INI check between the machines of a session ([Coop] ConfigCheck): each
 // machine sends a fingerprint of its DS2United.ini and its plugin build to its
 // peers (coop_configcheck.h), on a new peer three times and then once a minute,

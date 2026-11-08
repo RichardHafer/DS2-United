@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 #include "../src/spawner_rules.h"
 #include <cassert>
 #include <cstdio>

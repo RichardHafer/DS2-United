@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The game's own character setup offline ([Loadout]): FE16 with its weapon tab
 // FE11 and its suit tab FE12, as in the original multiplayer. The Multiplayer
 // screen's item 4 opens it (the native item 2 did, PushScreen 0xB00F4B85), and in a

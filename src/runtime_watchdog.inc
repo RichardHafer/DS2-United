@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Watchdog over the enemies the randomizer created. Include at file scope.
 //
 // A replaced enemy that never dies can hold a room closed. Each one is tracked

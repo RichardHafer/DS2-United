@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // Loading-screen sync: the level starts for everybody together.
 //
 // The engine already has the gate for it (Xbox debug build, 24.09.). Every

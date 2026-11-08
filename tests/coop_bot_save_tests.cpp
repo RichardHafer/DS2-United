@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // The bots' per-save sidecar format, checked without a game.
 #include <cassert>
 #include <cstdio>

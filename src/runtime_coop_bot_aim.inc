@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // The bot's own look input against the ASI loader's mouse fix.
 //
 // DINPUT8.dll in the game folder (the ASI loader with its raw mouse look)

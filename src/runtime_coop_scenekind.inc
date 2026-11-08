@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 // What kind of scripted moment the local Isaac is in, read from the game's own state
 // (17.10., user: "no band-aids, the game must know"; offline research: Xbox PDB, PC code,
 // dumps). Each machine classifies its own Isaac, because a remote ghost has no PlayerMasterSM

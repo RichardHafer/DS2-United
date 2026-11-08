@@ -1,4 +1,4 @@
-// Dead Space 2 United by Hafer.
+// Dead Space 2 United by Richard Hafer.
 #pragma once
 // Pure logic of the survival director (runtime_survival.inc): the configuration
 // file, wave plans and their endless growth, family roles and substitution, the

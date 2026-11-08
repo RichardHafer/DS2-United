@@ -1,3 +1,4 @@
+// Dead Space 2 United by Richard Hafer.
 // Trailer camera: stick shaping, flying, the path's samples, interpolation and its text form.
 #include <cassert>
 #include <cmath>
