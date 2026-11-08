@@ -3164,7 +3164,7 @@ private:
         StandingLook(p, c);
     }
 
-    // --- antics ---------------------------------------------------------------------
+    // --- antics ---
     Antic antic_ = Antic::None;
     int anticPhase_ = 0;
     uint32_t anticSince_ = 0, anticPhaseAt_ = 0, nextAnticAt_ = 0, anticTryAt_ = 0, lastVictoryAt_ = 0, lastPrankAt_ = 0;

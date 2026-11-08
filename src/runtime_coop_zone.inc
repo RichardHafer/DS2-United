@@ -65,7 +65,7 @@ constexpr uint32_t kManagerRva = 0x1C21430, kAddRva = 0xCC0940, kRemoveRva = 0xC
 constexpr uint32_t kObjectiveId = 0x454E4F5A;   // 'ZONE'
 constexpr DWORD kLocalFreshMs = 3000, kRemoteFreshMs = 6000, kSendMs = 1000, kReassertMs = 1000, kRefillMs = 500, kPulseMs = 150;
 
-// --- what to show ------------------------------------------------------------------------
+// --- what to show ---
 struct Desired { int state = 0; uint32_t id = 0; float pos[3]{}; float radius = 0.0f; int percent = 0; DWORD at = 0; };
 SRWLOCK lock = SRWLOCK_INIT;
 Desired local, remote;
@@ -97,7 +97,7 @@ void SetRemote(const coop_zone::Wire& w) {
     InterlockedIncrement(&remoteIn);
 }
 
-// --- the ring ------------------------------------------------------------------------------
+// --- the ring ---
 struct Slot { uint32_t handle = 0; bool held = false, skip = false; DWORD retryAt = 0; V3 at; };
 Slot slots[coop_gadgets::kRingMaxPoints];
 int ringN = 0, pulseNext = 0;
@@ -245,7 +245,7 @@ void ShowRing(DWORD now, bool contested) {
     }
 }
 
-// --- the locator ---------------------------------------------------------------------------
+// --- the locator ---
 alignas(16) float locatorPos[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 uint32_t locatorManager = 0;
 DWORD reassertAt = 0;
@@ -298,7 +298,7 @@ void Unlocate(const char* why) {
     reassertAt = 0;
 }
 
-// --- per tick ------------------------------------------------------------------------------
+// --- per tick ---
 struct Shown { int state = 0; uint32_t id = 0; float pos[3]{}; float radius = 0.0f; int percent = 0; bool remote = false; };
 Shown shown;
 Desired sentWire;
@@ -313,7 +313,7 @@ void Clear(const char* why) {
     shown = Shown{};
 }
 
-// --- the ring's colour ---------------------------------------------------------------------
+// --- the ring's colour ---
 // ColorKey steps to the next glow that is loaded, while a ring is up, and keeps it
 // in [Zone] RingEffect.
 int colorKey = VK_F7;
@@ -350,7 +350,7 @@ void NextGlow() {
     Notice("zone ring: no other glow is loaded");
 }
 
-// --- the spot recorder ---------------------------------------------------------------------
+// --- the spot recorder ---
 // RecordKey saves the spot you stand on for this map; DeleteKey removes the
 // nearest saved one within 6 m. DS2Zones.txt next to this INI, "map x y z" a
 // line (the director reads it when a run begins; a fifth number is a radius).

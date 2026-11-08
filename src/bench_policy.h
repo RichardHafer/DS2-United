@@ -35,7 +35,7 @@ constexpr bool vitalStat(uint8_t type) {
 
 // A tree and a stat each fit in one bit, which is what makes "does this tree
 // still award the same stats" a single comparison. Retail has 14 trees; a tree
-// beyond the limit simply takes no part in the shuffle.
+// beyond the limit takes no part in the shuffle.
 constexpr uint16_t kTreeLimit = 32;
 constexpr uint32_t typeBit(uint8_t type) { return 1u << (type & 31u); }
 

@@ -19,7 +19,7 @@
 // The hook below sits on SystemCreate and swaps the block for a larger one
 // (VirtualAlloc, committed, never freed). SystemCreate returns early while
 // [0x0202F4CC] is set; the system is re-created on level changes and every
-// creation gets the same block. The engine's 576 KiB block is simply left
+// creation gets the same block. The engine's 576 KiB block is left
 // alone. Nothing else reads the size.
 namespace navpower {
 constexpr uintptr_t kSystemCreateRva = 0x001B4620;

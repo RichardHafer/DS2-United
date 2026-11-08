@@ -8,7 +8,7 @@
 // The native ghost gun update only carries a name hash. That is not enough:
 // DS2_COOP_GUN_NETWORK_2026-09-16.md shows the hash C2773912 (RivetGun) maps to
 // two different proxy GUIDs, and a hash the ghost inventory does not contain
-// simply finds nothing, which is why a peer's Force Gun and Seeker Rifle stayed
+// finds nothing, which is why a peer's Force Gun and Seeker Rifle stayed
 // invisible. Provisioning needs the full proxy GUID that RequisitionGun takes.
 //
 // One slot per packet: a single 140-byte manifest of the whole loadout was the

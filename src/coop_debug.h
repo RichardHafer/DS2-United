@@ -20,7 +20,7 @@ inline const char* TabName(int t) {
     return t >= 0 && t < kTabCount ? kNames[t] : "?";
 }
 
-// --- the HOST tab: the director's tools, then the ones every machine applies ------------
+// --- the HOST tab: the director's tools, then the ones every machine applies ---
 enum HostRow : int {
     kStartRun, kJumpWave, kEndWave, kSpawnEnemy, kHoldDirector, kMaxAlive, kRestartRun, kKillAll,
     kHealAll, kReviveAll, kSupplyAll, kCreditsAll, kGatherAll, kGodAll, kRestartCheckpoint, kHostRowCount
@@ -105,7 +105,7 @@ inline void Fit(Cursor& c, int count, int visible) {
     if (top < 0) top = 0;
 }
 
-// --- checkpoints -----------------------------------------------------------------------
+// --- checkpoints ---
 // "CH04  stalker room debug": the chapter label and the name with spaces.
 inline void CheckpointLabel(unsigned index, char* out, size_t size) {
     if (!out || !size) return;

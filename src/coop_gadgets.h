@@ -69,7 +69,7 @@ inline FieldConfig Sanitized(FieldConfig c) {
 }
 inline uint32_t Ms(float seconds) { return seconds > 0.0f ? static_cast<uint32_t>(seconds * 1000.0f + 0.5f) : 0u; }
 
-// --- the mine's targets --------------------------------------------------------
+// --- the mine's targets ---
 
 // What the scan knows about something near the mine.
 struct Body {
@@ -113,7 +113,7 @@ inline StasisValues Stasis(const MineConfig& c, float gameSlow, float playerDura
     return v;
 }
 
-// --- the heal field ----------------------------------------------------------
+// --- the heal field ---
 
 struct Patient {
     uint32_t id = 0;
@@ -225,7 +225,7 @@ struct Edge {
     bool Pressed(bool down) { const bool p = down && !was; was = down; return p; }
 };
 
-// --- the radius rings ----------------------------------------------------------
+// --- the radius rings ---
 
 // Effect points on a gadget's radius: the mine's trigger reach while armed, its
 // burst reach for a moment when it goes off, the heal field's reach while it runs.

@@ -32,7 +32,7 @@ int key = 102;   // Numpad 6
 coop_turret::Config cfg;
 uint32_t bodyGuid[4] = {0x4BC78C36, 0x9D67757C, 0x544E4543, 0x53574F4B};   // Pulse Rifle ammo, global_assets
 
-// --- engine ------------------------------------------------------------------
+// --- engine ---
 constexpr uint32_t kDamageCtorRva = 0xACFDE0, kImpactDirRva = 0xAAE130, kSendDelayedRva = 0xAAE1E0, kDamageDtorRva = 0x477540;
 constexpr uint32_t kDamageVtableStore = 0x39, kSendMsgPush = 0x82;   // vtable store in the ctor, push of iMsgDamage in the sender
 constexpr uint32_t kModGun = 4;                                     // meansOfDeath_t MOD_GUN (Xbox _index_ table, type 4 on live gun hits)
@@ -45,7 +45,7 @@ constexpr uint32_t kRagdollVtableRva = 0x174491C, kJointMaps = 0x2C, kJointMapCo
                    kJointBody = 0x1B0, kJointZone = 0x1B4, kMaxJoints = 48;
 constexpr uint32_t kBodyFrame = 0xF0, kBodyShape = 0x10, kShapeType = 0x0C, kShapeA = 0x20, kShapeB = 0x30, kShapeCapsule = 5, kShapeTranslated = 11;
 
-// --- state -------------------------------------------------------------------
+// --- state ---
 struct Placed {
     bool on = false;
     V3 spot, muzzle;
@@ -117,7 +117,7 @@ void Fault(const char* what, uint32_t a, uint32_t b) {
     if (InterlockedIncrement(&faultLines) <= kFaultLines) gate::Event("turret FAULT %s (%08X %08X)", what, a, b);
 }
 
-// --- the camera cast (CollisionCamera::CastingTest, as bot_sense calls it) -----
+// --- the camera cast (CollisionCamera::CastingTest, as bot_sense calls it) ---
 DWORD castFaultTimes[5]{};
 unsigned castFaultNext = 0;
 __declspec(noinline) bool CastRaw(const float* from, const float* to, uint32_t exclude, float& fraction, uint32_t& hit, float* at) {
@@ -181,7 +181,7 @@ bool ClearPart(coop_turret::Part& p, uint32_t exclude, uint32_t goal) {
     return p.clear;
 }
 
-// --- hit parts ---------------------------------------------------------------
+// --- hit parts ---
 struct RagdollSlot { uint32_t vtable = 0, offset = 0; DWORD retryAt = 0; };
 RagdollSlot ragdollSlots[32];
 uint32_t Ragdoll(uint32_t actor) {
@@ -263,7 +263,7 @@ int SightParts(uint32_t entity, coop_turret::Part* parts, int n, int rays) {
     return clear;
 }
 
-// --- damage ------------------------------------------------------------------
+// --- damage ---
 __declspec(noinline) int SendHitRaw(uint32_t entity, uint32_t attacker, float amount, int bone, const float* at, const float* from) {
     using Ctor = void*(__thiscall*)(void*, uint32_t, uint32_t, float, uint32_t, const float*, int, uint32_t, uint32_t, float);
     using Dir = void(__thiscall*)(void*, const float*, const float*);
@@ -346,7 +346,7 @@ void FollowPending() {
     }
 }
 
-// --- the body ----------------------------------------------------------------
+// --- the body ---
 __declspec(noinline) uint32_t SpawnRaw(const uint32_t* guid) {
     __try {
         return reinterpret_cast<uint32_t(__cdecl*)(const void*, int)>(base + kGlobalPickupRva)(guid, 0);
@@ -438,7 +438,7 @@ void RemoveBody(const char* why) {
     t.body = 0;
 }
 
-// --- feedback effects ----------------------------------------------------------
+// --- feedback effects ---
 // Alchemy (PC, read in code and the full dumps): Create_ByGuid 0x006A0430
 // cdecl(VFXHandle* out, VFXGUID*, matrix, 0xFFFF, flags, VFXParent*) writes 0 when
 // the GUID is not resident ([0x02032C70] lookup 0x0069F230) or the system is not
@@ -766,7 +766,7 @@ void LogFxResidency() {
            Resident(kSilentFlashGuid), Resident(tracerGuid), Resident(kArmedGuid), Resident(kTroubleGuid), table);
 }
 
-// --- placing and taking ------------------------------------------------------
+// --- placing and taking ---
 bool FrontendNow() {
     char name[16]{};
     const uint32_t loop = level::GameMainLoop();
@@ -911,7 +911,7 @@ void Forget(const char* why) {
     for (Pending& p : pending) p = Pending{};
 }
 
-// --- shooting ------------------------------------------------------------------
+// --- shooting ---
 // Fresh targets from the bot senses: the fighting necromorphs near the turret or
 // the player, the few nearest looked at closely.
 bot_sense::Snapshot snap;
@@ -1158,7 +1158,7 @@ void Tick() {
     }
 }
 
-// --- setup -------------------------------------------------------------------
+// --- setup ---
 bool Bytes(uint32_t rva, const unsigned char* bytes, size_t size) {
     unsigned char actual[40]{};
     return size <= sizeof(actual) && Read(base + rva, actual, size) && std::memcmp(actual, bytes, size) == 0;

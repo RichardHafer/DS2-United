@@ -54,7 +54,7 @@ constexpr uint32_t kItemAmount = 0x260, kPickupSlot = 0x1F8;
 // a gun or suit whose stream is not loaded yet has this long to come in
 constexpr DWORD kGunTimeoutMs = 30000, kSuitCheckMs = 1500, kSuitTimeoutMs = 20000, kStatusMs = 5000, kRefreshMs = 400;
 
-// --- state -----------------------------------------------------------------------
+// --- state ---
 bool open = false;
 DWORD openedAt = 0;
 coop_shop::Cursor cursor;
@@ -128,7 +128,7 @@ void Announce(const char* format, ...) {
     notice::Enqueue(text);
 }
 
-// --- the numpad belongs to the open shop -------------------------------------------------
+// --- the numpad belongs to the open shop ---
 // Another panel on the overlay (the debug menu) owns the numpad the same way while it is open.
 volatile LONG foreignPanel = 0;
 bool HoldsKey(int vk, coop_shop::Guard who) {
@@ -148,7 +148,7 @@ bool HoldsKey(int vk, coop_shop::Guard who) {
     return held;
 }
 
-// --- money -----------------------------------------------------------------------------
+// --- money ---
 int32_t Credits(uint32_t player) {
     int32_t c = -1;
     return player && Read(player + kCredits, &c, 4) && c >= 0 && c <= 99999999 ? c : -1;
@@ -182,7 +182,7 @@ void Refund(uint32_t player, uint32_t amount, const char* why) {
     Line("refund %u for %s: credits %d -> %d%s", amount, why, before, Credits(player), ok ? "" : " (WRITE FAILED)");
 }
 
-// --- the survival director ---------------------------------------------------------------
+// --- the survival director ---
 void PollSurvival(DWORD now, bool mpMap) {
     if (!survivalFn && now - survivalLookAt > 5000) {
         survivalLookAt = now;
@@ -255,7 +255,7 @@ void BotShopping(DWORD now, bool survivalMap) {
          nodePrice);
 }
 
-// --- what is on offer ----------------------------------------------------------------------
+// --- what is on offer ---
 Item* Add(Kind kind, int ref, const char* label, uint32_t price) {
     if (itemCount >= kMaxItems) return nullptr;
     Item& it = items[itemCount++];
@@ -524,7 +524,7 @@ void Rebuild(uint32_t player) {
     dirty = false;
 }
 
-// --- delivery -------------------------------------------------------------------------------
+// --- delivery ---
 // Put an unowned pickup down in front of the player; deleted when that fails.
 bool DropNear(uint32_t player, uint32_t item, unsigned slot) {
     uint32_t vtable = 0, dropFn = 0, owner = 1;
@@ -590,7 +590,7 @@ Got Deliver(uint32_t player, const uint32_t* guid, unsigned slot, unsigned& perc
     return Got::Failed;
 }
 
-// --- purchases ------------------------------------------------------------------------------
+// --- purchases ---
 void LogBuy(const Item& it, uint32_t price, int32_t before, int32_t after, const char* result) {
     const LONG n = InterlockedIncrement(&buyLines);
     if (n <= 500)
@@ -970,7 +970,7 @@ void PollPending(DWORD now) {
     }
 }
 
-// --- opening, closing, the view ----------------------------------------------------------------
+// --- opening, closing, the view ---
 coop_shop::GateOut Gate(uint32_t player, bool mpMap) {
     coop_shop::GateIn g;
     g.worldReady = inLevel && turret::WorldReady();
@@ -1174,7 +1174,7 @@ void Tick(DWORD) {
     }
 }
 
-// --- setup -----------------------------------------------------------------------------------
+// --- setup ---
 uint32_t IniPrice(const std::string& ini, const char* name, uint32_t fallback) {
     char text[32]{};
     GetPrivateProfileStringA("Shop", name, "", text, sizeof(text), ini.c_str());

@@ -1062,7 +1062,7 @@ void PollTracked(std::string& out, Reader& read) {
             // vent machine it will never leave. Both were already condemned
             // above; this is what makes that verdict cost the room nothing.
             //
-            // An enemy with a readable tree that the player simply has not
+            // An enemy with a readable tree that the player has not
             // reached yet is deliberately not here. Saying its death for it
             // would open a door in front of a living enemy, which is a worse
             // bug than the one being fixed.

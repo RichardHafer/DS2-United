@@ -41,10 +41,10 @@ safetyhook::MidHook guardTexture, guardLoop;
 volatile LONG type6 = 0, matched = 0, converted = 0, cachedDraws = 0, buildFailures = 0, segmentDraws = 0, segments = 0, noCpuIndices = 0;
 volatile LONG stageGuards = 0, tableGuards = 0, lines = 0;
 
-// --- stitching: coop_strips.h -------------------------------------------------------
+// --- stitching: coop_strips.h ---
 using coop_strips::Stitch;
 
-// --- COM by slot -------------------------------------------------------------------
+// --- COM by slot ---
 template <typename R, typename... A> R Com(void* self, unsigned slot, A... args) {
     using Fn = R(__stdcall*)(void*, A...);
     return reinterpret_cast<Fn>((*reinterpret_cast<void***>(self))[slot])(self, args...);
@@ -52,7 +52,7 @@ template <typename R, typename... A> R Com(void* self, unsigned slot, A... args)
 void Release(void* unk) { if (unk) Com<ULONG>(unk, 2); }
 struct BufferDesc { uint32_t format, type, usage, pool, size; };
 
-// --- the cache on one index buffer (an IUnknown the buffer releases) ---------------
+// --- the cache on one index buffer (an IUnknown the buffer releases) ---
 struct Entry { Entry* next; const uint16_t* src; uint32_t start, count, outCount, minmax; void* ib; };
 struct Cache;
 HRESULT __stdcall CacheQuery(Cache* self, REFIID riid, void** out);

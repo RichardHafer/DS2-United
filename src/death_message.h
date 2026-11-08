@@ -185,7 +185,7 @@ DeathMessageResult writeLearnedMessage(const MemoryRegion* regions, size_t regio
 // A class descriptor holds an attribute table at +0x1C: 16-byte rows of
 // (default, attribute slot, index:offset, flags), and the offset is counted from
 // the data area a component points at. `[component+0x0C]` holds that address, so
-// an attribute is simply `[component+0x0C] + offset`.
+// an attribute is `[component+0x0C] + offset`.
 //
 // Confirmed against a measurement in the running game: the death message read
 // index 1, offset 4, and the hash of `hospital_lobby_slasher_dead` sat at

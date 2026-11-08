@@ -122,7 +122,7 @@ struct Table {
         }
         // Full. A slot that has been silent long enough, and was not configured,
         // can be taken; otherwise the newcomer is turned away rather than
-        // evicting somebody who is simply loading.
+        // evicting somebody who is loading.
         Peer* oldest = nullptr;
         for (auto& p : peers) {
             if (p.configured) continue;

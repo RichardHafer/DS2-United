@@ -131,7 +131,7 @@ const char* NameOf(uint64_t ref, char (&out)[24]) {
     return out;
 }
 
-// --- traffic ----------------------------------------------------------------------------------
+// --- traffic ---
 struct Outgoing { vs::Packet p; int left = 0; DWORD next = 0; };
 Outgoing outbox[24];
 uint32_t seq = 0;
@@ -191,7 +191,7 @@ bool OnBytes(const void* data, int size) {
     return true;
 }
 
-// --- MP bits ----------------------------------------------------------------------------------
+// --- MP bits ---
 uint32_t bitsLm = 0;
 bool bitsOurs = false;
 volatile LONG bitsSet = 0, bitsCleared = 0, lateClears = 0, timerZeroes = 0, bodyFlags = 0;
@@ -226,7 +226,7 @@ void __fastcall OnCheckpointLoadComplete(void* lm, void*) {
     loadCompleteHook.thiscall<void>(lm);
 }
 
-// --- respawn: the selector ---------------------------------------------------------------------
+// --- respawn: the selector ---
 volatile LONG selectorsBuilt = 0, selectorsDeleted = 0, asksQueued = 0, asksSent = 0, pointsLocal = 0, pointsSent = 0, pointsIn = 0, delaysIn = 0;
 __declspec(noinline) uint32_t BuildSelector() {
     __try {
@@ -449,7 +449,7 @@ bool __fastcall OnIssuePoint(void* self, void*, const uint64_t* refIn, uint32_t 
     return true;
 }
 
-// --- scoring ----------------------------------------------------------------------------------
+// --- scoring ---
 safetyhook::InlineHook entryEventHook, victimHook, attackerHook, tuningHook, combatTextHook;
 bool replaying = false;
 uint32_t namesSerial = ~0u;
@@ -643,7 +643,7 @@ void __fastcall OnCombatText(void* self, void*, uint32_t type, int32_t n) {
     }
 }
 
-// --- killer card ------------------------------------------------------------------------------
+// --- killer card ---
 safetyhook::InlineHook killerHook;
 volatile LONG relaysBuilt = 0, killerCards = 0, killerNamed = 0, killerSelf = 0, killerAi = 0;
 char killerName[24] = "";
@@ -707,7 +707,7 @@ void __fastcall OnKillerInfo(void* self, void*, uint32_t attackerFlags, const ui
          Ptr(relay + 0x1A) & 0xFFFF, machine >= 0 && machine != static_cast<int>(machineIndex) ? killerName : "");
 }
 
-// --- rounds -----------------------------------------------------------------------------------
+// --- rounds ---
 safetyhook::InlineHook activateHook;
 vs::Match match;
 bool roundReplay = false, restartWanted = false;
@@ -987,7 +987,7 @@ int RoundInfo(int* out, int count) {
     return 1;
 }
 
-// --- music ------------------------------------------------------------------------------------
+// --- music ---
 // The map's round music through the survival music module: combat tracks while a
 // round runs, the calm ones between the rounds, silence after the match. The
 // director that drives it in survival idles in Versus (11.10.: no music). Also
@@ -1021,7 +1021,7 @@ bool PassesClass(const char* cls) {
     return cfg.combatText && std::strcmp(cls, "UIMPCombatTextManager") == 0;
 }
 
-// --- team groups ------------------------------------------------------------------------------
+// --- team groups ---
 struct Joined { uint32_t entity = 0, key = 0; uint64_t ref = 0; uint8_t team = 0xFF; };
 Joined joined[16];
 volatile LONG refWrites = 0, groupJoins = 0;
@@ -1078,7 +1078,7 @@ void PollGroups(DWORD now) {
     }
 }
 
-// --- the game tick ----------------------------------------------------------------------------
+// --- the game tick ---
 // The game's own caller (0x010D9F80) refuses types from 0x18 on before LogScoringEvent indexes an array
 // with it; a peer's packet skipped that check (security review 2026-10-24).
 constexpr uint32_t kScoreTypeLimit = 0x18, kScoreCountLimit = 1000;
@@ -1173,7 +1173,7 @@ void Handle(const vs::Packet& p, DWORD now) {
     default: break;
     }
 }
-// --- head watch -------------------------------------------------------------------------------
+// --- head watch ---
 // 12.10.: on the host the heads of every player vanished now and then. Per Player
 // body: its helmet (its own prop, SafePtr at +0x168C), the hide counters of helmet
 // and body (+0x16D, Entity::Hide/Show), the helmet-open bit (+0x3DC bit 23) and the
@@ -1254,7 +1254,7 @@ void WatchHeads(DWORD now) {
 }
 
 DWORD entriesAt = 0;
-// --- necro vision -----------------------------------------------------------------------------
+// --- necro vision ---
 // The necro players see the humans through walls as glowing nerves. Every Player has a
 // NecroVisionComponent (vtable 0x01B76DE0), but the campaign Isaac's holds the class
 // defaults (every effect the invalid BADBADBA GUID), so on a necro machine PlayVFX
@@ -1518,7 +1518,7 @@ void Tick(DWORD now) {
     Flush(now);
 }
 
-// --- pickups under the MP bit ------------------------------------------------------------------
+// --- pickups under the MP bit ---
 // With the MP bit a dropped pickup registers with EnemyLifetimeManager::AddEntity
 // (PickupItem::UpdatePickupRegistrationState, PC 0x00DB439A; thiscall(type, entity,
 // a, b), ret 0x10). Its queues are sized from tuning that never comes offline, so
@@ -1538,7 +1538,7 @@ void __fastcall OnLifetimeAdd(void* self, void*, uint32_t type, uint32_t entity,
     lifetimeHook.thiscall<void>(self, type, entity, a, b);
 }
 
-// --- MP loot ----------------------------------------------------------------------------------
+// --- MP loot ---
 // [Versus] MpLoot: the pool slashers drop what the maps' own slashers do (list
 // 37CA2B52: 70 %, MultiAmmo 70 / Health Kit 25 / Stasis Battery 5), not their
 // campaign lists with credits and gun ammo. ItemDropListComponent::
@@ -1625,7 +1625,7 @@ uint32_t __fastcall OnFindIndexForGun(void* self, void*, uint32_t gun) {
     return static_cast<uint32_t>(g->slot);
 }
 
-// --- install ----------------------------------------------------------------------------------
+// --- install ---
 size_t Hex(const char* hex, unsigned char* out, size_t cap) { return nativelobby::Hex(hex, out, cap); }
 bool Hook(FILE* log, const char* name, uint32_t rva, void* fn, safetyhook::InlineHook& hook) {
     for (const Sig& s : kSigs) {

@@ -1365,7 +1365,7 @@ void Tick(DWORD now) {
 //   are loaded or loading alone and unloads the rest of its own list; the set
 //   then loads the new ones once its unload list is empty.
 // So a stream both machines hold, that the partner's set still has and the local one
-// is about to drop, is simply added to the desired list: it stays a member,
+// is about to drop, is added to the desired list: it stays a member,
 // nothing waits, and the next switch without it unloads it the normal way.
 // An extra reference instead (tried first) would have kept the stream out of
 // the unload list's reach and the set would never have finished.

@@ -108,7 +108,7 @@ inline void Fly(Pose& p, Flight& f, const Pad& pad, float speed, float dt, const
     if (p.fov > t.maxFov) p.fov = t.maxFov;
 }
 
-// --- the camera path ------------------------------------------------------------------
+// --- the camera path ---
 struct Sample { float t = 0.0f; Pose pose; };
 struct Path {
     std::vector<Sample> samples;

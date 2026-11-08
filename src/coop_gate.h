@@ -171,7 +171,7 @@ struct Queue {
     // A partner says it reached this message too.
     //
     // A vote for something not held here is kept, not discarded: the other
-    // machine may simply have got there first, and throwing the vote away would
+    // machine may have got there first, and throwing the vote away would
     // mean the local hold never reaches quorum. It is recorded as a fresh entry
     // with their vote on it and no local vote, so it waits for this machine.
     void Vote(uint32_t hash, uint32_t source, uint32_t token, uint32_t now,

@@ -98,7 +98,7 @@ DWORD bannerAt = 0;
 uint32_t dyingPlayer = 0;
 DWORD dyingAt = 0;
 
-// --- the other machines' Isaacs ----------------------------------------------------------------
+// --- the other machines' Isaacs ---
 constexpr uint32_t kLifeMagic = 0x4546494Cu;   // 'LIFE'
 constexpr uint8_t kLifeVersion = 1;
 #pragma pack(push, 1)

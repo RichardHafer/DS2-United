@@ -42,7 +42,7 @@ volatile LONG settingsReads = 0, settingsFailures = 0, unfocusedTicks = 0;
 float nearM = 3.0f, farM = 60.0f;
 coop_voices::Rule rules[coop_voices::kEventCount]{};
 
-// --- the audio device ---------------------------------------------------------------------------
+// --- the audio device ---
 using CreateFn = HRESULT(WINAPI*)(IXAudio2**, UINT32, XAUDIO2_PROCESSOR);
 using X3DInitFn = HRESULT(__cdecl*)(UINT32, FLOAT32, X3DAUDIO_HANDLE);
 using X3DCalcFn = void(__cdecl*)(const X3DAUDIO_HANDLE, const X3DAUDIO_LISTENER*, const X3DAUDIO_EMITTER*, UINT32, X3DAUDIO_DSP_SETTINGS*);
@@ -56,7 +56,7 @@ DWORD channelMask = 0;
 bool engineRunning = true;
 volatile LONG faults = 0;
 
-// --- sounds, loaded off the game thread -------------------------------------------------------------
+// --- sounds, loaded off the game thread ---
 struct Load {
     std::string path;
     coop_voices::Sound sound;
@@ -127,7 +127,7 @@ std::shared_ptr<Load> Request(const std::string& path, DWORD now) {
     return load;
 }
 
-// --- who speaks ----------------------------------------------------------------------------------------
+// --- who speaks ---
 std::string picks[256];          // by key: what that machine sent ("" = its default)
 unsigned hostHumans = 0;          // what the host counts (clients order the bots by it)
 DWORD lastSpoke[256][coop_voices::kEventCount]{};
@@ -165,7 +165,7 @@ int PackOf(unsigned key) {
     return p;
 }
 
-// --- events ----------------------------------------------------------------------------------------
+// --- events ---
 struct Ask { uint32_t entity; int event; char detail[24]; DWORD at; uint32_t context; };
 SRWLOCK askLock = SRWLOCK_INIT;
 std::vector<Ask> asks;
@@ -183,7 +183,7 @@ void Say(uint32_t entity, int event, const char* detail, DWORD delayMs = 0, uint
     InterlockedIncrement(&asked);
 }
 
-// --- playing ------------------------------------------------------------------------------------------
+// --- playing ---
 struct Active {
     IXAudio2SourceVoice* voice = nullptr;
     std::shared_ptr<Load> load;
@@ -484,7 +484,7 @@ void Pause(DWORD now) {
     else if (SUCCEEDED(engine->StartEngine())) engineRunning = true;
 }
 
-// --- the wire -------------------------------------------------------------------------------------------
+// --- the wire ---
 DWORD sentAt = 0;
 volatile LONG packetsSent = 0, packetsIn = 0;
 void Send(DWORD now) {
@@ -527,7 +527,7 @@ bool OnPacket(const coop_voices::Packet& p, bool fromHost) {
     return true;
 }
 
-// --- the game's sliders and the focus -------------------------------------------------------------------
+// --- the game's sliders and the focus ---
 std::string SettingsPath() {
     char local[MAX_PATH]{};
     if (!GetEnvironmentVariableA("LOCALAPPDATA", local, MAX_PATH)) return {};
@@ -575,7 +575,7 @@ void ApplyMaster(DWORD now) {
     master->SetVolume(want);
 }
 
-// --- the game thread ---------------------------------------------------------------------------------
+// --- the game thread ---
 void Situations(DWORD now);   // below
 void Tick(DWORD now) {
     if (!installed) return;
@@ -638,7 +638,7 @@ unsigned TestAll() {
     return static_cast<unsigned>(who.size());
 }
 
-// --- Isaac's own voice ----------------------------------------------------------------------------------
+// --- Isaac's own voice ---
 constexpr uint32_t kPlayerSoundSlotRva = 0x1729574, kPlayerPlaySoundRva = 0x3D1610, kCctSiteRva = 0xBF6B1B, kReloadAnimRva = 0x474470;
 constexpr uint32_t kPairedCoordinator = 0x2A8, kPairAttacker = 0x88, kPairDefender = 0x90;
 using PlaySoundFn = void*(__thiscall*)(void*, uint32_t, void*);
@@ -777,7 +777,7 @@ void __fastcall OnReloadAnim(void* sm, void*) {
     Say(player, coop_voices::kReload, nullptr);
     SendEvent(player, coop_voices::kReload);
 }
-// --- situations ([Voices] Situations; analysis/VOICE_SITUATIONS_2026-10-16.md) ---------------------------
+// --- situations ([Voices] Situations; analysis/VOICE_SITUATIONS_2026-10-16.md) ---
 // Six lines the game has no vocal for, read on the game thread from what the plugin
 // already knows: low health, low ammo, a new room, a big enemy in sight, three kills
 // in a row and a necro player in sight. Only the own Isaac and the host's bots are
@@ -1105,7 +1105,7 @@ void InstallMute(FILE* log) {
     reloadHooked = hook_site::Install(log, "voices reload start", base + kReloadAnimRva, kReload, sizeof(kReload), reinterpret_cast<void*>(OnReloadAnim), reloadHook);
 }
 
-// --- setup -----------------------------------------------------------------------------------------------
+// --- setup ---
 void ScanPacks(FILE* log) {
     WIN32_FIND_DATAA f{};
     const HANDLE h = FindFirstFileA((folder + "\\*").c_str(), &f);

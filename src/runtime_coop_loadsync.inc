@@ -221,7 +221,7 @@ bool LegacyDecide(DWORD now, char* why, size_t whySize) {
     return true;
 }
 
-// --- the host's decision ------------------------------------------------------------
+// --- the host's decision ---
 // Per member of the barrier: still waited for, ready, or out (and why). Transitions are
 // logged once each, so the log shows every member's way through the barrier.
 enum Verdict : int { kWait = 0, kIn = 1, kOut = 2 };
@@ -351,7 +351,7 @@ bool HostDecide(DWORD now, char* why, size_t whySize) {
     return waiting == 0;
 }
 
-// --- the client's decision -----------------------------------------------------------
+// --- the client's decision ---
 bool ClientDecide(DWORD now, char* why, size_t whySize, const char** how) {
     const DWORD held = TicksSince(now, heldSince);
     if (SoloReload(now)) { *how = "a reload of this machine alone"; InterlockedIncrement(&soloStarts); return true; }
@@ -392,7 +392,7 @@ bool ClientDecide(DWORD now, char* why, size_t whySize, const char** how) {
     return false;
 }
 
-// --- this machine's readiness --------------------------------------------------------
+// --- this machine's readiness ---
 // The rooms of the checkpoint set, the join suit, the partners' Isaacs. Each waits a bounded time.
 bool partnersDuringLoad = false;
 DWORD ghostWaitMs = 10000, readySince = 0;
@@ -465,7 +465,7 @@ bool LocalReady(DWORD now, char* why, size_t whySize) {
     return roomsDone && suitDone && bodiesDone;
 }
 
-// --- after the release: the void watch -----------------------------------------------
+// --- after the release: the void watch ---
 // Diagnostics only: a local Isaac falling freely in the first seconds of a level says the
 // floor was not there at the release. The fall guard ([MpMap] CampaignFallGuard) acts.
 DWORD watchUntil = 0, watchSampleAt = 0, releasedAt = 0;
@@ -746,7 +746,7 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&suitTimeouts, 0, 0), InterlockedCompareExchange(&voidEvents, 0, 0), InterlockedCompareExchange(&genAdoptions, 0, 0));
 }
 
-// --- the join suit (runtime_coop_uniform.inc reads it) ---------------------------------
+// --- the join suit (runtime_coop_uniform.inc reads it) ---
 // A story joiner starts a new game at the host's checkpoint, and the level's template
 // dresses him in the patient suit (24.10.). The suit he should wear is armed here before the
 // load and put on in Player::Init's own dress (coop_uniform OnChange at 0x008A8670).

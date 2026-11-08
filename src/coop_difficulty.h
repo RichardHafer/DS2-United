@@ -38,7 +38,7 @@ inline Route RouteSelect(bool frontEnd, bool owned, bool inMatch, bool lockInMat
 // The in-game popup keeps the lowest difficulty of the run (achievements); a launch sets both.
 inline int LowestAfterChange(int lowest, int d) { return Valid(lowest) && lowest < d ? lowest : d; }
 
-// --- packet fields --------------------------------------------------------------------------
+// --- packet fields ---
 inline uint8_t LobbyByte(int d) { return Valid(d) ? static_cast<uint8_t>(d) : kNone; }
 inline int FromLobbyByte(int b) { return Valid(b) ? b : -1; }
 // CampaignPacket's former pad: difficulty + 1, 0 = none.
@@ -58,7 +58,7 @@ struct RequestWire { uint8_t zero = 0, difficulty = kNone, pad[2]{}; uint32_t to
 static_assert(sizeof(HostWire) == 16 && sizeof(RequestWire) == 16, "difficulty wire size");
 enum HostFlag : uint8_t { kFlagLocked = 1 };   // a match runs: nobody changes it
 
-// --- host ----------------------------------------------------------------------------------
+// --- host ---
 // The host's value is the one every machine plays. Each change gets a new generation.
 struct Leader {
     uint32_t generation = 0, refreshAt = 0;
@@ -98,7 +98,7 @@ struct RequestLog {
     }
 };
 
-// --- client --------------------------------------------------------------------------------
+// --- client ---
 // The host's word as a client last took it, and the request it waits on.
 struct Follower {
     enum class Take { Apply, Stale, Held, Ignored };
@@ -157,7 +157,7 @@ inline ClientStep DecideClient(int global, int lastSeen, bool userChange, bool p
     return ClientStep::None;
 }
 
-// --- HUD -----------------------------------------------------------------------------------
+// --- HUD ---
 // The separator the line already uses: the game modes' running lines use "|".
 inline const char* SeparatorFor(const char* line) { return line && std::strstr(line, "  |  ") ? "  |  " : "  -  "; }
 // "<line><separator>ZEALOT" when all of it fits; an empty line or an unknown difficulty stays.

@@ -10,7 +10,7 @@
 
 namespace coop_mpmap {
 
-// --- maps ----------------------------------------------------------------------
+// --- maps ---
 // Every map the survival menu can start. The index is the bit in
 // MapEntity::maps and the number the lobby sends, so new maps go at the end.
 // Shipped: in the game's own list (LoadMapInfo 0x00A99800). Outbreak: the
@@ -56,7 +56,7 @@ inline int MapIndex(const char* name) {
     return -1;
 }
 
-// --- the archives ----------------------------------------------------------------
+// --- the archives ---
 // The DAT name hash: sdbm over the lowercased path with backslashes. A map's
 // main stream set is "<name>\<name>.str".
 inline uint32_t HashStep(uint32_t h, char c) {
@@ -101,7 +101,7 @@ inline bool BigHas(const unsigned char* entries, uint32_t count, uint32_t hash) 
     return false;
 }
 
-// --- GUIDs ---------------------------------------------------------------------
+// --- GUIDs ---
 inline int HexDigit(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     c = Lower(c);
@@ -140,7 +140,7 @@ inline int Compare(const uint32_t* a, const uint32_t* b) {
     return 0;
 }
 
-// --- the per-map entity table (generated_mpmap_block.h) --------------------------
+// --- the per-map entity table (generated_mpmap_block.h) ---
 enum Group : uint8_t { kWatch = 0, kEndRound = 1, kRoundTimer = 2, kObjectiveMarkers = 3, kTeamLogic = 4, kMpSlashers = 5, kMpGlobals = 6, kGroups = 7 };
 inline const char* GroupName(unsigned g) {
     static const char* const names[kGroups] = {"watch", "end_round", "round_timer", "objective_markers", "team_logic", "mp_slashers", "mp_globals"};
@@ -175,7 +175,7 @@ inline bool Blocks(const MapEntity* e, int mapIndex, uint32_t groupMask) {
     return mapIndex < 0 || (e->maps >> mapIndex & 1u);
 }
 
-// --- the stream set members of a SetDesired call ---------------------------------
+// --- the stream set members of a SetDesired call ---
 // known[i]: the stream manager resolved member i. Unknown members are dropped
 // when dropUnknown is set; null and invalid GUIDs stay (the engine skips them).
 // Returns the kept count; out and outHidden must hold count entries.
@@ -193,7 +193,7 @@ inline unsigned FilterMembers(const uint32_t (*in)[4], const unsigned char* hidd
     return n;
 }
 
-// --- level manager states (LevelLoadState.h, Xbox enumerator names) ---------------
+// --- level manager states (LevelLoadState.h, Xbox enumerator names) ---
 constexpr uint32_t kRunning = 16;
 inline const char* StateName(uint32_t s) {
     static const char* const names[] = {"NO_LEVEL", "LOAD_TEXT_ASSETS", "LOAD_LOADING_SCREEN", "FETCH_MP_TUNING", "SWAP_DISC",
@@ -203,7 +203,7 @@ inline const char* StateName(uint32_t s) {
     return s < sizeof(names) / sizeof(names[0]) ? names[s] : "?";
 }
 
-// --- the double press -----------------------------------------------------------
+// --- the double press ---
 // The first press arms, a second one within windowMs confirms. A key held down
 // counts once.
 struct DoublePress {
@@ -225,7 +225,7 @@ struct DoublePress {
     void Reset() { armed = false; }
 };
 
-// --- the loading watchdog ------------------------------------------------------
+// --- the loading watchdog ---
 // Progress is any change of a signature the caller builds (level manager state,
 // stream requests, TOC loads, loaded stream count). Stuck reports come once per
 // limit, at most maxReports times per load.
@@ -252,7 +252,7 @@ struct Watchdog {
     }
 };
 
-// --- the visit -----------------------------------------------------------------
+// --- the visit ---
 // Leaving: the request went out, the old level still runs (the map name in the
 // main loop is the new one from the moment of the request, so the phases wait
 // for the level manager to leave RUNNING first). Loading: the new level is being
@@ -309,7 +309,7 @@ struct Visit {
     }
 };
 
-// --- spawn points --------------------------------------------------------------
+// --- spawn points ---
 inline bool UsablePoint(const float* p) {
     return std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]) && (p[0] != 0.0f || p[1] != 0.0f || p[2] != 0.0f) &&
            std::fabs(p[0]) < 100000.0f && std::fabs(p[1]) < 100000.0f && std::fabs(p[2]) < 100000.0f;

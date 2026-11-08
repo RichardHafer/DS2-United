@@ -33,7 +33,7 @@ void NotReady(const char* why, const char* fix) {
     if (logFile) std::fprintf(logFile, "survival readiness: NOT ready: %s | fix: %s\n", notReadyWhy, notReadyFix);
 }
 
-// --- engine anchors (RVAs, image base 0x00400000) ------------------------------------
+// --- engine anchors (RVAs, image base 0x00400000) ---
 constexpr uint32_t kServiceRegistry = 0x1C1C09C, kFindService = 0x17DB0, kMapOffset = 4;
 constexpr uint32_t kLevelManager = 0x1C1C0A4, kLmState = 0x18, kRunning = 16;
 constexpr uint32_t kSimManager = 0x1C1C0A0, kGetSpawnInfo = 0x376440;
@@ -62,7 +62,7 @@ constexpr uint32_t NameHash(const char* s) {
     return h;
 }
 
-// --- the log ------------------------------------------------------------------------------
+// --- the log ---
 // A ring filled on the game thread and printed by the worker. Hard budget for the
 // whole process; spawn lines and refusal lines have their own smaller ones.
 constexpr unsigned kRingLines = 512, kLineSize = 360;
@@ -98,7 +98,7 @@ int FaultFilter(EXCEPTION_POINTERS* info) {
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-// --- signatures ------------------------------------------------------------------------------
+// --- signatures ---
 // Every engine function the director calls, checked at start. The bytes and the
 // calling conventions are the ones the co-op plugin verified and runs with
 // (mpmap, bot nav, bot senses, turret, gadgets) and the watchdog's SetHealth.
@@ -150,7 +150,7 @@ static_assert(sizeof(sites) / sizeof(sites[0]) == sSiteCount, "one entry per sit
 bool Have(SiteIndex i) { return sites[i].ok; }
 bool killReady = false, rewardsReady = false;
 
-// --- engine calls (POD frames only: SEH) ------------------------------------------------------------
+// --- engine calls (POD frames only: SEH) ---
 __declspec(noinline) uint32_t FindServiceRaw(uint32_t registry, uint32_t hash) {
     __try {
         return reinterpret_cast<uint32_t(__thiscall*)(void*, uint32_t)>(base + kFindService)(reinterpret_cast<void*>(static_cast<uintptr_t>(registry)), hash);
@@ -256,7 +256,7 @@ __declspec(noinline) bool SetHealthRaw(uint32_t component, float value) {
     }
 }
 
-// --- world reads ------------------------------------------------------------------------------
+// --- world reads ---
 bool ReadV3(uint32_t address, V3& out) {
     float f[3]{};
     if (!Read(address, f, sizeof(f)) || !std::isfinite(f[0]) || !std::isfinite(f[1]) || !std::isfinite(f[2])) return false;
@@ -450,7 +450,7 @@ unsigned ReadSpawnPoints(V3* out, unsigned cap) {
     return n;
 }
 
-// --- donors ----------------------------------------------------------------------------------
+// --- donors ---
 // Pool indices per family for direct spawns; per vent spot and family for vents.
 std::map<std::string, std::vector<size_t>> directDonors;
 // The enhanced ("super_" package) variants per family, chosen with the
@@ -770,7 +770,7 @@ bool DonorResolves(size_t index) {
     return LookupRaw(manager, &info, &pool[index].guid) && info.record && info.attributes && info.field08 && GlobalDonorAllowed(info.field08);
 }
 
-// --- notices through the co-op plugin --------------------------------------------------------------
+// --- notices through the co-op plugin ---
 using QueueNoticeFn = int(__cdecl*)(const char*);
 QueueNoticeFn queueNotice = nullptr;
 // The co-op plugin's role: 0 no network, 1 host, 2 client. A client runs no
@@ -897,7 +897,7 @@ void Notice(const char* text, bool status = false) {
     if (Budget(noticeLines, 400)) Event("notice %s: %s", queued ? "queued" : "NOT queued", text);
 }
 
-// --- tracked enemies ------------------------------------------------------------------------
+// --- tracked enemies ---
 struct Tracked {
     uint32_t actor = 0, vtable = 0;
     Guid guid{}, donor{};
@@ -983,7 +983,7 @@ unsigned awareLines = 0;
 void RestoreCharging();
 void RestoreVersusGroups();
 
-// --- the run ---------------------------------------------------------------------------------
+// --- the run ---
 enum class State { Off, Arming, Wave, Intermission, Dead };
 const char* StateName(State s) {
     switch (s) {
@@ -1247,7 +1247,7 @@ uint32_t SimMs() {
     return Read(base + kSimMsRva, &ms, 4) ? ms : 0;
 }
 
-// --- cleanup on the MP maps ([Cleanup] in DS2Survival.ini) ----------------------------------------
+// --- cleanup on the MP maps ([Cleanup] in DS2Survival.ini) ---
 // 13.10., crash 16592 (Havok's refill found no address space left) and the frame rate
 // sinking over long runs: 1286 of the world's 2252 rigid bodies belonged to 99 dead
 // enemies whose delete-fade never advanced, because a body that does not tick never runs
@@ -1738,7 +1738,7 @@ void UpdateHud(uint32_t now) {
     InterlockedIncrement(&hudPushes);
 }
 
-// --- the director's enemies and a level teardown -------------------------------------------------
+// --- the director's enemies and a level teardown ---
 // Our pool enemies outlive a checkpoint restart or a level change while the tables of their state
 // machines are freed with the old level (09.09.; dump 75636, 02.11.: seven of them after a pause-menu
 // restart in arena_ch01, the crash 4 s later in the new level). Before the teardown every machine of
@@ -1890,7 +1890,7 @@ void EndRun(const char* why, uint32_t now) {
     InterlockedExchange(&waveMirror, 0);
 }
 
-// --- availability -----------------------------------------------------------------------------
+// --- availability ---
 safetyhook::MidHook dividerLocationHook;
 
 void OnDividerLocation(SafetyHookContext& ctx) {
@@ -2056,7 +2056,7 @@ void Probe(uint32_t now, bool quiet = false) {
     (void)now;
 }
 
-// --- spawning ------------------------------------------------------------------------------------
+// --- spawning ---
 constexpr unsigned kNotReached = 0xFFFFu;
 enum class Drive { Made, NotMade, OwnTarget, Busy };
 // One forced spawn through `spawner`. The stream probe mutex is taken here, on
@@ -2764,7 +2764,7 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     }
 }
 
-// --- tracking --------------------------------------------------------------------------------------
+// --- tracking ---
 // An enemy from a vent that got nowhere: the second one retires that vent for the run.
 void NoteVentFailure(const Tracked& t) {
     if (!t.vent || t.marker < 0 || t.marker >= static_cast<int>(std::size(ds2::kSurvivalVentMarkers)) || markerRetired[t.marker]) return;
@@ -2857,7 +2857,7 @@ void Retire(Tracked& t, survival::Fate fate, uint32_t now) {
     if (!t.targetAt && awareReady) ++aw.neverTargeted;
     t.actor = 0;
 }
-// --- awareness: every survival enemy hunts the players ----------------------------------------
+// --- awareness: every survival enemy hunts the players ---
 // analysis/DS2_SURVIVAL_AWARENESS_2026-10-09.md. Out-of-sight spawns are not
 // aware, some templates track no group at all, and only one Cadaverous NPC in
 // the level may charge at a time.
@@ -3433,7 +3433,7 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     InterlockedExchange(&aliveMirror, static_cast<LONG>(AliveCount()));
 }
 
-// --- rewards ---------------------------------------------------------------------------------------
+// --- rewards ---
 struct GunAmmo { uint32_t vtableRva; const char* gun; uint32_t ammo[4]; };
 // Gun vtables (co-op bot gun catalogue) and the global_assets SpareAmmo of each.
 constexpr GunAmmo kGunAmmo[] = {
@@ -3549,7 +3549,7 @@ void ShareRewards(const Viewer* viewers, unsigned viewerCount, const char* why) 
     Event("rewards shared (%s): local drop, reward event to the partners (wave %u, escalation wave %u)", why, run.wave, EscWave(run.wave));
 }
 
-// --- Mercenaries ----------------------------------------------------------------------------------
+// --- Mercenaries ---
 // The clock mode (DS2Coop_GameMode 1, [Mercenaries] in DS2Survival.ini). The spawning core
 // stays: the next stage's enemies join the queue whenever it runs dry, so there is no break,
 // and the escalation follows the stage. Kills, combos and time capsules add time, a death
@@ -3980,7 +3980,7 @@ void MercsTick(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     SpawnStep(now, viewers, viewerCount);
 }
 
-// --- Objective -------------------------------------------------------------------------------------
+// --- Objective ---
 // The MP map's own objectives (DS2Coop_GameMode 2, [Objective] in DS2Survival.ini) on
 // the Mercenaries clock. The map announces objective n with obj_n_new, so obj_n_new
 // means n - 1 is done: the clock gains StepBonusSeconds, the hordes pause for
@@ -4154,7 +4154,7 @@ void ObjectiveTick(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     SpawnStep(now, viewers, viewerCount);
 }
 
-// --- Hold the Zone ----------------------------------------------------------------------------------
+// --- Hold the Zone ---
 // DS2Coop_GameMode 3, [Zone] in DS2Survival.ini. One zone at a time on the MP map,
 // at a multiplayer spawn point or an open vent, MinDistance..MaxDistance metres of
 // path from the nearest player, in the open. Players inside (bots too, and for a
@@ -4400,7 +4400,7 @@ void ZoneTick(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     SpawnStep(now, viewers, viewerCount);
 }
 
-// --- waves ----------------------------------------------------------------------------------------
+// --- waves ---
 void StartWave(unsigned n, uint32_t now) {
     run.wave = n;
     run.spec = survival::WaveFor(n, cfg);
@@ -4517,7 +4517,7 @@ bool KeyPressed() {
     return pressed;
 }
 
-// --- the director ----------------------------------------------------------------------------------
+// --- the director ---
 char mapCache[64] = "";
 uint32_t mapReadAt = 0;
 bool PoolReady(const char** why) {
@@ -4529,7 +4529,7 @@ bool PoolReady(const char** why) {
     return true;
 }
 
-// --- Versus slashers --------------------------------------------------------------------------------
+// --- Versus slashers ---
 // DS2Coop_GameMode 4, [VersusSlashers] and [VersusSkins] in DS2Survival.ini. The
 // map's own five slashers stay blocked (DS2Coop's MP map gate); the host's director
 // keeps their count on the map with pool slashers in the map's skins, through
@@ -4823,7 +4823,7 @@ void WriteDiagnostics(FILE* log) {
 }
 }  // namespace cleanup
 
-// --- host tools ---------------------------------------------------------------------------------
+// --- host tools ---
 // The co-op debug menu's HOST tab asks through DS2Survival_Admin from its own thread;
 // the asks wait here and run on the director's tick. A tool that changes the run's
 // course (a wave jump, a skipped wave, an extra enemy, the hold, the cap) marks the
@@ -5438,7 +5438,7 @@ void MachineTick() {
     Tick(&driverMachine);
 }
 
-// --- start ------------------------------------------------------------------------------------------
+// --- start ---
 // Worker thread, after the selection hook and the spawn multiplier are in.
 void Install(FILE* log, const std::string& directory) {
     logFile = log;

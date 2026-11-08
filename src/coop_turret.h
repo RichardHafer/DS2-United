@@ -68,7 +68,7 @@ inline Config Sanitized(Config c) {
     return c;
 }
 
-// --- placement ---------------------------------------------------------------
+// --- placement ---
 
 enum class Place : uint8_t { Ok, NoPlayer, NoFloor, TooHigh, Shifted, Blocked, Occupied };
 inline const char* PlaceName(Place p) {
@@ -128,7 +128,7 @@ inline Place Finish(Place spotVerdict, bool lineClear, float nearestFriend, cons
     return Place::Ok;
 }
 
-// --- what to shoot -----------------------------------------------------------
+// --- what to shoot ---
 
 // EA::DamageZone: 0 head, 1/2 front limbs, 3/4 back limbs, 5 tail, 6 sac, 7-9
 // generic appendages, 10 torso. Limbs first: that is what dismembers.
@@ -213,7 +213,7 @@ inline bool FriendInLine(V3 from, V3 to, const V3* feet, int n, const Config& c)
     return false;
 }
 
-// --- turning -----------------------------------------------------------------
+// --- turning ---
 
 inline float WrapPi(float a) {
     if (!std::isfinite(a)) return 0.0f;
@@ -235,7 +235,7 @@ inline float Turn(float yaw, float target, uint32_t dtMs, const Config& c) {
     return TurnToward(yaw, target, c.turnDegPerSec * kPi / 180.0f * static_cast<float>(dtMs) / 1000.0f);
 }
 
-// --- pacing ------------------------------------------------------------------
+// --- pacing ---
 
 // One shot per interval. Falling behind (a pause, no target for a while) never
 // turns into a burst: the next shot is one interval after the late one.
@@ -251,7 +251,7 @@ struct Pacer {
     void Reset() { armed = false; next = 0; }
 };
 
-// --- ammunition and heat -----------------------------------------------------
+// --- ammunition and heat ---
 
 enum class Shot : uint8_t { Fired, Empty, Overheated };
 struct Magazine {
@@ -291,7 +291,7 @@ struct Magazine {
     }
 };
 
-// --- feedback effects ----------------------------------------------------------
+// --- feedback effects ---
 
 // The pulse rifle's shot sound is authored inside its muzzle effect, so a flash
 // without the sound needs another effect, and the sound alone is not on offer.

@@ -525,7 +525,7 @@ bool SkinIndicesGarbage(uint32_t skin) {
     }
 }
 
-// ===== Stand-in partner: a real, healthy actor puppeted to the partner =====
+// --- Stand-in partner: a real, healthy actor puppeted to the partner ---
 // The engine ghost is a render dead end (crash history above). Instead this adopts
 // a fully-constructed local creature (any Animated actor with a real skeleton),
 // reskin it to Isaac's resident model, freeze it so it is harmless, and teleport
@@ -977,7 +977,7 @@ DWORD partnerLastSeen = 0, lastStateSend = 0;
 sockaddr_in partnerAddr{};
 coop_peer::State peerReadiness;
 
-// --- survival over the side channel -------------------------------------------------
+// --- survival over the side channel ---
 // The host runs the waves (the randomizer's director). Every notice it shows goes
 // to the partners too, three times 100 ms apart; a client shows each sequence
 // number once. Clients run no director of their own (DS2Coop_NetRole).
@@ -1518,7 +1518,7 @@ void OpenDataSocket() {
     }
 }
 
-// ===== Death mirror, observation stage =====
+// --- Death mirror, observation stage ---
 // Retail Player::ProcessDeath is thiscall with three stack arguments (ret 0xC).
 // Prologue verified identical in dumps 46012 and 46076:
 //   sub esp,3C / push ebx,ebp,esi / mov esi,ecx / mov eax,[esi+3D8]
@@ -1595,7 +1595,7 @@ volatile LONG deathLocalSeen = 0, deathOtherSeen = 0, deathSent = 0, deathReceiv
 volatile LONG deathAcksIn = 0, deathAcksOut = 0, deathAbandoned = 0;
 volatile LONG deathLastArgs[3]{}, deathLastFlags = 0;
 
-// ===== Weapon provisioning survey (read-only) =====
+// --- Weapon provisioning survey (read-only) ---
 // Answers, for every weapon the peer carries, whether this machine could hand it
 // to the ghost at all. Verified from the retail entry scanner at 0x00DB28D0:
 // the Quartermaster keeps its entries pointer at manager+0x14 and their count at
@@ -3290,7 +3290,7 @@ namespace shop { bool HoldsKey(int vk, coop_shop::Guard who); }   // runtime_coo
 namespace versus { void CreditBotKill(unsigned bot, uint64_t ref, uint16_t flags, DWORD ageMs); }   // runtime_coop_versus.inc
 #include "runtime_coop_bot.inc"
 
-// --- the host's bots for the partners ([Bot] GhostToClients) -----------------------------
+// --- the host's bots for the partners ([Bot] GhostToClients) ---
 // A bot is a local Player like Isaac. Registered with the session the way
 // RegisterLocalPlayer does it, it reaches every partner as a ghost Player. Its
 // sub-key carries machine byte 0xF0+index, so MachineOf and GhostForMachine never
@@ -3439,7 +3439,7 @@ bool OnBotSuitBytes(const void* data, int size) {
 #include "runtime_coop_bankheap.inc"
 #include "runtime_coop_outbreakdraw.inc"
 
-// --- the role, chosen in the main menu (runtime_coop_lobby.inc) ------------------------
+// --- the role, chosen in the main menu (runtime_coop_lobby.inc) ---
 // Install read the role once, from DS2COOP or the INI. The lobby sets it again
 // before the level that starts the session; nothing here touches a live session.
 volatile LONG roleChanges = 0;
@@ -4199,7 +4199,7 @@ void Poll() {
     InterlockedExchange(&reportReady, 1);
 }
 
-// ===== SimManager's entity creator =====
+// --- SimManager's entity creator ---
 // Every entity is built by the class-dispatch creator 0x777730
 // (thiscall(ecx=SimManager, arg1=spawn request, arg2, arg3), ret 0xC): it reads
 // the class descriptor at [[arg1+8]] and calls the class factory at

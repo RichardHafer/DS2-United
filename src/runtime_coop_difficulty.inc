@@ -107,7 +107,7 @@ bool Write(int d, bool launch, const char* why) {
     return ok && after == d;
 }
 
-// --- the value before a level request ----------------------------------------------------
+// --- the value before a level request ---
 int launchValue = -1;
 char launchSource[64] = "";
 void SetLaunch(int d, const char* source) {
@@ -161,7 +161,7 @@ void RestoreCampaignOrigin(const char* why) {
     originValue = originLowest = -1;
 }
 
-// --- the pick: what the next match from the map picker launches with ------------------------
+// --- the pick: what the next match from the map picker launches with ---
 // Any picker sets it. The SP02 screen sets it for one launch; a row in the map picker
 // (Pick=2, runtime_coop_gamemode.inc) calls SetPick and holds it, and SP02 is then skipped.
 int pick = -1;
@@ -202,7 +202,7 @@ bool LaunchPicked(uint32_t entry, const char* map, bool lobbyScreen) {
     return false;
 }
 
-// --- the SP02 screen in the main menu ------------------------------------------------------
+// --- the SP02 screen in the main menu ---
 bool owned = false, committed = false, lobbyDeferred = false, rowRefreshWanted = false;
 uint32_t pickEntry = 0, ownedScreen = 0;
 char pickMap[64] = "";
@@ -471,7 +471,7 @@ bool __fastcall OnCancel(void* screen, void*) {
     return NativeCancel(screen);
 }
 
-// --- sync ----------------------------------------------------------------------------------
+// --- sync ---
 Leader leader;
 RequestLog requestLog;
 uint32_t ackToken = 0, ackRequest = 0;
@@ -566,7 +566,7 @@ bool OnSurvnet(uint8_t kind, uint32_t token, const void* text, uint32_t value) {
     return false;
 }
 
-// --- probes ([Difficulty] Probe) --------------------------------------------------------------
+// --- probes ([Difficulty] Probe) ---
 namespace probe {
 constexpr uint32_t kBefore = 0x47D0A4, kAfter = 0x47D0BE, kScaleAmount = 0x9B3FC0;
 safetyhook::MidHook beforeHook, afterHook;
@@ -642,7 +642,7 @@ void Flush(DWORD now) {
 }
 }  // namespace probe
 
-// --- the game tick -------------------------------------------------------------------------
+// --- the game tick ---
 volatile LONG mirrorGlobal = -1, mirrorLowest = -1, mirrorGeneration = 0, mirrorHostValue = -1, mirrorHostGeneration = 0, mirrorPending = 0, mirrorOwned = 0, mirrorMatch = 0;
 volatile LONG mirrorPick = -1;
 int lastSeen = -2;
@@ -765,7 +765,7 @@ void Tick(DWORD now) {
     InterlockedExchange(&mirrorPick, Valid(pick) ? pick | (pickHeld ? 0x100 : 0) : -1);
 }
 
-// --- install -------------------------------------------------------------------------------
+// --- install ---
 struct Sig { const char* name; uint32_t rva; unsigned char bytes[16]; unsigned size; };
 bool Check(FILE* log, const Sig& s) {
     unsigned char actual[16]{};

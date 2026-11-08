@@ -1,5 +1,5 @@
 // Dead Space 2 United by Richard Hafer.
-// --- antics (DS2BotProfiles.ini Antics, HarmfulAntics; [Bot] AnticsEnabled) ----------------
+// --- antics (DS2BotProfiles.ini Antics, HarmfulAntics; [Bot] AnticsEnabled) ---
 // Now and then, with nothing about, a bot does something playful: taps its aim at
 // the leader's face, stares at him, stomps its own fresh kill, shadow boxes, or
 // (HarmfulAntics=1) puts a stasis shot on him. coop_bot_brain.h decides what and

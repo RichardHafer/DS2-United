@@ -13,7 +13,7 @@
 
 namespace coop_progress {
 
-// --- guns ------------------------------------------------------------------------
+// --- guns ---
 // A hit names its gun by the ScoringComponent inflictor bit (DamageData+0x94):
 // every campaign and MP gun record and its projectiles carry their gun bit.
 // The Foam Finger is a Plasma Cutter record and carries 0x20.
@@ -36,7 +36,7 @@ inline int GunByKey(const char* key) {
     return -1;
 }
 
-// --- weapon levels -----------------------------------------------------------------
+// --- weapon levels ---
 constexpr int kMaxWeaponLevel = 10;
 struct Rules {
     // kills for levels 2..10 (level 1 is 0 kills)
@@ -91,7 +91,7 @@ inline bool ParseRising(const char* text, uint32_t* out, int n) {
     return true;
 }
 
-// --- profile rows of mp_upgrades (UIC 0386), rows 14..32 --------------------------------
+// --- profile rows of mp_upgrades (UIC 0386), rows 14..32 ---
 // The gun rows 0..13 are left to the weapon levels (1.0 here). Values have no
 // offline source (Blaze title settings); these follow the closed beta (1.5) and
 // the report's proposals. Row 29 is a flag (stasis fires only if != 1.0), 30/31
@@ -112,7 +112,7 @@ inline float ProfileUpgrade(int row, unsigned level) {
     return level >= kRowLevel[row] ? RowValue(row) : 1.0f;
 }
 
-// --- profile unlocks -----------------------------------------------------------------
+// --- profile unlocks ---
 // The profile level each gun and gadget unlocks at, in the weapon select, the survival
 // shop and for the gadget keys. [Unlocks] in DS2United.ini overrides every one by key;
 // the suits' defaults come with their rows (generated_loadout_rows.h, the stock lua).
@@ -134,7 +134,7 @@ constexpr int kBackendRows = static_cast<int>(sizeof(kBackendKeys) / sizeof(kBac
 inline const char* BackendKey(int backend) { return backend >= 0 && backend < kBackendRows ? kBackendKeys[backend] : nullptr; }
 constexpr unsigned kMaxUnlockLevel = 60;
 
-// --- survival XP (host director) -------------------------------------------------------
+// --- survival XP (host director) ---
 // Events, for the dedup key and the log: one wave end, the unfinished wave at a
 // run end, and the clock modes' results.
 enum Event : uint8_t { kWaveEnd = 1, kRunEnd = 2, kMercsResult = 3, kObjectiveStep = 4, kObjectiveClear = 5, kZoneHeld = 6 };
@@ -187,7 +187,7 @@ struct Paid {
     }
 };
 
-// --- text ------------------------------------------------------------------------------
+// --- text ---
 // Percent of the way to the next profile level (100 at the top).
 inline unsigned PercentToNext(uint32_t xp, const uint32_t* levelScore, unsigned levels) {
     unsigned level = 0;

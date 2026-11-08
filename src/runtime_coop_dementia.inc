@@ -15,7 +15,7 @@ int forceStage = -1;
 using coop_dementia::kStageAt;
 constexpr DWORD kTickMs = 200;
 
-// --- the sounds on disk ----------------------------------------------------------------------
+// --- the sounds on disk ---
 struct File { std::string path, subtitle; };
 std::string folder;
 std::vector<File> whispers, nicole, ambience;
@@ -71,7 +71,7 @@ bool Any() {
 }  // namespace phantom
 
 namespace dementia {
-// --- the meter --------------------------------------------------------------------------------
+// --- the meter ---
 float meter = 0.0f, lastHealth = -1.0f;
 int stage = 0;
 bool activeNow = false, wasPaused = false;
@@ -122,7 +122,7 @@ bool HealthOf(uint32_t player, float& fraction, float& current, float& max) {
     return true;
 }
 
-// --- the hallucinations ----------------------------------------------------------------------------
+// --- the hallucinations ---
 enum Kind : int { kWhisper, kFlickerMild, kGlitch, kFlicker, kNicoleLine, kRigWave, kRigVitals, kFlickerHeavy, kRigPartnerLost, kAmbience, kFreakout,
                   kScreen, kNativeFlicker, kPackChild, kKinds };
 struct KindRule { const char* name; int minStage; DWORD cooldownMs; float weight; };
@@ -138,7 +138,7 @@ float WeightOf(int kind, int s) { return kRules[kind].weight * (kind == kPackChi
 volatile LONG fired[kKinds]{}, refused[kKinds]{};
 void Line(const char* fmt, ...);   // below
 
-// --- the campaign's own dementia effects (analysis/DEMENTIA_SCREEN_EFFECTS_2026-10-19.md) ------------
+// --- the campaign's own dementia effects (analysis/DEMENTIA_SCREEN_EFFECTS_2026-10-19.md) ---
 // dementia_screen (the LUT, a blur pulse, the distortion, glitch) and dementia_flicker_on are
 // resident on every survival map, for the necro win. Created like the turret's effects
 // (Create_ByGuid, no parent) at our Isaac; their camera bit (header 0x4000) keeps them in front
@@ -215,7 +215,7 @@ void Line(const char* fmt, ...) {
     va_end(args);
     gate::Event("dementia %s", text);
 }
-// --- stage 2: the phantom Pack children (analysis/DEMENTIA_PHANTOM_PACK_2026-10-19.md) ----------------
+// --- stage 2: the phantom Pack children (analysis/DEMENTIA_PHANTOM_PACK_2026-10-19.md) ---
 // The hallucinated Pack of Dementia Land, from the pool copies (tools\append_dementia_records.py),
 // spawned the way the bots spawn their body. It lives on this machine only: the host does not
 // ghost it, a client's spawn filter lets it through (phantom::spawning), its target is our Isaac
@@ -305,7 +305,7 @@ __declspec(noinline) bool PlaceAndFinalize(uint32_t entity, const float* rotatio
             reinterpret_cast<void(__thiscall*)(void*, const float*, int)>(base + kCmcOrientRva)(movement, rotation, 0);
             reinterpret_cast<void(__thiscall*)(void*, const float*)>(base + kCmcPositionRva)(movement, position);
         }
-        // spawn mode NONE: no rail climb from Dementia Land, it simply stands there
+        // spawn mode NONE: no rail climb from Dementia Land, it stands there
         if (const uint32_t spawning = FindComponent(entity, kSpawningVtableRva)) {
             Read(spawning + kSpawnMode, &modeBefore, 4);
             const uint32_t none = 0;

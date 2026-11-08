@@ -34,7 +34,7 @@ coop_gadgets::FieldConfig fieldCfg;
 uint32_t mineGuid[4] = {0x4BC806EA, 0x40D9D6F7, 0x544E4543, 0x53574F4B};    // stasis pack, global_assets
 uint32_t fieldGuid[4] = {0x4BC78C36, 0x9D5B89BA, 0x544E4543, 0x53574F4B};   // small med pack (25), global_assets
 
-// --- engine ------------------------------------------------------------------
+// --- engine ---
 constexpr uint32_t kStasisHitRva = 0x489730, kStasisFnVtableRva = 0x1727338, kStasisEntityRva = 0x7B6D00, kProcessCollisionRva = 0x489180;
 constexpr uint32_t kStasisManagerRva = 0x1C21348, kPlayerSettingsRva = 0x1C87C38, kGameFlagsRva = 0x1C1C0A4;
 constexpr uint32_t kSettingsAttributes = 0xC, kStasisStrength = 0x414, kPlayerStasisDuration = 0xBC8, kGameFlagsByte = 0x1C;
@@ -43,7 +43,7 @@ constexpr uint32_t kComponentParent = 0x1C, kStasisAttributes = 0xC, kStasisFlag
 constexpr uint32_t kHealthFlags = 0xC4, kSetHealthRva = 0xB84C60;
 constexpr uint32_t kPlayerVtableRva = 0x17294D0;
 
-// --- state -------------------------------------------------------------------
+// --- state ---
 struct Placed {
     bool on = false;
     V3 spot;
@@ -110,7 +110,7 @@ bool Pos(uint32_t entity, V3& out) {
     return true;
 }
 
-// --- the camera cast, as the turret calls it -----------------------------------
+// --- the camera cast, as the turret calls it ---
 DWORD castFaultTimes[5]{};
 unsigned castFaultNext = 0;
 __declspec(noinline) bool CastRaw(const float* from, const float* to, uint32_t exclude, float& fraction, uint32_t& hit, float* at) {
@@ -152,7 +152,7 @@ bool Clear(const V3& a, const V3& b, uint32_t exclude) {
     return Cast(a, b, exclude, fraction, hit, nullptr) && fraction >= 0.999f;
 }
 
-// --- bodies ------------------------------------------------------------------
+// --- bodies ---
 bool BodyIsOurs(const Placed& p) {
     uint32_t vtable = 0, guid[4]{}, owner = 1;
     return p.body && Read(p.body, &vtable, 4) && vtable == p.bodyVtable && Read(p.body + turret::kEntityGuid, guid, 16) &&
@@ -219,7 +219,7 @@ void WatchBody(Placed& p, DWORD wall) {
     }
 }
 
-// --- the radius rings ----------------------------------------------------------
+// --- the radius rings ---
 // The game has no ground decal to borrow, so each radius is a ring of resident
 // Alchemy effects on the floor, created the way the turret creates its hologram
 // (turret::CreateRaw: Create_ByGuid, 0xFFFF, flags 0, no parent) into handle slots
@@ -466,7 +466,7 @@ int RingsLive() {
     return live;
 }
 
-// --- placing -----------------------------------------------------------------
+// --- placing ---
 // The turret's rules: the nav mesh (or the floor under the spot), a clear line
 // from the eye and nobody standing there.
 coop_turret::Place FindSpot(uint32_t player, float distance, V3& spot, char* detail, size_t detailSize) {
@@ -530,7 +530,7 @@ const char* NotNowWhy(uint32_t player) {
     return !player ? "no player (menu, loading or a necromorph body)" : turret::CutsceneNow() ? "a cutscene runs" : "the level is not ready";
 }
 
-// --- the stasis mine -----------------------------------------------------------
+// --- the stasis mine ---
 struct StasisFn { uint32_t vtable; uint8_t multiplayer, pad[3]; float strength, duration; uint32_t owner; };
 static_assert(sizeof(StasisFn) == 0x14, "FireStasisFunction layout");
 __declspec(noinline) bool StasisRaw(const StasisFn* fn, uint32_t entity) {
@@ -715,7 +715,7 @@ void PressMine(uint32_t player, bool ready) {
     Notice("STASIS MINE PLACED");
 }
 
-// --- the heal field ------------------------------------------------------------
+// --- the heal field ---
 // Every local Isaac in the field one heal step; partners' copies are only counted.
 void HealStep(uint32_t dt) {
     InterlockedIncrement(&healSteps);
@@ -817,7 +817,7 @@ void PressField(uint32_t player, bool ready) {
     Notice("HEAL FIELD PLACED (%d S)", fieldLeft.SecondsLeft());
 }
 
-// --- the tick ------------------------------------------------------------------
+// --- the tick ---
 // The world they stood in is gone: an unused mine comes back, a running field is spent.
 // Ring effects still ours are soft-killed like the turret's hologram.
 void Forget(const char* why, bool worldKept) {
@@ -934,7 +934,7 @@ void Tick() {
     if (!installed) DropRings();
 }
 
-// --- setup -------------------------------------------------------------------
+// --- setup ---
 bool Bytes(uint32_t rva, const unsigned char* bytes, size_t size) {
     unsigned char actual[48]{};
     return size <= sizeof(actual) && Read(base + rva, actual, size) && std::memcmp(actual, bytes, size) == 0;

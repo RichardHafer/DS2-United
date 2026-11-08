@@ -124,7 +124,7 @@ inline bool ParseCampaign(const void* data, int length, CampaignPacket& out) {
     return out.magic == kCampaignMagic && out.version == kVersion && out.map[0] != 0;
 }
 
-// --- host ----------------------------------------------------------------------
+// --- host ---
 struct Member { bool used = false; uint32_t ip = 0; uint16_t port = 0, gamePort = 0; uint8_t machine = 0; uint32_t lastSeen = 0; uint32_t maps = ~0u; Profile profile{}; };
 struct Host {
     Member members[kMaxMembers];
@@ -197,7 +197,7 @@ struct Host {
     }
 };
 
-// --- the lobby list --------------------------------------------------------------
+// --- the lobby list ---
 // The host sends every joiner the whole list several times a second while no map
 // is launched: the map picked for the lobby screen (kNoMap: the host is not on it),
 // the game mode, the countdown and the eight rows of the native player list.
@@ -272,7 +272,7 @@ inline int SignalBars(unsigned pingMs, bool known, bool host) {
     return host ? bars + 9 : bars;
 }
 
-// --- joiner --------------------------------------------------------------------
+// --- joiner ---
 struct Joiner {
     enum class State : uint8_t { Idle, Hello, Welcomed, Launched, Refused };
     State state = State::Idle;

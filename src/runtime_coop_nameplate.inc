@@ -78,7 +78,7 @@ const Site kSites[] = {
     {"UpdateNameVis", kUpdateNameVisRva, {0x80, 0x7C, 0x24, 0x04, 0x00, 0xA1}, 6},
 };
 
-// --- names ------------------------------------------------------------------------------------
+// --- names ---
 constexpr uint32_t kNameMagic = 0x454D414Eu;   // 'NAME'
 constexpr uint8_t kNameVersion = 1;
 #pragma pack(push, 1)
@@ -150,7 +150,7 @@ bool OnNamePacket(const NamePacket& p) {
     return true;
 }
 
-// --- engine calls -------------------------------------------------------------------------
+// --- engine calls ---
 struct alignas(16) Matrix { float m[16]; };
 volatile LONG faults = 0;
 __declspec(noinline) uint32_t SpawnHelperRaw(uint32_t sim, unsigned char* info) {
@@ -282,7 +282,7 @@ __declspec(noinline) bool NameVisRaw(bool inView, uint32_t showMs, uint32_t hide
     }
 }
 
-// --- plates ---------------------------------------------------------------------------------
+// --- plates ---
 struct Plate {
     uint32_t player = 0, helper = 0, ctx = 0;
     bool bot = false, shown = true;

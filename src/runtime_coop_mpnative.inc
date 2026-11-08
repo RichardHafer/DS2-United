@@ -26,7 +26,7 @@ bool enabled = true;
 unsigned humansWanted = 0;     // [Versus] Humans, 0 = half
 std::string profilePath;
 
-// --- profile --------------------------------------------------------------------------------
+// --- profile ---
 struct Profile { uint32_t xp = 0; uint8_t weapon = 0, skin = 0; };
 Profile profile;
 uint32_t ProfileXp() { return profile.xp; }
@@ -45,7 +45,7 @@ void SaveProfile() {
     WritePrivateProfileStringA("Profile", "Suit", text, profilePath.c_str());
 }
 
-// --- the roster -----------------------------------------------------------------------------
+// --- the roster ---
 SRWLOCK lock = SRWLOCK_INIT;
 mp::Roster roster;
 uint8_t roundNo = 1;
@@ -287,7 +287,7 @@ void Tick(DWORD now) {
     PollGhostStart(now, visit);
 }
 
-// --- seams ----------------------------------------------------------------------------------
+// --- seams ---
 constexpr uint32_t kOnlineServicesRva = 0x1C213DC, kHubOffset = 0x94;
 constexpr uint32_t kHasStatsRva = 0xF7DAC0, kGetStatRva = 0xF7DB00, kTeamIndexRva = 0x63A270, kTeamCountRva = 0x63A2E0;
 constexpr int kStatXp = 0x4F, kStatSkill = 0x4E;

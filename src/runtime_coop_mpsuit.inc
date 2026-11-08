@@ -55,7 +55,7 @@ int BaseRow(int row) {
     return row >= 0 && row < static_cast<int>(kStockRows) ? kBase[row] : -1;
 }
 
-// --- calls -------------------------------------------------------------------------------------
+// --- calls ---
 __declspec(noinline) int CallInt1(uint32_t self, uint32_t fn, uint32_t arg) {
     __try {
         return reinterpret_cast<int(__thiscall*)(void*, uint32_t)>(base + fn)(reinterpret_cast<void*>(static_cast<uintptr_t>(self)), arg);
@@ -111,7 +111,7 @@ const char* StringAt(uint32_t stringObject) {
     return Read(stringObject, &text, 4) && text ? reinterpret_cast<const char*>(static_cast<uintptr_t>(text)) : reinterpret_cast<const char*>(base + kEmptyString);
 }
 
-// --- the visit -----------------------------------------------------------------------------------
+// --- the visit ---
 volatile LONG registrations = 0, registerFailures = 0, skinLoads = 0, skinReady = 0, dressed = 0, dressFallbacks = 0, deferrals = 0;
 volatile LONG swapCalls = 0, swapsFilled = 0, swapsLocal = 0, swapsGhost = 0, swapsNoRow = 0, swapsAlready = 0, swapsMissingMaterial = 0, helpersFailed = 0;
 volatile LONG tintsSet = 0, ghostRefusals = 0, cancelled = 0, leftovers = 0;
@@ -275,7 +275,7 @@ bool AskDress(uint32_t player) {
     return true;
 }
 
-// --- the swap list ---------------------------------------------------------------------------------
+// --- the swap list ---
 using SwapFn = uint32_t(__thiscall*)(void*);
 uint32_t __fastcall OnGetMaterialSwapList(void* client, void*) {
     const uint32_t player = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client)) - 0x58;
@@ -317,7 +317,7 @@ uint32_t __fastcall OnGetMaterialSwapList(void* client, void*) {
     return reinterpret_cast<SwapFn>(base + kSwapOriginal)(client);
 }
 
-// --- game thread ------------------------------------------------------------------------------------
+// --- game thread ---
 void Tick(DWORD now) {
     if (!enabled || !sigsOk) return;
     const bool wanted = Wanted(), inArena = ArenaWanted();

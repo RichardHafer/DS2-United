@@ -34,7 +34,7 @@ bool MatchesEntity(uint32_t entity, uint32_t expectedVtable, const std::array<ui
            read(entity + guidOffset, guid.data(), sizeof(guid)) && guid == expectedGuid;
 }
 
-// --- text helpers -------------------------------------------------------------------
+// --- text helpers ---
 inline char Lower(char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; }
 inline std::string LowerText(const std::string& s) {
     std::string out = s;
@@ -78,7 +78,7 @@ inline std::vector<std::string> SplitList(const std::string& text) {
     return out;
 }
 
-// --- a small INI reader --------------------------------------------------------------
+// --- a small INI reader ---
 // Sections and keys case-insensitive, `;` and `#` start a comment line, a UTF-8
 // BOM is skipped. The game's GetPrivateProfile* would do the same, but this one
 // can be tested and reads the whole file in one go.
@@ -113,7 +113,7 @@ inline const std::string* Value(const Ini& ini, const std::string& section, cons
     return k == s->second.end() ? nullptr : &k->second;
 }
 
-// --- families ------------------------------------------------------------------------
+// --- families ---
 // What a family does in a fight. Substitution keeps the role where it can.
 enum class Role : uint8_t { Swarm, Ranged, Explosive, Heavy, Rusher, Special, Boss, Unknown };
 inline const char* RoleName(Role r) {
@@ -213,7 +213,7 @@ inline Substitution Substitute(const std::string& family, const std::set<std::st
     return out;
 }
 
-// --- waves ----------------------------------------------------------------------------
+// --- waves ---
 enum class Path : uint8_t { Any, Vent, Direct };
 inline const char* PathName(Path p) { return p == Path::Vent ? "vent" : p == Path::Direct ? "direct" : "any"; }
 inline bool ParsePath(const std::string& text, Path& out) {
@@ -300,7 +300,7 @@ inline bool ParseEntries(const std::string& text, std::vector<Entry>& out, std::
     return true;
 }
 
-// --- configuration ----------------------------------------------------------------------
+// --- configuration ---
 struct Config {
     bool enabled = false;
     std::string map = "mp_bombRun";
@@ -724,7 +724,7 @@ inline bool MapAllowsFamily(const Config& c, const std::string& map, const std::
     return r->second.only.empty() || r->second.only.count(family) > 0;
 }
 
-// --- Versus slashers ----------------------------------------------------------------------
+// --- Versus slashers ---
 inline const std::vector<std::string>& VersusSkinsFor(const Config::Versus& v, const std::string& map) {
     const auto it = v.skins.find(LowerText(map));
     return it != v.skins.end() ? it->second : v.defaultSkins;
@@ -820,7 +820,7 @@ inline Wave WaveFor(unsigned n, const Config& c) {
     return w;
 }
 
-// --- escalation --------------------------------------------------------------------------
+// --- escalation ---
 // How far into the escalation wave n is: 0 up to FromWave - 1, then 1, 2, ...
 inline unsigned EscLevel(unsigned wave, const Config& c) { return wave >= c.escFromWave ? wave - c.escFromWave + 1 : 0; }
 inline unsigned EnhancedChance(unsigned wave, const Config& c) {
@@ -886,7 +886,7 @@ inline unsigned Scaled(unsigned n, unsigned percent) {
     return v ? v : 1;
 }
 
-// --- the spawn queue --------------------------------------------------------------------
+// --- the spawn queue ---
 struct Item {
     std::string family;   // after substitution
     std::string asked;    // what the wave line said
@@ -952,7 +952,7 @@ inline std::vector<Item> ResolveQueue(const std::vector<Item>& queue, const std:
     return out;
 }
 
-// --- pacing -----------------------------------------------------------------------------
+// --- pacing ---
 inline bool SpawnDue(uint32_t now, uint32_t lastSpawnAt, uint32_t intervalMs, unsigned alive, unsigned cap, bool groupFollower) {
     if (alive >= cap) return false;
     if (groupFollower) return now - lastSpawnAt >= 250u;   // the rest of a pack follows at once
@@ -965,7 +965,7 @@ inline unsigned EffectiveCap(unsigned waveCap, unsigned globalCap, bool navEnlar
     return cap ? cap : 1;
 }
 
-// --- spawn points -----------------------------------------------------------------------
+// --- spawn points ---
 struct V3 { float x = 0, y = 0, z = 0; };
 inline V3 Sub(const V3& a, const V3& b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
 inline float Length(const V3& a) { return std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z); }
@@ -1058,7 +1058,7 @@ inline V3 PackOffset(const V3& head, unsigned index) {
     return {head.x + std::sin(a) * r, head.y, head.z + std::cos(a) * r};
 }
 
-// --- vent or direct -----------------------------------------------------------------------
+// --- vent or direct ---
 // roll01 in [0,1). Any: a vent when the family fits one and the roll lands in the share.
 inline bool WantsVent(Path path, bool familyHasVent, bool ventsOn, unsigned sharePercent, float roll01) {
     if (!ventsOn || !familyHasVent) return false;
@@ -1067,7 +1067,7 @@ inline bool WantsVent(Path path, bool familyHasVent, bool ventsOn, unsigned shar
     return roll01 * 100.0f < static_cast<float>(sharePercent);
 }
 
-// --- tracked enemies ------------------------------------------------------------------------
+// --- tracked enemies ---
 enum class Fate : uint8_t { Alive, Killed, Vanished, Stuck, VentStuck, Inert, Timer, WrittenOff };
 inline const char* FateName(Fate f) {
     switch (f) {
@@ -1125,7 +1125,7 @@ inline Fate Observe(Watch& w, uint32_t now, float nearest, bool inVent, unsigned
     return Fate::Alive;
 }
 
-// --- rewards ----------------------------------------------------------------------------------
+// --- rewards ---
 // Currency pickups of global_assets: 10000, 5000, 3000 and 1000 credits. Out: count per
 // denomination, largest first; the rest below 1000 rounds up to one more 1000.
 inline std::vector<unsigned> SplitCredits(unsigned amount) {
@@ -1136,7 +1136,7 @@ inline std::vector<unsigned> SplitCredits(unsigned amount) {
     return out;
 }
 
-// --- best wave file -----------------------------------------------------------------------------
+// --- best wave file ---
 // One "map wave" pair per line.
 inline std::map<std::string, unsigned> ParseBest(const std::string& text) {
     std::map<std::string, unsigned> out;
@@ -1167,7 +1167,7 @@ inline bool UpdateBest(std::map<std::string, unsigned>& best, const std::string&
     return true;
 }
 
-// --- Mercenaries ------------------------------------------------------------------------------
+// --- Mercenaries ---
 // A clock instead of waves ([Mercenaries] in DS2Survival.ini): kills and time
 // capsules add time, kills within the combo window chain, and every ComboStep-th
 // chained kill pays a bonus. Times in game milliseconds (the pause stops them).
@@ -1328,7 +1328,7 @@ inline bool InZone(const V3& center, float radius, const V3& p) {
     return dx * dx + dz * dz <= radius * radius && dy >= -kZoneBelowM && dy <= kZoneAboveM;
 }
 
-// --- a small deterministic generator ----------------------------------------------------------
+// --- a small deterministic generator ---
 struct Rng {
     uint32_t state = 0x9E3779B9u;
     explicit Rng(uint32_t seed = 1) : state(seed ? seed : 0x9E3779B9u) {}

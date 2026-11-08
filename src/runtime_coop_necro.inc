@@ -505,7 +505,7 @@ void PollLeaper(uint32_t manager) {
     // The Leaper is a campaign creature, so its character stream is only
     // resident in rooms that have leapers in them. A sixth type built out of
     // it has to ask for the stream the same way the four ask for theirs, or
-    // the model and its animations are simply not there when it climbs out.
+    // the model and its animations are not there when it climbs out.
     // Tied to the sixth type, not to the runtime patch: with the record built
     // as a proper stream the patch is off, but the Leaper's model and banks
     // still have to be resident.
@@ -558,7 +558,7 @@ void PollLeaper(uint32_t manager) {
     // A stream request has no deadline of its own, and a LOCKED request that
     // never dispatches holds the loading screen forever. So the deadline is
     // measured in time, not in polls, and giving up means giving the locks
-    // back: the sixth type is then unavailable and the level simply goes on.
+    // back: the sixth type is then unavailable and the level goes on.
     const bool modelPending = leaperModelHandle && leaperModelStatus != 3 && leaperModelStatus != -3;
     const bool recordPending = leaperRecordStatus != 3 && leaperRecordStatus != -3 && leaperRecordStatus != -2 &&
                                (leaperRecordHandle || InterlockedCompareExchange(&leaperRecordWanted, 0, 0));
@@ -1622,7 +1622,7 @@ bool Normalize3(float* v) {
     v[0] /= len; v[1] /= len; v[2] /= len;
     return true;
 }
-// --- cameras in front of a vent ------------------------------------------------------------------
+// --- cameras in front of a vent ---
 // 17.10. (user, "the camera still spawns beside or behind the vent"): the ghost camera took the edge
 // matrix's row 2 for "out of the vent", but that row lies ALONG the opening (towards the edge the
 // necro is placed on), so a wall vent's camera went sideways along the wall or into it; the exit
@@ -2034,7 +2034,7 @@ void __cdecl OnMoveProxyToRoomView(uint32_t proxy, uint32_t vent) {
 // subkey, VentMarker*, type, bool, bool)). The accept is a controller event
 // (0x0FC4C211, or 0xCCACDEE7 with the swapped layout) from the necro's
 // controller config; [Necro] ConfirmKey is a keyboard stand-in for it.
-// --- invasion: the humans' scenes, the ghost camera near them, doors --------------------------
+// --- invasion: the humans' scenes, the ghost camera near them, doors ---
 // Story co-op with necro players (user, 16.10.; analysis/NECRO_GHOST_MODE_2026-10-16.md).
 // - A human in a scene: a living necro goes back into the vents the native way MP's "re-enter
 //   a vent" does (NecroPlayerMasterSM::CheckTransition 0x0108D990, id 0xD, forced true), and a
@@ -3328,7 +3328,7 @@ unsigned char __fastcall OnStateMessage(void* self, void*, uint32_t state, float
 // comes from its record (+0x194), not from the argument. So a sixth-type spawn
 // lends the DividerHead field the configured template GUID for the length of the one call
 // and asks the engine for type 4. Nothing is patched, no array is resized, and
-// if the write fails the spawn simply runs as it would have.
+// if the write fails the spawn runs as it would have.
 namespace sixth {
 constexpr uint32_t kSettingsSingleton = 0x1C21624;   // [0x02021624] MPLevelSettings
 constexpr uint32_t kSettingsAttributes = 0xC, kTemplateBase = 0x78, kSlotStride = 0x10;

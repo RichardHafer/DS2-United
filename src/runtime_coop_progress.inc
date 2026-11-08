@@ -29,7 +29,7 @@ bool enabled = true, effects = true, versusRows = true;
 unsigned startCreditsPerLevel = 50;
 cp::Rules rules;
 
-// --- the books ---------------------------------------------------------------------------
+// --- the books ---
 volatile LONG kills[cp::kGunCount]{};
 LONG savedKills[cp::kGunCount]{};
 volatile LONG killsDirty = 0;
@@ -94,7 +94,7 @@ void SaveKills() {
     }
 }
 
-// --- XP booking (any thread in, game thread out) -------------------------------------------------
+// --- XP booking (any thread in, game thread out) ---
 struct Booking { int32_t xp; char why[40]; };
 SRWLOCK bookLock = SRWLOCK_INIT;
 Booking book[16]{};
@@ -142,7 +142,7 @@ void BookPending() {
     }
 }
 
-// --- taint ---------------------------------------------------------------------------------
+// --- taint ---
 // Set by a cheat or a host tool on this machine; it lasts until a payment from
 // another run arrives.
 volatile LONG tainted = 0, taintRun = 0, refusedTainted = 0, refusedHost = 0;
@@ -165,7 +165,7 @@ bool TaintAllows(uint32_t run) {
     return true;
 }
 
-// --- survival payments ------------------------------------------------------------------------
+// --- survival payments ---
 cp::Paid paid;
 SRWLOCK paidLock = SRWLOCK_INIT;
 volatile LONG payments = 0, paymentsSent = 0, paymentsReceived = 0, paymentDuplicates = 0;
@@ -206,7 +206,7 @@ void FromHost(uint32_t run, uint32_t wave, uint32_t xp, uint32_t flags) {
     if (enabled) Pay(run, wave, xp, flags, "host");
 }
 
-// --- weapon kills (game thread, the health thunk) ----------------------------------------------------
+// --- weapon kills (game thread, the health thunk) ---
 volatile LONG localHits = 0, scaledHits = 0, killCredits = 0, killsNoGun = 0, weaponLevelUps = 0, recalcAsked = 0, recalcDone = 0;
 uint32_t LocalIsaac() { return LocalSlotZeroEntity(); }
 bool EffectsHere() { return enabled && effects && inLevel && !play::StoryCoop(); }
@@ -267,7 +267,7 @@ void OnHit(const void* damage, uint32_t component, float before, float after) {
     gate::Event("progress: %s level %u -> %u at %ld kills", cp::kGuns[gun].name, levelBefore, levelAfter, n);
 }
 
-// --- clip: Gun::CalcUpgradedValues -----------------------------------------------------------------
+// --- clip: Gun::CalcUpgradedValues ---
 constexpr uint32_t kCalcUpgradedRva = 0x9BAFF0, kGunCapacity = 0x3E4, kGunLoaded = 0x39C, kGunOwner = 0x240;
 const unsigned char kCalcUpgradedBytes[] = {0x83, 0xEC, 0x0C, 0xA1, 0x38, 0x14, 0x02, 0x02, 0x53, 0x55, 0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x0C};
 safetyhook::InlineHook calcHook;
@@ -308,7 +308,7 @@ void __fastcall OnCalcUpgraded(void* self, void*) {
                     boosted, loaded0, loaded);
 }
 
-// --- Versus: the non-gun MP rows ------------------------------------------------------------------
+// --- Versus: the non-gun MP rows ---
 constexpr uint32_t kMpUpgradeRva = 0x66C140, kPlayerRef = 0x1710, kNecroRef = 0x538;
 const unsigned char kMpUpgradeBytes[] = {0x83, 0xEC, 0x0C, 0xA1, 0xE4, 0xC0, 0x01, 0x02, 0x8B, 0x48, 0x38, 0xF3, 0x0F, 0x10, 0x05, 0xD0, 0x5E, 0xAA, 0x01};
 safetyhook::InlineHook mpUpgradeHook;
@@ -339,7 +339,7 @@ float __cdecl OnMpUpgrade(uint32_t entity, int row) {
     return v;
 }
 
-// --- the start of a visit -----------------------------------------------------------------------
+// --- the start of a visit ---
 volatile LONG startBonuses = 0, startCredits = 0;
 void StartBonus(uint32_t player, const char* where) {
     if (!enabled || !startCreditsPerLevel || !player || play::VersusMode() || gamemode::mode == gamemode::Mercenaries) return;
@@ -376,7 +376,7 @@ void RecalcHeldGun() {
     if (CallCalc(gun, fn)) InterlockedIncrement(&recalcDone);
 }
 
-// --- tick, install, log -----------------------------------------------------------------------------
+// --- tick, install, log ---
 void Tick(DWORD now) {
     if (!enabled) return;
     BookPending();

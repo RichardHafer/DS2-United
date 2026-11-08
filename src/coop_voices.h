@@ -157,7 +157,7 @@ inline size_t Pick(size_t count, size_t last, float roll01) {
     return i >= last ? i + 1 : i;
 }
 
-// --- who speaks with which pack -------------------------------------------------------------------
+// --- who speaks with which pack ---
 // Keys as the nameplates have them: 0..15 a machine (its human), 0xF0 + n the host's bot n.
 constexpr unsigned kBotKey = 0xF0;
 inline bool IsBotKey(unsigned key) { return key >= kBotKey && key < kBotKey + 16; }
@@ -198,7 +198,7 @@ inline int PackFor(const std::vector<Pack>& packs, const std::vector<int>& defau
     return c >= 0 ? c : DefaultPack(defaults, OrderOf(key, humans));
 }
 
-// --- hearing ------------------------------------------------------------------------------------------
+// --- hearing ---
 // Full volume within nearM, then falling off gently; nothing beyond farM.
 inline float DistanceGain(float meters, float nearM, float farM) {
     if (!(meters >= 0.0f) || meters >= farM) return 0.0f;
@@ -224,7 +224,7 @@ inline float Approach(float now, float target, float step) {
     return now - step > target ? now - step : target;
 }
 
-// --- sound files ------------------------------------------------------------------------------------
+// --- sound files ---
 // WAV with PCM 8/16/24/32 bit or float 32, any channel count; out: 16 bit mono.
 struct Sound { unsigned rate = 0; std::vector<int16_t> samples; };
 inline uint32_t U32(const uint8_t* p) { return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24); }
@@ -289,7 +289,7 @@ inline bool ParseWav(const uint8_t* data, size_t size, Sound& out, std::string& 
     return true;
 }
 
-// --- Isaac's own voice ------------------------------------------------------------------------------
+// --- Isaac's own voice ---
 // The vocal sounds a Player's animation events play (analysis/ISAAC_VOICE_SOUNDS_2026-10-16.md), by the
 // hash Entity::PlaySound gets: sdbm32 of the lower case name with ".emx". The suit's breathing and the
 // asphyxiation breaths are not in it: they stay.
@@ -384,7 +384,7 @@ inline int CctKindOf(const char* event) {
     return kCctNone;
 }
 
-// --- the wire ----------------------------------------------------------------------------------------
+// --- the wire ---
 // Every 2 s each machine sends its own choice ("" = its default), the host its bots'
 // packs too and how many humans it counts, so every machine orders alike.
 constexpr uint32_t kMagic = 0x50584F56u;   // 'VOXP'

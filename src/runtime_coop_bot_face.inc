@@ -1,5 +1,5 @@
 // Dead Space 2 United by Richard Hafer.
-// --- facing open space ([Bot] FaceOpenSpace) -------------------------------------------
+// --- facing open space ([Bot] FaceOpenSpace) ---
 // A bot that has come to rest (no walk, no fight, no kiosk, lift or scene)
 // with a wall or the end of the walkable mesh right before its face turns toward
 // the most open way once per rest (opposite first), takes a short step and then

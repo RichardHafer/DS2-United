@@ -407,7 +407,7 @@ volatile LONG spawns = 0, spawnFailures = 0, drops = 0, dressings = 0, isaacRepa
 // Frames a bot walked in a fight, by reason (coop_bot::MoveWhy: other, follow, retreat, chase, relocate, step, lane).
 volatile LONG combatMoves[static_cast<unsigned>(coop_bot::MoveWhy::Count)]{};
 
-// --- engine helpers ---------------------------------------------------------
+// --- engine helpers ---
 
 uint32_t Leader() {
     uint32_t leader = LocalCampaignPlayer();
@@ -870,7 +870,7 @@ bool InstallPrompts(FILE* log) {
     return large && smallOk && collapse;
 }
 
-// --- hooks --------------------------------------------------------------------
+// --- hooks ---
 
 // CameraManager::Update calls this for every viewport below the count; viewport 1
 // is the bot's and has no render context.
@@ -1084,7 +1084,7 @@ uint32_t HumanBehind(const void* damage) {
     return 0;
 }
 
-// --- no harm to humans ([Bot] NoDamageToHumans, user 18.10.) ---------------------------------
+// --- no harm to humans ([Bot] NoDamageToHumans, user 18.10.) ---
 // Nothing a bot does may hurt a human's Isaac: no shot, swing, stomp, blast, mine or kinesis
 // throw, on the host (the bots) and on a partner's machine (their ghosts, machine 0xF0 + bot).
 // Refused where the player's damage gate decides (Player::ShouldProcessDamage, on every
@@ -1383,7 +1383,7 @@ void WritePad() {
     u = saved;
 }
 
-// --- lifecycle ------------------------------------------------------------------
+// --- lifecycle ---
 
 void StopAntic(const char* why);   // "antics", runtime_coop_bot_antics.inc
 void Let(const char* why) {
@@ -1536,7 +1536,7 @@ void ReleaseViewport() {
     WriteBytes(cm + kCmNumViewports, &want, 4);
 }
 
-// --- attack slots ------------------------------------------------------------------
+// --- attack slots ---
 // Enemies took a bot as their target and never attacked it (05.10.). An enemy asks
 // its target for an attack slot (HasAttackSlot 0x0086A2F0, RequestAttackPermission
 // 0x0086A3F0), and Player::ComputeAttackerSlots (0x0086A980, every frame) fills the
@@ -1913,7 +1913,7 @@ void CheckBodies(uint32_t leader, DWORD now) {
     u->dressCheckAt = now + 1500;
 }
 
-// --- control --------------------------------------------------------------------
+// --- control ---
 
 void Press(uint16_t bit, DWORD now, DWORD ms = 110) {
     for (unsigned i = 0; i < 16; ++i) if (bit == (1u << i)) u->pressUntil[i] = now + ms;
@@ -2046,7 +2046,7 @@ void Calibrate(const Vec3& self, DWORD now) {
     u->padLive = true;
 }
 
-// --- weapons ----------------------------------------------------------------------
+// --- weapons ---
 // The weapon inventory
 // sits at Player+0xC04 (entries at +4, 0xC each, +4 = item+0x10 or 0; size at
 // +8); slot order is the d-pad: up, left, right, down. The gun class is its
@@ -2263,7 +2263,7 @@ void __fastcall OnStasisEntity(void* manager, void*, uint32_t entity, float fact
     hits::SendKongStasis(entity, factor, duration);
 }
 
-// --- suits --------------------------------------------------------------------------------
+// --- suits ---
 // A bot wears a suit the
 // leader owns: there is no unlocked list, a suit is owned when it is worn
 // ([player+0x1688], an EARS::Modules::Uniform, vtable 0x01B4FCB0, its GUID at
@@ -2486,7 +2486,7 @@ void StoreSuit(uint32_t leader, DWORD now) {
     if (DressIn(leader, idx, "picked at the store", now)) InterlockedIncrement(&suitStoreChanges);
 }
 
-// --- the bench ------------------------------------------------------------------------
+// --- the bench ---
 // The upgrade trees are global, one
 // per item kind: UpgradeManager [0x02021438], the set inline at +0x18, tree
 // pointers from set+0, their count at set+0xC8; a tree's key (the item's name
@@ -2674,7 +2674,7 @@ bool InstallBench(FILE* log) {
     return benchReady;
 }
 
-// --- the store ------------------------------------------------------------------------
+// --- the store ---
 // Credits are per Player in the
 // general inventory (Player+0xBD0, its credits at +0x28 = Player+0xBF8); a
 // credits pickup goes to whoever picks it up. The store's own purchase, without
@@ -2962,7 +2962,7 @@ bool InstallStore(FILE* log) {
     return storeReady;
 }
 
-// --- guns (the weapon economy) ----------------------------------------------------------
+// --- guns (the weapon economy) ---
 // At a store visit a bot buys
 // one gun whose chapter has come (the store's own rule, MinLevelReq <= the
 // leader's chapter [player+0xFC8]) with its own credits, the store's way replayed
@@ -3502,7 +3502,7 @@ bool InstallGuns(FILE* log) {
     return gunsReadyToBuy;
 }
 
-// --- the kit outside the campaign ([Bot] Progression, ModeLoadout) ----------------------
+// --- the kit outside the campaign ([Bot] Progression, ModeLoadout) ---
 // 13.10.: outside the campaign the bots kept the plasma cutter all match. Mercenaries,
 // Versus, Objective and Hold the Zone have no store break for them, and in survival
 // the shared credits paid for a first gun at the campaign's prices only after wave 5.
@@ -4098,7 +4098,7 @@ void KeepAmmo(DWORD now) {
     }
 }
 
-// --- using the kiosks --------------------------------------------------------------
+// --- using the kiosks ---
 // After the leader leaves a bench or a store, the bots use it too, one at a time,
 // the way he does: to the kiosk's dock point, facing it, until the game names it
 // the bot's nearby usable (Player+0x3F4 == kiosk+0x230: its own range, facing and
@@ -4551,7 +4551,7 @@ bool KioskTick(const Vec3& self, const Vec3& leaderPos, DWORD now) {
     return true;
 }
 
-// --- store rooms --------------------------------------------------------------------------
+// --- store rooms ---
 // A store or a bench within 14 m of the leader and in his sight makes his room a
 // store room. While he is there each bot takes its turn at them on its own (walks
 // up, browses, buys, upgrades, changes its suit), one bot per kiosk at a time,
@@ -4757,7 +4757,7 @@ Machines MachinesOf(uint32_t player) {
 }
 int32_t LowerBodyState(uint32_t player) { return MachinesOf(player).lower; }
 
-// --- kinesis ---------------------------------------------------------------------------
+// --- kinesis ---
 // In a fight a bot now and then
 // grabs a loose prop with kinesis and throws it at its target. The bot's own
 // PlayerFireTKSM does the work (aim held, the med pack button once to grab, fire
@@ -5408,7 +5408,7 @@ Vec3 AimOrigin(const Vec3& self, DWORD now) {
     const float sx = std::sin(heading), sz = std::cos(heading);
     return {self.x + u->muzzleRight * sz + u->muzzleForward * sx, self.y + u->muzzleUp, self.z - u->muzzleRight * sx + u->muzzleForward * sz};
 }
-// --- zero-G flight -----------------------------------------------------------------------
+// --- zero-G flight ---
 // Zero-G is per Isaac and per spot:
 // its CharacterMovementComponent asks the gravity fields every tick (+0x144 bit 0
 // = in gravity). Flying is lower body state 20 (zgJump) with the zero-G machine
@@ -5696,7 +5696,7 @@ void ShareAir(uint32_t leader, DWORD now) {
     }
 }
 
-// --- the leader's orders ---------------------------------------------------------------
+// --- the leader's orders ---
 // [Bot] FollowHoldKey, GoThereKey, AttackTargetKey, FireHoldKey, VanguardKey: one key
 // each, acting on its press, only in a level with a bot standing and the game window
 // focused. The squad's state lives here; each bot's brain gets it through
@@ -6051,7 +6051,7 @@ void PollOrders(uint32_t leader, const Vec3& leaderPos, DWORD now) {
     }
 }
 
-// --- corpses, crates and lockers ([Bot] StompCorpses, LootContainers) ------------------
+// --- corpses, crates and lockers ([Bot] StompCorpses, LootContainers) ---
 // A dead necromorph drops its loot once, on the first damaging hit after its
 // death: DropItem 0x010B44E0
 // sets HAS_DROPPED_ITEM (ItemDropListComponent +0x20 bit 31, type byte
@@ -6379,7 +6379,7 @@ void NoteLoot(const coop_bot::Perception& p, DWORD now) {
     }
 }
 
-// --- the leader in a grab ([Bot] RescueLeader) ----------------------------------------
+// --- the leader in a grab ([Bot] RescueLeader) ---
 // Held: his lower body machine in a grab state (27 swarm shake-off, 29 dragged,
 // 33 paired animation, 40 eye poke; read live 28.09. on the bots), or a paired
 // attack on him. Sentient +0x2A8 is m_pPairedCoordinator (PC
@@ -6843,7 +6843,7 @@ void Act(const Vec3& self, const Vec3& leaderPos, DWORD now) {
     u->padLive = true;
 }
 
-// --- scenes and catching up --------------------------------------------------------
+// --- scenes and catching up ---
 // While the leader's Isaac runs a scripted sequence (a cutscene, a scripted
 // kill, a scene on a lift) the bots are hidden: body, the gun in hand and the
 // helmet, through the game's own balanced hide count (Player vtable +0x68 and
@@ -7103,7 +7103,7 @@ void Status(const Vec3& self, const Vec3& leaderPos, DWORD now, const coop_bot::
     }
 }
 
-// --- players pass through one another -----------------------------------------------
+// --- players pass through one another ---
 // [Bot] PlayerCollision=0: the human and the bots walk through one another. Every
 // Isaac's CharacterMovementComponent (vtable 0x01B63FBC, pointer at entity+0x17F4)
 // keeps up to 8 entity ids it does not collide with (mFilterExcludeUIDs +0x248,
@@ -7207,7 +7207,7 @@ bool InstallPassThrough(FILE* log, bool wanted) {
     return passThrough;
 }
 
-// --- kinesis and stasis modules ----------------------------------------------------------
+// --- kinesis and stasis modules ---
 // The level gives Isaac the
 // modules by broadcasting player_enable_tk / player_enable_stasis (the disable pair
 // at level start takes them away); every Player's HandleEvents then sets or clears
@@ -7337,7 +7337,7 @@ void CheckDrift(const Vec3& self, const Vec3& leaderPos, DWORD now) {
     }
 }
 
-// --- the alt fire trace ([Bot] AltFireTrace) ---------------------------------------
+// --- the alt fire trace ([Bot] AltFireTrace) ---
 // 05.10.: the human's alt fire (Space while aiming: pad 15 button 0x0800, event
 // 0xF12F9141) sometimes did nothing. Its gate (0x008730B0, cdecl(Player*), bool:
 // active item +0xCEC, no wish at +0x424, item vtable+0x250 ready, alt type
@@ -8266,7 +8266,7 @@ void TickInner() {
     }
 }
 
-// --- personalities --------------------------------------------------------------------
+// --- personalities ---
 // DS2BotProfiles.ini next to DS2United.ini: one section per bot ([Bot1] .. [Bot3])
 // with its name, reaction, fighting distance and courage, aim, pace, places and
 // the rest. A missing file or key falls back to the built-in profile of that bot.
@@ -8450,7 +8450,7 @@ void NewGameCheck() {
     lastChapter = chapter;
 }
 
-// --- the bots' state per campaign save ---------------------------------------------
+// --- the bots' state per campaign save ---
 // The game keeps its restart state in save points (Checkpoint statics, PC):
 // [0x0208FC04] is stored by SetDeathRestart (SavePoint::Store 0x015F0440 called
 // from 0x00BA20AA), copied into every save file (AllocAndFillSavedGame 0x00B75980)

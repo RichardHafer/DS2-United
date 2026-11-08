@@ -62,7 +62,7 @@ ds2::SpawnerRule RuleForSpawner(uint32_t object, uint32_t attributes) {
     const auto set = spawnerRules.find(guid);
     if (set == spawnerRules.end()) return {};
     // The row written for this difficulty, else the general one. A rule
-    // written for other difficulties only is simply not there.
+    // written for other difficulties only is not there.
     const auto* rule = set->second.forDifficulty(currentDifficulty);
     return rule ? *rule : ds2::SpawnerRule{};
 }

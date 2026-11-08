@@ -154,7 +154,7 @@ void __fastcall OnGhostTick(void* self) {
     ghostTickHook.thiscall<void>(self);
 }
 
-// --- engine calls, each fenced -----------------------------------------------------------------
+// --- engine calls, each fenced ---
 int Filter(unsigned) { InterlockedIncrement(&faults); return EXCEPTION_EXECUTE_HANDLER; }
 uint32_t Slot(uint32_t entity, uint32_t slot) {
     uint32_t vtable = 0, fn = 0;
@@ -210,7 +210,7 @@ __declspec(noinline) bool SetCollision(uint32_t movement, uint32_t mode) {
     } __except (Filter(GetExceptionCode())) { return false; }
 }
 
-// --- the scene and its mode ---------------------------------------------------------------------
+// --- the scene and its mode ---
 bool InList(const std::vector<std::string>& list, const char* stem) {
     for (const std::string& s : list)
         if (_stricmp(s.c_str(), stem) == 0) return true;
@@ -265,7 +265,7 @@ void DecideScene(uint32_t sequence, uint32_t isaac, DWORD now) {
                 scenePuppet ? "stand by as puppets" : "stay hidden", why, partner, syncedId ? "is loaded: played in sync" : "is not loaded: the standby clip");
 }
 
-// --- puppets --------------------------------------------------------------------------------
+// --- puppets ---
 bool StillThere(const Puppet& p) {
     uint32_t vtable = 0, view = 0;
     return p.ghost && Read(p.ghost, &vtable, 4) && vtable == p.vtable && IsGhostPlayer(p.ghost) && MachineOf(p.ghost) == p.machine &&

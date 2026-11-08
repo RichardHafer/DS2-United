@@ -86,7 +86,7 @@ size_t Hex(const char* hex, unsigned char* out, size_t cap) {
     return n;
 }
 
-// --- state ------------------------------------------------------------------------------------
+// --- state ---
 enum class Side { None, Host, Join };
 volatile LONG armed = 0;
 Side side = Side::None;
@@ -146,7 +146,7 @@ const char* CodeName(int code) {
     return coop_mpmap::MapName(code);
 }
 
-// --- the screens ------------------------------------------------------------------------------
+// --- the screens ---
 // Trap 1: OnShow asks IsInMultiplayerGame (false without a hub) and else queues
 // a frontend reset; armed, it takes the online branch.
 safetyhook::MidHook showHook, mp00TickHook;
@@ -390,7 +390,7 @@ void __fastcall OnQuitResult(void* self, void*, const unsigned char* result) {
     if (yes) InterlockedExchange(&leaveRequested, 1);
 }
 
-// --- arming -----------------------------------------------------------------------------------
+// --- arming ---
 const char* Refusal() {
     if (!installed) return "not installed";
     const uint32_t services = Ptr(base + kOnlineServices);
@@ -570,7 +570,7 @@ void Leave(DWORD now) {
     RequestPop(now);
 }
 
-// --- the game tick ----------------------------------------------------------------------------
+// --- the game tick ---
 void WriteCountdown() {
     const uint32_t lobbyManager = Ptr(base + kLobbyManager);
     if (lobbyManager) WriteBytes(lobbyManager + 0x18, &countdown, 4);
@@ -725,7 +725,7 @@ void Tick(DWORD now) {
     Watch(now);
 }
 
-// --- install ----------------------------------------------------------------------------------
+// --- install ---
 void Install(FILE* log, const std::string& ini) {
     enabled = GetPrivateProfileIntA("NativeLobby", "Enabled", 0, ini.c_str()) != 0;
     minPlayers = GetPrivateProfileIntA("NativeLobby", "MinPlayers", 2, ini.c_str());

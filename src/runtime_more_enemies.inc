@@ -1120,7 +1120,7 @@ uintptr_t SpawnerForAreaRule(bool (*prefer)(uintptr_t) = nullptr) {
     }
     // Which spawner is the safest engine for a forced enemy? One whose own
     // target is no enemy at all (a prop, a pickup: nothing of its arrival
-    // logic applies, the packet is simply swapped) or an enemy that arrives
+    // logic applies, the packet is swapped) or an enemy that arrives
     // plainly. A vent spawner is the last resort: its vent contract would try
     // to rebind the forced donor's headers. Newest first within a class.
     using Lookup = void* (__thiscall*)(void*, ds2::native::SpawnInfo32*, const Guid*, unsigned);

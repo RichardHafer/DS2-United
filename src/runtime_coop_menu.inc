@@ -158,7 +158,7 @@ bool __fastcall OnPc01Select(void* screen, void*, int index) {
                  pushed ? "pushed" : "NOT pushed (no director)");
     return true;
 }
-// --- the Multiplayer screen's pages (14.10.) ------------------------------------------------
+// --- the Multiplayer screen's pages (14.10.) ---
 // Item 3 ("unavailable") shows the records, the bottom bar's "EA Account" (input 10) how to
 // play and "log out" (input 12) what this build is. The same button again closes the page.
 constexpr uint32_t kTextEaAccount1 = 0x2B87C44F, kTextEaAccount2 = 0xBA5B35C9, kTextLogOut = 0x17F1B87B;

@@ -82,7 +82,7 @@ void Line(const char* format, ...) {
 
 bool Active() { return enabled && stage != Stage::None; }
 
-// --- who lives -----------------------------------------------------------------------------------
+// --- who lives ---
 // A partner counts when he was heard lately, plays a human (role 0) and his ghost is not dead.
 // Necro players, spectators and bots never count.
 unsigned LivingHumans(DWORD now, unsigned* slots = nullptr, unsigned cap = 0, bool log = false) {
@@ -104,7 +104,7 @@ unsigned LivingHumans(DWORD now, unsigned* slots = nullptr, unsigned cap = 0, bo
     return n;
 }
 
-// --- the camera: ObserverCameraInfo without the ObserverPlayer around it --------------------------
+// --- the camera: ObserverCameraInfo without the ObserverPlayer around it ---
 constexpr uint32_t kZeroGuidRva = 0x340140, kDefaultSpawnRva = 0xC9D6D0, kQueryRva = 0xC80D20, kSetSubjectRva = 0xC85A20, kPushRva = 0x392530,
                    kPopRva = 0x393FF0, kCameraManagerRva = 0x1C2131C, kObserverInfoType = 0x08A5E969;
 constexpr uint32_t kAttrFov = 0x08, kAttrOffset = 0x50, kAttrOrbit = 0x60, kAttrOrbitSpeed = 0x64;
@@ -230,7 +230,7 @@ void LogPose(DWORD now) {
          ghostRead ? "" : " (subject unreadable)");
 }
 
-// --- trails of the living humans (PlayerState positions, every 250 ms) ---------------------------
+// --- trails of the living humans (PlayerState positions, every 250 ms) ---
 struct Sample { float pos[3]; DWORD at; };
 Sample trails[coop_peers::kMaxPeers][16]{};
 unsigned trailNext[coop_peers::kMaxPeers]{};
@@ -274,7 +274,7 @@ void MatrixAt(const float* at) {
     haveTarget = true;
 }
 
-// --- the death ---------------------------------------------------------------------------------------
+// --- the death ---
 bool SceneNow() { return cutscene::Following() || cutscene::SequenceRunningNow(); }
 // Whether this death of the local Isaac is watched out instead of restarting everybody.
 const char* Decline(uint32_t owner, DWORD now) {
@@ -363,7 +363,7 @@ bool TakeDeath(uint32_t player, uint32_t damage) {
     return true;
 }
 
-// --- the way back --------------------------------------------------------------------------------------
+// --- the way back ---
 bool BodyGone() {
     uint32_t vtable = 0;
     return !deadPlayer || !Read(deadPlayer, &vtable, 4) || vtable != base + placement::kPlayerPrimaryVtableRva;
@@ -538,7 +538,7 @@ void AllDead(DWORD now) {
     else if (body && !BodyGone()) respawn::NativeDeath(body);
 }
 
-// --- what partners tell --------------------------------------------------------------------------------
+// --- what partners tell ---
 // The host: a client reached a checkpoint (CKPT flags 2).
 void OnPartnerReached(const uint32_t* guid, uint32_t token, uint32_t seq) {
     InterlockedIncrement(&reachIn);
@@ -572,7 +572,7 @@ bool SceneCuesHeld() { return sceneCueHeld && stage != Stage::None && stage != S
 bool SceneReady() { return sceneCueHeld && stage == Stage::None && LocalCampaignPlayer() && checkpoint::LocalIsaacAlive(); }
 unsigned SubjectSlot() { return Active() ? subjectSlot : 0xFFu; }
 
-// --- the game thread ------------------------------------------------------------------------------------
+// --- the game thread ---
 bool keyDown[2]{};
 uint32_t lastSim = 0;
 DWORD lastSlow = 0, bannerAt = 0;

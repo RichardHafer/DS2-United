@@ -83,7 +83,7 @@ void Drain(FILE* log) {
     }
 }
 
-// --- game thread: the frame tick ---------------------------------------------------------------
+// --- game thread: the frame tick ---
 volatile LONG ticks = 0, transitions = 0, nudges = 0, nudgesAdvanced = 0, nudgeFaults = 0, badCode = 0, audits = 0;
 volatile LONG checkpointNudges = 0, checkpointAdvanced = 0;
 uint32_t seenLm = 0, seenState = kNoState;
@@ -230,7 +230,7 @@ void CheckpointNudge(uint32_t lm, uint32_t state, DWORD now) {
           static_cast<unsigned long>(now - stateSince), static_cast<unsigned long>(now - idleSince), id, ok ? "ok" : "FAULT", Name(after), after);
 }
 
-// --- worker: the last resort -----------------------------------------------------------------
+// --- worker: the last resort ---
 volatile LONG relaunching = 0;
 uint32_t pollLm = 0, pollState = kNoState;
 DWORD stuckSince = 0, ticksAt = 0;

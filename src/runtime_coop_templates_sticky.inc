@@ -1,7 +1,7 @@
 // Dead Space 2 United by Richard Hafer.
 // Included from runtime_coop_templates.inc (kept apart so tests/coop_template_tests.cpp builds the old path alone).
 namespace templates {
-// --- sticky, per partner ([Lifecycle] StickyTemplates) -------------------------------------------
+// --- sticky, per partner ([Lifecycle] StickyTemplates) ---
 // TNL kills a ghost the moment its object drops out of scope while it has updates pending, which
 // a moving enemy always has. The answer above expired after 4 s and was wiped whenever either
 // side's readiness epoch moved (every respawn on an MP map), so each blip deleted and rebuilt every

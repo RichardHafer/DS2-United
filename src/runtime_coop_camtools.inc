@@ -37,7 +37,7 @@ const unsigned char kSpeedReadBytes[] = {0xF3, 0x0F, 0x10, 0x05, 0xF0, 0x51, 0xE
 constexpr float kMinSpeed = 0.01f;
 safetyhook::InlineHook pollHook;
 
-// --- state (game thread: Render::Poll) ---------------------------------------------------
+// --- state (game thread: Render::Poll) ---
 bool freeCam = false, recording = false, playing = false, slow = false, frozen = false, hudHidden = false, hudPatched = false, speedTouched = false;
 Pose pose;
 coop_camtools::Flight flight;
@@ -55,7 +55,7 @@ bool PadTaken() { return InterlockedCompareExchange(&padTaken, 0, 0) != 0; }
 double Seconds(LONGLONG from, LONGLONG to) { return frequency.QuadPart ? static_cast<double>(to - from) / static_cast<double>(frequency.QuadPart) : 0.0; }
 void Say(const char* title, const char* line) { overlay::ShowBanner(title, line, 1500); }
 
-// --- the game's camera ---------------------------------------------------------------------
+// --- the game's camera ---
 uint32_t Blender0(uint32_t& manager) {
     manager = 0;
     uint32_t count = 0, blenders = 0, context = 0;
@@ -119,7 +119,7 @@ __declspec(noinline) bool ApplyRender(uint32_t manager, const uint8_t* b) {
     }
 }
 
-// --- input -----------------------------------------------------------------------------------
+// --- input ---
 #pragma pack(push, 1)
 struct PadState { DWORD packet; uint16_t buttons; uint8_t lt, rt; int16_t lx, ly, rx, ry; };
 #pragma pack(pop)
@@ -168,7 +168,7 @@ bool Pressed(int vk, bool focused) {
     return edge;
 }
 
-// --- the HUD and the speed ---------------------------------------------------------------------
+// --- the HUD and the speed ---
 // Only our own overlay hides; the game's HUD stays (see the draws above).
 void SetHud(bool hide) {
     if (hide == hudPatched) return;
@@ -186,7 +186,7 @@ void SetSpeed(float want) {
     if (WriteBytes(base + kSpeedRva, &want, 4)) InterlockedIncrement(&speedWrites);
 }
 
-// --- the path --------------------------------------------------------------------------------
+// --- the path ---
 void SavePath() {
     if (path.samples.empty()) return;
     CreateDirectoryA(pathFolder.c_str(), nullptr);
@@ -216,7 +216,7 @@ bool LoadLastPath() {
     return !path.samples.empty();
 }
 
-// --- one rendered frame ------------------------------------------------------------------------
+// --- one rendered frame ---
 void StopAll(const char* why) {
     if (recording) { recording = false; SavePath(); }
     if (freeCam || playing || slow || frozen) gate::Event("camtools: off (%s)", why);

@@ -32,7 +32,7 @@ uint32_t bornPlayer = 0;
 bool enabled = false, nativePlacement = false, syncedRestart = false, joinTimeline = false, joinResync = false;
 DWORD restartAckMs = 2500, restartTimeoutMs = 30000, spawnTimeoutMs = 8000, syncTimeoutMs = 15000, respawnTimeoutMs = 15000;
 
-// --- native placement ---------------------------------------------------------------------------
+// --- native placement ---
 constexpr uint32_t kMoveSiteRva = 0x4A8505, kMoveBlockRva = 0x4A84FA;
 // The MP branch right before the block: Player+0x3D8 bit 13 (multiplayer) jumps over the whole
 // checkpoint move (test cl,1 / je 0x008A84FA at 0x008A84C9). A host with a partner carries the bit,
@@ -253,7 +253,7 @@ bool PlacementReady() { return enabled && nativePlacement && moveHookOk; }
 // gamemode::CheckpointRestartNow sets it around its own call, so the restart hook lets it through.
 bool restartReleasing = false;
 
-// --- partners ------------------------------------------------------------------------------------
+// --- partners ---
 enum Phase : uint8_t { Off, Loading, Spawning, Syncing, Alive, Dying, Down, Respawning, GameOver, Restarting, Leaving, PhaseCount };
 const char* const kPhaseNames[] = {"off", "loading", "spawning", "syncing", "alive", "dying", "down", "respawning", "game_over", "restarting", "leaving"};
 const char* PhaseName(unsigned p) { return p < PhaseCount ? kPhaseNames[p] : "?"; }
@@ -287,7 +287,7 @@ void Send(uint8_t kind, uint8_t phase, uint16_t generation, uint16_t enemies) {
     if (SendToPeers(&p, sizeof(p)) > 0) InterlockedIncrement(&packetsOut);
 }
 
-// --- the restart together -----------------------------------------------------------------------
+// --- the restart together ---
 enum class Restart { None, Preparing, Asked, Prepared, Landed };
 const char* const kRestartNames[] = {"none", "preparing", "asked", "prepared", "landed"};
 Restart restart = Restart::None;
@@ -411,7 +411,7 @@ void RestartTick(DWORD now, bool bodyStands) {
     }
 }
 
-// --- the join timeline ---------------------------------------------------------------------------
+// --- the join timeline ---
 struct LinkView { uint32_t connection = 0; unsigned machine = 0xFF, slot = 0xFF; bool ghosting = false; int sending = 0, pending = 0, inPlayers = 0, inEnemies = 0, inOther = 0; };
 LinkView links[8]{};
 unsigned linkCount = 0;
@@ -626,7 +626,7 @@ void JoinTick(DWORD now, bool onMap, unsigned arrivalEpoch, bool bodyStands) {
     }
 }
 
-// --- this machine's phase ------------------------------------------------------------------------
+// --- this machine's phase ---
 uint8_t phase = Off;
 DWORD phaseAt = 0, statusSentAt = 0, timeoutLogged = 0;
 volatile LONG phaseChanges = 0, phaseTimeouts = 0;

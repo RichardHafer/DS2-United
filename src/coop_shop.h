@@ -11,7 +11,7 @@
 // fills it in; runtime_coop_overlay.inc draws the View.
 namespace coop_shop {
 
-// --- tabs, keys ------------------------------------------------------------------
+// --- tabs, keys ---
 enum class Tab : uint8_t { Supplies, Weapons, Upgrades, Suits, Gadgets };
 constexpr int kTabs = 5;
 inline const char* TabName(int t) {
@@ -75,7 +75,7 @@ struct Edge {
     bool Pressed(bool down) { const bool p = down && !was; was = down; return p; }
 };
 
-// --- prices ----------------------------------------------------------------------
+// --- prices ---
 constexpr uint32_t kMaxPrice = 9999999;
 // A decimal price; anything else keeps the fallback. Too large is capped.
 inline uint32_t ParsePrice(const char* text, uint32_t fallback) {
@@ -111,7 +111,7 @@ inline void FormatCredits(char* out, size_t size, int64_t value) {
     std::snprintf(out, size, "%s", text);
 }
 
-// --- catalogue -------------------------------------------------------------------
+// --- catalogue ---
 // Gun vtables and proxy GUIDs as in the bots' gun catalogue (runtime_coop_bot.inc),
 // spare ammo GUIDs as in the survival rewards (global_assets SpareAmmo).
 struct GunEntry {
@@ -213,7 +213,7 @@ inline void Refuse(Item& it, const char* reason) {
     std::snprintf(it.reason, sizeof(it.reason), "%s", reason);
 }
 
-// --- the cursor ------------------------------------------------------------------
+// --- the cursor ---
 struct Cursor {
     int tab = 0;
     int row[kTabs]{};
@@ -239,7 +239,7 @@ inline void Fit(Cursor& c, int count, int visible) {
     if (top < 0) top = 0;
 }
 
-// --- when the terminal opens -----------------------------------------------------
+// --- when the terminal opens ---
 // Survival director states from DS2Survival_State.
 enum Survival : int { kSurvOff = 0, kSurvArming = 1, kSurvWave = 2, kSurvIntermission = 3, kSurvDead = 4 };
 struct GateIn {
@@ -309,7 +309,7 @@ inline int SecondsLeft(uint32_t startMs, uint32_t nowMs, int lengthSeconds) {
     return left <= 0 ? 0 : static_cast<int>((left + 999) / 1000);
 }
 
-// --- upgrades --------------------------------------------------------------------
+// --- upgrades ---
 inline const char* NodeTypeName(int type) {
     switch (type) {
     case 1: return "DAMAGE";
@@ -401,7 +401,7 @@ inline int EmptyOfType(const coop_bot::BenchNode* tree, int count, int type) {
     return n;
 }
 
-// --- text and geometry -----------------------------------------------------------
+// --- text and geometry ---
 // Advances for the printable ASCII range 32..126, in pixels.
 struct Metrics {
     int advance[95]{};
@@ -475,7 +475,7 @@ inline Layout PanelLayout(int screenW, int screenH, int px, int lineHeight, int 
     return l;
 }
 
-// --- the view the overlay draws ---------------------------------------------------
+// --- the view the overlay draws ---
 constexpr int kMaxRows = 16;
 enum RowStyle : uint8_t { kRowNormal = 0, kRowTooPoor = 1, kRowUnavailable = 2, kRowSelected = 0x80 };
 enum StatusKind : uint8_t { kStatusInfo = 0, kStatusGood = 1, kStatusBad = 2 };

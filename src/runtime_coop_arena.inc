@@ -86,7 +86,7 @@ bool BlocksHallucination(uint32_t hash) {
     return true;
 }
 
-// --- the game modes ([Arena] Modes) ---------------------------------------------------------
+// --- the game modes ([Arena] Modes) ---
 volatile LONG respawnPicks = 0, readyArrivals = 0;
 const coop_arena::ArenaPoints* PointsOf(LONG index) {
     return index >= 0 && index < static_cast<LONG>(coop_arena::kArenaCount) ? coop_arena::PointsFor(coop_arena::kArenas[index].name) : nullptr;
@@ -175,7 +175,7 @@ void SetState(State s) {
     InterlockedExchange(&stateMirror, static_cast<LONG>(s));
 }
 
-// --- streaming=sets ------------------------------------------------------------------------
+// --- streaming=sets ---
 bool selected[kMaxMembers]{};
 volatile LONG wantedMask = -1;   // the sets kept (bit = set index), any thread
 uint32_t activatedMask = 0;
@@ -246,7 +246,7 @@ uint32_t Refresh(const Arena& a, int& localSet) {
     return mask;
 }
 
-// --- hooks in coop_streams and mpmap ----------------------------------------------------
+// --- hooks in coop_streams and mpmap ---
 unsigned Merge(uint32_t (*list)[4], unsigned char* hidden, unsigned& count, unsigned max, uint32_t caller) {
     const Arena* a = Active();
     if (!a || state == State::Off) return 0;
@@ -284,7 +284,7 @@ bool KeepsVisible(uint32_t handle) {
     return false;
 }
 
-// --- doors ---------------------------------------------------------------------------
+// --- doors ---
 // Each door follows the door table (boundary locked, inner left alone) unless it was
 // marked in the game (the recorder's DoorKey): inner is never locked, locked always,
 // held is kept open. Marks made this session count first, then the generated ones.
@@ -638,7 +638,7 @@ void DoorPass(const Arena& a, unsigned& found, unsigned& locked, DWORD now) {
     for (DoorRun& r : markRuns) if (r.pass && r.pass != pass) r = DoorRun{};
 }
 
-// --- necro-only blockers -------------------------------------------------------------
+// --- necro-only blockers ---
 // 21.10., arena_ch10: a ScriptableProp (5ACB6EF0-E1930623) stood in a held door with a
 // Havok filter that blocks NPCs but not Isaac, bots or corpses; live necros ran on the
 // spot there. EA's filter info: top bits 01 = DetailedFilterInfo at info << 2 (type +0,
@@ -762,7 +762,7 @@ void ClipPass(const Arena& a, DWORD now) {
     InterlockedExchange(&clipNpcOnly, npcOnly);
 }
 
-// --- rooms ---------------------------------------------------------------------------
+// --- rooms ---
 // The stream manager's handle table (+0x5C buckets, +0x60 count, nodes {handle,
 // stream, next}). A stream's name pointer is [[stream+0x18]]+4, and that is the
 // pointer the TOC lookup returns for a member GUID (live 09.10.: the TOC slot
@@ -899,7 +899,7 @@ void RoomPass(const Arena& a, DWORD now) {
     }
 }
 
-// --- the start spot ------------------------------------------------------------------
+// --- the start spot ---
 // The level loads at the arena's checkpoint, which is not where the arena begins
 // (ch03: in front of the save station, 4 m behind the recorded spots). A new Isaac of
 // the arena (arrival, checkpoint restart) goes onto a recorded spot (user, 16.10.):
@@ -1068,7 +1068,7 @@ void CheckStart(uint32_t local, DWORD now) {
     startChecked = 0;
 }
 
-// --- the player's kit ------------------------------------------------------------------
+// --- the player's kit ---
 // An arena loads as a new game at its checkpoint: patient suit and no gun (ch04,
 // 09.10.). Each new Isaac (arrival, death restart) gets the kit once, 2 s after he
 // appears: [Arena] Suit if he wears the patient suit or none (the bots follow
@@ -1162,7 +1162,7 @@ void Outfit(uint32_t local, DWORD now) {
     }
 }
 
-// --- the native start ([Lifecycle] NativePlacement, 02.11.) --------------------------------
+// --- the native start ([Lifecycle] NativePlacement, 02.11.) ---
 // The first body of the arena is made by the level's own load. Before the level request this
 // machine's start spot and suit are armed: Player::Init puts the body on the spot facing the
 // arena's middle (lifecycle's hook at 0x008A8505; Init's AimingData::UpdateSource calls at
@@ -1360,7 +1360,7 @@ void BeforeRestart() {
     nativeNeedsReload = true;
 }
 
-// --- start and end -------------------------------------------------------------------
+// --- start and end ---
 void Hooks(bool on) {
     streams::pin::arenaMerge = on ? Merge : nullptr;
     streams::vis::arenaKeepsVisible = on ? KeepsVisible : nullptr;
@@ -1525,7 +1525,7 @@ void Tick(DWORD now) {
     }
 }
 
-// --- for the survival director (exports in coop_plugin.cpp), any thread -------------------
+// --- for the survival director (exports in coop_plugin.cpp), any thread ---
 int RunningName(char* out, int size) {
     if (!RunningNow()) return 0;
     const LONG index = InterlockedCompareExchange(&activeMirror, 0, 0);

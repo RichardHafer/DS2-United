@@ -216,9 +216,7 @@ void (*g_uniformPoll)() = nullptr;
 bool (*g_uniformPreparePose)(uint32_t component) = nullptr;
 bool (*g_uniformGhostDetached)(uint32_t component) = nullptr;
 
-// ---------------------------------------------------------------------------
 // What the co-op modules used to take from the randomizer.
-// ---------------------------------------------------------------------------
 
 // The local player is found through the native PlayerManager (see
 // LocalCampaignPlayer in runtime_coop_state.inc), so this plugin does NOT hook
@@ -256,9 +254,7 @@ bool g_selfDrive = false;
 #include "runtime_coop.inc"
 #include "runtime_coop_uniform.inc"
 
-// ---------------------------------------------------------------------------
 // Frame tick: the periodic game-thread call the co-op modules need.
-// ---------------------------------------------------------------------------
 safetyhook::InlineHook tickHook;
 volatile LONG frames = 0;
 
@@ -283,9 +279,7 @@ bool InstallFrameTick(FILE* log) {
     return true;
 }
 
-// ---------------------------------------------------------------------------
 // Start-up
-// ---------------------------------------------------------------------------
 FILE* logFile = nullptr;
 volatile LONG running = 0;
 
@@ -384,7 +378,7 @@ DWORD WINAPI Start(LPVOID) {
     // never writes another line, which is what was seen on 2026-09-17,
     // a log with one line in it and no crash dump.
     //
-    // It cannot simply be done here and now: the exe is packed, so at this
+    // It cannot be done here and now: the exe is packed, so at this
     // moment the import slot still holds a packer thunk rather than
     // FindWindowW. So this watches the slot and takes it the instant the packer
     // makes it real, which is well before the unpacked-image wait below would

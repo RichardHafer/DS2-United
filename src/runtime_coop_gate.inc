@@ -251,7 +251,7 @@ void Event(const char* format, ...) {
     if (eventCount < kEvents) ++eventCount; else { eventHead = (eventHead + 1) % kEvents; ++eventsOverwritten; }
 }
 
-// --- classification --------------------------------------------------------
+// --- classification ---
 
 // The class query, called under SEH with the shape checked first: the slot
 // must open `mov edx,[esp+4] / mov al,1` or it is not the query at all.
@@ -470,7 +470,7 @@ bool Classify(uint32_t hash, DWORD now, char* cls, size_t clsSize) {
     return yes;
 }
 
-// --- presence -----------------------------------------------------------------
+// --- presence ---
 
 // Ghosts pull triggers.
 //
@@ -579,7 +579,7 @@ bool NobodyConnected(DWORD now) {
 }
 
 
-// --- the hook ----------------------------------------------------------------
+// --- the hook ---
 
 // The last time each hash went through here, by hash slot. Read by the world
 // mirror to fold a message this machine already fired itself.
@@ -1370,7 +1370,7 @@ void Tick(DWORD now) {
     }
 }
 
-// --- installation --------------------------------------------------------------
+// --- installation ---
 
 // Fills a rule set from two INI keys: entity classes (asked by hash, so a
 // subclass counts too) and script node classes (matched by vtable, from the

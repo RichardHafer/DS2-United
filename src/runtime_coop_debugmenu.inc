@@ -94,7 +94,7 @@ bool HookDamage() {
     return damageHooked;
 }
 
-// --- cheats ----------------------------------------------------------------------------
+// --- cheats ---
 bool RefillStasis(uint32_t player) {
     const uint32_t hc = mpmap::HealthComponent(player);
     float energy = 0.0f, max = 0.0f;
@@ -168,7 +168,7 @@ void UseCheat(int row, uint32_t player) {
     }
 }
 
-// --- the HOST tab -------------------------------------------------------------------------
+// --- the HOST tab ---
 // The director's tools go to the randomizer half (DS2Survival_Admin, run on its tick);
 // the player tools are applied here and sent to every partner (SVNT kind 12), who
 // apply them to their own Isaac. A client sees the tab but cannot use it.
@@ -432,7 +432,7 @@ void HostRowText(int row, DWORD now, coop_shop::Row& r, char* detail, size_t det
     if (HostRowIsDirector(row) && !adminFn) { r.style = coop_shop::kRowUnavailable; std::snprintf(r.right, sizeof(r.right), "N/A"); }
 }
 
-// --- deliveries through the supply terminal ---------------------------------------------
+// --- deliveries through the supply terminal ---
 coop_shop::Item Free(coop_shop::Kind kind, int ref, const char* label) {
     coop_shop::Item it;
     it.kind = kind;
@@ -483,7 +483,7 @@ void GiveSuit(int idx, uint32_t player) {
     shop::BuySuit(Free(coop_shop::Kind::Suit, idx, bot::kSuits[idx].name), player, shop::Credits(player));
 }
 
-// --- checkpoint jumps ------------------------------------------------------------------------
+// --- checkpoint jumps ---
 bool InMainMenu() {
     char map[64] = "", stream[64] = "";
     return !level::CurrentMap(map, sizeof(map), stream, sizeof(stream)) || _strnicmp(map, "frontend", 8) == 0;
@@ -544,7 +544,7 @@ void Load(int row, bool fromHost) {
     for (char* c = text; *c; ++c) *c = static_cast<char>(std::toupper(static_cast<unsigned char>(*c)));
     notice::Show(text);
 }
-// --- the straitjacket after a jump --------------------------------------------------------------
+// --- the straitjacket after a jump ---
 // PLAYERSTATE_STRAIT_JACKET (case 2 of PlayerChangeState::Activate 0x00864380) is player flag 0x26
 // in the bit set at Player+0x3DC. The debug starts of chapter 1's straitjacket rooms set it, the
 // script that ends it runs between those rooms, and the flag outlives a level load: after a jump
@@ -648,7 +648,7 @@ void HoldTick(bool running) {
     }
 }
 
-// --- the panel ----------------------------------------------------------------------------------
+// --- the panel ---
 int RowCount(int tab) {
     switch (tab) {
     case coop_debug::kLevels: return static_cast<int>(coop_debug::kCheckpointCount);

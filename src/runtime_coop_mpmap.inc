@@ -110,7 +110,7 @@ constexpr uint32_t kGetDhc = 0xAB8D80, kAddEnergy = 0xB55D30, kDhcEnergy = 0xF0,
 constexpr uint32_t kPlayerFlags = 0x3D8, kFlagStasis = 0x08, kFlagTk = 0x10, kPlayerMmi = 0x140, kPlayerHud = 0xFB8, kPlayerChapter = 0xFC8;
 constexpr uint32_t kPlayerPos = 0xC0;
 
-// --- the log ---------------------------------------------------------------------
+// --- the log ---
 // A ring written on the game thread, the watcher thread and inside hooks,
 // printed by the diagnostics thread. Hard budget for the whole process.
 constexpr unsigned kRingLines = 1024, kLineSize = 320;   // a load can log hundreds of lines within one flush
@@ -154,7 +154,7 @@ int FaultFilter(EXCEPTION_POINTERS* info) {
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-// --- shared state -----------------------------------------------------------------
+// --- shared state ---
 coop_mpmap::Visit visit;
 coop_mpmap::DoublePress press;
 volatile LONG phaseMirror = 0;       // coop_mpmap::Phase, for the watcher thread
@@ -189,7 +189,7 @@ void MapOf(uint32_t loop, char* out, size_t size) {
     if (loop && Read(loop + level::kMapOffset, buffer, sizeof(buffer) - 1)) std::snprintf(out, size, "%s", buffer);
 }
 
-// --- held saves ---------------------------------------------------------------
+// --- held saves ---
 safetyhook::InlineHook chooseHook, storeHook;
 volatile LONG savesHeld = 0, pointsHeld = 0, savesPassed = 0, pointsPassed = 0, saveLines = 0;
 // A campaign co-op joiner plays the host's world: none of it goes into its
@@ -283,7 +283,7 @@ bool __fastcall OnPointStore(void* self, void*, uint32_t allocator, uint32_t kin
     return false;
 }
 
-// --- stream set members -----------------------------------------------------------
+// --- stream set members ---
 safetyhook::InlineHook desiredHook, loadHook, tocHook;
 volatile LONG desiredCalls = 0, desiredLines = 0, memberLines = 0, membersSeen = 0, membersForeign = 0, membersDropped = 0;
 volatile LONG streamLoads = 0, streamLoadLines = 0, tocLoads = 0, tocLines = 0, tocRefused = 0;
@@ -388,7 +388,7 @@ uint32_t __fastcall OnLoadToc(void* manager, void*, const char* name, void* call
     return toc;
 }
 
-// --- MP logic kept from spawning -----------------------------------------------------
+// --- MP logic kept from spawning ---
 constexpr size_t kEntityCount = sizeof(coop_mpmap::kMpMapEntities) / sizeof(coop_mpmap::kMpMapEntities[0]);
 volatile LONG requested[kEntityCount]{};
 volatile LONG blockedStream = 0, blockedScript = 0, watchedSeen = 0, gateLines = 0, watchLines = 0, recordsKept = 0;
@@ -543,7 +543,7 @@ bool __fastcall OnSpawnFilter(void* filter, void*, bool prior, uint32_t info) {
     return false;
 }
 
-// --- hooks, verified at start, installed at the first visit ---------------------------
+// --- hooks, verified at start, installed at the first visit ---
 struct Site { const char* name; uint32_t rva; unsigned char bytes[18]; unsigned size; bool required; bool ok; };
 Site sites[] = {
     // mov eax,[esp+4] / push esi / push edi / mov edi,ecx / lea esi,[edi+4] / test eax,eax
@@ -640,7 +640,7 @@ bool InstallHooks() {
     return hooksIn;
 }
 
-// --- engine calls -----------------------------------------------------------------
+// --- engine calls ---
 __declspec(noinline) bool RequestLevel(uint32_t loop, const char* map, const char* stream, bool clearCheckpoint) {
     using Request = bool(__thiscall*)(void*, const char*, const char*, bool, const char*);
     __try {
@@ -674,7 +674,7 @@ bool ClearOverride(const char* why) {
     return ok;
 }
 
-// --- the spawn points -------------------------------------------------------------
+// --- the spawn points ---
 struct Point { uint32_t object; float matrix[16]; };
 unsigned ReadPoints(Point* out, unsigned cap, uint32_t& count) {
     count = 0;
@@ -699,7 +699,7 @@ void LogPoints() {
               points[i].matrix[14], points[i].matrix[8], points[i].matrix[9], points[i].matrix[10]);
 }
 
-// --- player state for the log ---------------------------------------------------------
+// --- player state for the log ---
 __declspec(noinline) uint32_t HealthComponent(uint32_t entity) {
     if (!Have(sDhc)) return 0;
     __try {
@@ -767,7 +767,7 @@ void LogPlayer(const char* why, uint32_t player) {
           body[0], body[1], body[2], bodyComplete ? 1 : 0, hud, viewports, static_cast<int>(v0), static_cast<int>(stack), spUi, mpUi, weapons);
 }
 
-// --- the player on the MP map -------------------------------------------------------
+// --- the player on the MP map ---
 volatile LONG spawnTries = 0, spawnsDone = 0, spawnFailures = 0, ownPlayers = 0;
 // [MpMap] SpawnPoint, else one point per machine, so co-op players do not all
 // stand on the first point.
@@ -1167,7 +1167,7 @@ void EnableModules(uint32_t player) {
           energy, after, energyMax, !hc ? "no health component" : filled ? "filled" : "no fill needed or not possible");
 }
 
-// --- the visit itself ---------------------------------------------------------------
+// --- the visit itself ---
 DWORD lastStatus = 0, extrasAt = 0;
 uint32_t handledEpoch = 0;
 int playerTries = 0;
@@ -1263,7 +1263,7 @@ void StartVisit(DWORD now) {
     }
 }
 
-// --- started from the main menu (runtime_coop_menu.inc) -------------------------------
+// --- started from the main menu (runtime_coop_menu.inc) ---
 // The native new game launch (UIFrontendManager::LaunchNewGame 0x00A40D40 plus
 // the frontend close its callers run, 0x00A5A120), without the episode table.
 constexpr uint32_t kUifm = 0x1C1C0E4, kNewGameFlagSet = 0x2B5D0, kClearLevel = 0x775870, kClearCheckpoint = 0x775840;
@@ -1899,7 +1899,7 @@ void FallRescue(DWORD now) {
           originColumn ? "in the map origin's column" : "far below the map", lowest, found > 0 ? ", near a partner" : "");
     PutOnMap(player, true, true, found > 0 ? partners : nullptr);
 }
-// --- campaign fall guard and join suit ---------------------------------------------------
+// --- campaign fall guard and join suit ---
 // FallRescue serves MP map visits only. 24.10.: in a campaign arena and on story joins players
 // fell through floors that were not there yet and kept falling. Off MP maps the guard keeps the
 // last spot where Isaac stood still in gravity and puts him back there when he falls freely
@@ -2170,7 +2170,7 @@ void Tick(DWORD now) {
     }
 }
 
-// --- the watcher: level manager states and the loading watchdog ---------------------------
+// --- the watcher: level manager states and the loading watchdog ---
 coop_mpmap::Watchdog dog;
 volatile LONG stateLines = 0, dumps = 0;
 // Loaded and waiting streams in the stream manager's handle table (+0x5C buckets, +0x60 count).
@@ -2371,7 +2371,7 @@ DWORD WINAPI Watcher(void*) {
     }
 }
 
-// --- map archives ------------------------------------------------------------------
+// --- map archives ---
 // Which maps have their stream set in a mounted archive. The game mounts every
 // DS2DAT<n>.DAT next to the exe for n below [0x01B18C30] = 13 (loop at
 // 0x0042FDC0), so a map counts as available when its "<name>\<name>.str" hash
@@ -2436,7 +2436,7 @@ void ScanArchives(FILE* log) {
     }
 }
 
-// --- start -----------------------------------------------------------------------
+// --- start ---
 bool Install(FILE* log, const std::string& ini) {
     spawnwin::Watch();
     logFile = log;

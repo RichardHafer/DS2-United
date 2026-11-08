@@ -72,7 +72,7 @@ bool LevelRunningNow() {
 // whoever dies, so a client now asks and the host answers: it restarts, which
 // bumps its own count, and every client follows that the usual way. Keeping the
 // decision on the host means three machines behave like two, and a request that
-// is lost on the wire is simply repeated.
+// is lost on the wire is repeated.
 constexpr uint32_t kFlagRestartRequest = 1;
 // A client reached a checkpoint while the host watches dead ([Spectate]): {guid, reserved[1] = report}.
 constexpr uint32_t kFlagReached = 2;

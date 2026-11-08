@@ -92,7 +92,7 @@ const ExtraGun kExtraGuns[] = {
 constexpr int kExtraCount = static_cast<int>(sizeof(kExtraGuns) / sizeof(kExtraGuns[0]));
 bool extrasIn = false;   // the four FE11 detours are in
 
-// --- the settings seam --------------------------------------------------------------------------
+// --- the settings seam ---
 volatile LONG saves = 0, savesStored = 0, savesOnline = 0, setupSaves = 0;
 char settingsKey[64] = "";
 using SaveFn = void(__thiscall*)(void*, const char*, const char*);
@@ -133,7 +133,7 @@ void __fastcall OnSaveUserSetting(void* self, void*, const char* key, const char
     Line("setting %s = \"%s\" kept in DS2Profile.ini (%s; weapon %u skin %u, DGM flags %08X)", k, v, hub ? "the hub's save ran too" : "no hub", weapon, skin, flags);
 }
 
-// --- the unlock data ------------------------------------------------------------------------------
+// --- the unlock data ---
 volatile LONG feeds = 0, feedFaults = 0, rivetUnlocks = 0, setupReads = 0, xpAnswers = 0;
 __declspec(noinline) bool CallUnlock(uint32_t content, uint32_t fn, uint32_t hash, bool& result) {
     __try {
@@ -231,7 +231,7 @@ bool FrontendXp(uint64_t id, uint32_t* xp) {
     return true;
 }
 
-// --- opening ------------------------------------------------------------------------------------
+// --- opening ---
 volatile LONG menuOpens = 0, menuRefusals = 0, lobbyTabAsks = 0;
 // FE03 item 4 (runtime_coop_menu.inc): the native item 2 did the same push.
 bool OpenFromMenu() {
@@ -254,7 +254,7 @@ bool LobbyTabsOpen(LONG mode) {
     return mode == gamemode::Mercenaries || mode == gamemode::Versus;
 }
 
-// --- applying the pick: the guns ----------------------------------------------------------------
+// --- applying the pick: the guns ---
 // The weapon rows of the setup (DGM+0xF1 = row - 1; row 0, the Pulse Rifle, is
 // always given). Versus gives the MP guns (their records pass the map's gate there),
 // Mercenaries the campaign twin of the pick with its campaign values and bench
@@ -326,7 +326,7 @@ int Guns(GunPick* out, int max) {
     return 2;
 }
 
-// --- Versus: no armour, no suit bonuses (user, 12.10.) -----------------------------------------
+// --- Versus: no armour, no suit bonuses (user, 12.10.) ---
 // Player::ApplyDamageModifiers (0x0087CF70) multiplies the damage by the worn suit's
 // factor ([[Player+0x1688]+0xC]+0x2F4) at 0x0087D0DC, mulss xmm0,[esi+0x50] with
 // xmm0 the factor, on whichever copy of a body takes the hit on this machine. The
@@ -351,7 +351,7 @@ float __fastcall OnBonusDamage(void* gun, void*) {
     return bonusHook.thiscall<float>(gun);
 }
 
-// --- Versus: the MP guns with the Quartermaster ----------------------------------------------
+// --- Versus: the MP guns with the Quartermaster ---
 // The MP GunProxyRegistry (34CA0BEE-2FA1A162) stays blocked with the rest of the MP
 // player setup, so the seven MP guns have no Quartermaster entry and their
 // requisition fails. Each Versus arrival registers them the registry's way:
@@ -401,7 +401,7 @@ void RegisterMpGuns() {
          gunsEpoch, added, known, missing, before, Ptr(qm + kQmEntryCount), static_cast<unsigned>(static_cast<uint8_t>(Ptr(qm + bot::kQmMaxStreams))));
 }
 
-// --- the weapon list: four more rows ------------------------------------------------------------
+// --- the weapon list: four more rows ---
 // FE11's list is the static 7-row table 0x01B2DCF0 (row 0, the Pulse Rifle, never
 // listed). Four FE11-only functions take the extra rows (backend 7..10) after the
 // native ones: FE11GetNumWeapons 0x00A7C800 (no args, int), UIIndexToBackendIndex
@@ -538,7 +538,7 @@ void __fastcall OnRowSetup(void* row, void*, void* text, int unlockLevel, int cl
     rowSetupHook.thiscall<void>(row, text, unlockLevel, clipLevel, damageLevel, clipOn, damageOn, locked, selected);
 }
 
-// --- applying the pick: the suit -------------------------------------------------------------
+// --- applying the pick: the suit ---
 // The pick is the PlayerSkinDB row in DGM+0xF0, matched by the row's code-name hash
 // (entry +0x10) to the campaign suits of randomizer\ds2coop_mpskins.lua
 // (generated_loadout_rows.h); the row index is the fallback. The MP suit's colour
@@ -587,7 +587,7 @@ const uint32_t* SuitRow(const char** name) {
     return nullptr;
 }
 
-// --- the game thread ----------------------------------------------------------------------------
+// --- the game thread ---
 bool frontendSeen = false;
 DWORD dirtyAt = 0;
 volatile LONG dirtySaves = 0;

@@ -48,7 +48,7 @@ struct Viewport { uint32_t x, y, width, height; float minZ, maxZ; };
 struct Vertex { float x, y, z, rhw; uint32_t color; float u, v; };
 constexpr uint32_t kFvf = 0x004 | 0x040 | 0x100;   // XYZRHW | DIFFUSE | TEX1
 
-// --- configuration, state, counters ---------------------------------------------
+// --- configuration, state, counters ---
 bool wanted = false, ready = false;
 int scalePercent = 100;
 char fontFaces[4][48] = {"Bahnschrift SemiBold", "Bahnschrift", "Segoe UI Semibold", "Arial"};
@@ -100,7 +100,7 @@ void Publish(const coop_shop::View& view) {
 }
 void Hide() { InterlockedExchange(&visible, 0); }
 
-// --- render thread ----------------------------------------------------------------
+// --- render thread ---
 coop_shop::View view{};
 LONG viewSerial = -1;
 bool wasLost = false, loggedTarget = false;
@@ -252,7 +252,7 @@ bool BuildFont(void* device, int px) {
     return true;
 }
 
-// --- quads ---------------------------------------------------------------------------
+// --- quads ---
 constexpr int kMaxVertices = 6 * 600;
 Vertex vertices[kMaxVertices];
 int vertexCount = 0;
@@ -1380,7 +1380,7 @@ void OnEndScene(safetyhook::Context& ctx) {
     DrawGuarded(static_cast<uint32_t>(ctx.esi));
 }
 
-// --- setup ---------------------------------------------------------------------------
+// --- setup ---
 bool Install(FILE* log, const std::string& ini) {
     if (ready) return true;   // the shop, the debug menu and the HUD each ask for it
     scalePercent = GetPrivateProfileIntA("Shop", "Scale", 100, ini.c_str());

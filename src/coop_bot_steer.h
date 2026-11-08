@@ -200,7 +200,7 @@ private:
     }
 };
 
-// --- zero-G flight ---------------------------------------------------------------
+// --- zero-G flight ---
 // A flying Isaac thrusts along its own
 // body: the left stick pushes forward (ly -1, 3 m/s), back and sideways (lx +1 to
 // its right, 2 m/s), never up or down; it climbs by pitching. Its look input turns
@@ -275,7 +275,7 @@ inline bool OtherSurface(const BodyFrame& self, const BodyFrame& leader) {
     return std::fabs(Dot(Sub(leader.pos, self.pos), self.up)) > 2.0f || Dot(self.up, leader.up) < 0.87f;
 }
 
-// --- facing open space ------------------------------------------------------------
+// --- facing open space ---
 // A bot at rest with a wall (or the end of the walkable mesh) right before its
 // face turns toward the most open way, opposite first, and takes a short step.
 constexpr int kFaceCandidates = 5;
