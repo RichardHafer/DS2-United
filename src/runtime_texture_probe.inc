@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Observe the texture resource handler (deadspace2.exe 0x013DC190) for a
 // handful of texture identities: the skin's own textures and the base
 // exploder's. A tg4h creates the texture entry, a tg4d looks the entry up by

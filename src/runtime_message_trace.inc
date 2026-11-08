@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Every script message the engine sends, one line each, when MessageTrace=1.
 //
 // The level logic is a web of these messages: a quarantine counts deaths, a

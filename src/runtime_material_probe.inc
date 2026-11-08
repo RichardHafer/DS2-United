@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Observe the native material lookup and the geometry instance copy.
 safetyhook::MidHook materialLookupProbe, materialCopyProbe;
 struct MaterialEvent {

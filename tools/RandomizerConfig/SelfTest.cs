@@ -5,13 +5,13 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
-    // DS2RandomizerConfig.exe --selftest <copy of an ini>
+    // DS2UnitedConfig.exe --selftest <copy of DS2Coop.ini>
     // Edits the copy through the same save path as the window and checks byte
     // by byte that only the edited values changed. Backups, failed saves,
-    // UTF-16 and the other file checks run on scratch copies in %TEMP%.
-    // Writes <ini>.selftest.txt.
+    // UTF-16, the migration and the other file checks run on scratch copies
+    // in %TEMP%. Writes <ini>.selftest.txt.
     static class SelfTest
     {
         [DllImport("kernel32.dll")]
@@ -36,7 +36,7 @@ namespace DS2RandomizerConfig
             failures = 0;
             if (args.Length < 2 || !File.Exists(args[1]))
             {
-                Console.WriteLine("usage: DS2RandomizerConfig.exe --selftest <copy-of-DS2Randomizer.ini>");
+                Console.WriteLine("usage: DS2UnitedConfig.exe --selftest <copy-of-DS2Coop.ini>");
                 return 2;
             }
             string path = Path.GetFullPath(args[1]);
@@ -48,12 +48,14 @@ namespace DS2RandomizerConfig
                 Console.WriteLine("refused: " + path + " is inside a Dead Space 2 folder. Run the self-test on a copy.");
                 return 2;
             }
-            scratch = Path.Combine(Path.GetTempPath(), "DS2RandomizerConfig-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            scratch = Path.Combine(Path.GetTempPath(), "DS2CoopConfig-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
             try
             {
+                byte[] given = File.ReadAllBytes(path);
                 Execute(path);
                 Directory.CreateDirectory(scratch);
                 ScratchPhases(File.ReadAllBytes(path));
+                MergedFilePhases(given);
             }
             catch (Exception ex) { failures++; Log("  FAIL  exception: " + ex); }
             finally
@@ -68,10 +70,15 @@ namespace DS2RandomizerConfig
             return failures == 0 ? 0 : 1;
         }
 
-        static Model Fresh(byte[] bytes)
+        static Model Fresh(byte[] bytes) { return FromDoc(IniDocument.Parse(bytes)); }
+
+        // As the window builds it: the fixed pages plus the Expert entries of this file.
+        static Model FromDoc(IniDocument doc)
         {
             var model = new Model(Schema.Build(), Model.LoadRecommended());
-            model.LoadFrom(IniDocument.Parse(bytes));
+            var taken = new HashSet<string>(model.Options.Select(o => o.Id), StringComparer.OrdinalIgnoreCase);
+            model.SetGenerated(ExpertKeys.Build(doc, taken));
+            model.LoadFrom(doc);
             return model;
         }
 
@@ -119,8 +126,7 @@ namespace DS2RandomizerConfig
 
             // Phase 3: reset all to recommended (seeds kept), as the button does
             var reset = Fresh(afterOne);
-            foreach (var o in reset.Options)
-                if (!o.KeepOnResetAll) reset.Current[o.Id] = reset.Recommended[o.Id];
+            reset.ResetAll();
             Log("phase 3: reset all to recommended (" + reset.ChangeCount + " values differ)");
             SaveAndVerify(path, reset, afterOne);
 
@@ -138,8 +144,7 @@ namespace DS2RandomizerConfig
             // kind has to be written, or the game reads the new Default for it.
             var doc = IniDocument.Parse(File.ReadAllBytes(path));
             doc.CommentOut("MoreEnemies", "Zombie");
-            var follower = new Model(Schema.Build(), Model.LoadRecommended());
-            follower.LoadFrom(doc);
+            var follower = FromDoc(doc);
             string old = follower.Current["MoreEnemies.Default"];
             string moved = old == "2" ? "3" : "2";
             Log("phase 5: Default " + old + " -> " + moved + ", Zombie (no line of its own) set back to " + old);
@@ -147,8 +152,7 @@ namespace DS2RandomizerConfig
             Check(follower.Current["MoreEnemies.Zombie"] == moved, "Zombie follows Default to " + moved);
             follower.Set(follower.ById["MoreEnemies.Zombie"], old);
             follower.ApplyTo(doc);
-            var reread = new Model(Schema.Build(), Model.LoadRecommended());
-            reread.LoadFrom(IniDocument.Parse(doc.ToBytes()));
+            var reread = Fresh(doc.ToBytes());
             Check(reread.Loaded["MoreEnemies.Default"] == moved && reread.Loaded["MoreEnemies.Zombie"] == old,
                 "after saving, Default reads " + reread.Loaded["MoreEnemies.Default"] + " and Zombie " + reread.Loaded["MoreEnemies.Zombie"]);
         }
@@ -326,6 +330,355 @@ namespace DS2RandomizerConfig
             Check(IniFile.SameBytes(broken, File.ReadAllBytes(brokenIni)) && IniFile.Backups(brokenIni).Count == 0, "file untouched, no backup made");
         }
 
+        static void MergedFilePhases(byte[] given)
+        {
+            // Phase 12: the templates are built in and every curated key is in one of them
+            Log("phase 12: templates and curated pages");
+            Check(Templates.Missing.Count == 0, "all templates are built in" + (Templates.Missing.Count > 0 ? ", missing: " + string.Join(", ", Templates.Missing.ToArray()) : ""));
+            var schema = Schema.Build();
+            foreach (var group in new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus })
+            {
+                var keys = schema.Where(o => o.Group == group).ToList();
+                var absent = keys.Where(o => !Templates.Has(o.Section, o.Key)).Select(o => o.Id).ToList();
+                Check(absent.Count == 0, group + ": " + keys.Count + " keys, all in the templates" + (absent.Count > 0 ? "; missing: " + string.Join(", ", absent.ToArray()) : ""));
+                Log("        " + string.Join(", ", keys.Select(o => o.Id).ToArray()));
+                var bare = keys.Where(o => string.IsNullOrEmpty(o.Description)).Select(o => o.Id).ToList();
+                Check(bare.Count == 0, group + ": every key has a description" + (bare.Count > 0 ? "; not: " + string.Join(", ", bare.ToArray()) : ""));
+            }
+            var ids = schema.Select(o => o.Id).ToList();
+            Check(ids.Distinct(StringComparer.OrdinalIgnoreCase).Count() == ids.Count, "no key is on two fixed pages");
+            var model = new Model(schema, Model.LoadRecommended());
+            var differ = schema.Where(o => o.Group != Schema.Expert && Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus }, o.Group) >= 0 &&
+                model.Recommended[o.Id] != o.Effective(Templates.Doc.GetRaw(o.Section, o.Key), o.CodeDefault)).Select(o => o.Id).ToList();
+            Check(differ.Count == 0, "curated recommendations are the template values");
+            var codeDiffers = schema.Where(o => Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus }, o.Group) >= 0 &&
+                o.DefaultFrom == null && model.Recommended[o.Id] != o.CodeDefault).Select(o => o.Id + "=" + model.Recommended[o.Id] + " (code " + o.CodeDefault + ")").ToList();
+            Log("  note  template differs from the plugin default for " + codeDiffers.Count + " curated keys: " + string.Join(", ", codeDiffers.ToArray()));
+
+            MigrationPhases();
+
+            // Phase 14: every key of the file is on exactly one page
+            Log("phase 14: Expert page covers the file");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var full = Fresh(given);
+            long buildMs = clock.ElapsedMilliseconds;
+            var doc = IniDocument.Parse(given);
+            int inFile = 0, hiddenRows = 0;
+            var uncovered = new List<string>();
+            foreach (var section in doc.SectionNames())
+                foreach (var key in doc.KeyNames(section))
+                {
+                    inFile++;
+                    if (Schema.Hidden(section, key)) hiddenRows++;
+                    else if (!full.ById.ContainsKey(section + "." + key)) uncovered.Add("[" + section + "] " + key);
+                }
+            Check(uncovered.Count == 0, inFile + " keys in the file, " + hiddenRows + " hidden family rows, the rest on a page" +
+                (uncovered.Count > 0 ? "; not shown: " + string.Join(", ", uncovered.Take(10).ToArray()) : ""));
+            var gen = full.Generated.ToList();
+            var genIds = gen.Select(o => o.Id).ToList();
+            Check(genIds.Distinct(StringComparer.OrdinalIgnoreCase).Count() == genIds.Count, gen.Count + " Expert rows, none twice");
+            var overlap = genIds.Where(id => ids.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+            Check(overlap.Count == 0, "no Expert row repeats a key of another page" + (overlap.Count > 0 ? ": " + string.Join(", ", overlap.ToArray()) : ""));
+            int notSet = gen.Count(o => full.Current[o.Id] == Option.NotSet);
+            int unknown = gen.Count(o => o.Description == ExpertKeys.UnknownNote);
+            int noted = gen.Count(o => o.Description.Length > 0 && o.Description != ExpertKeys.UnknownNote);
+            Log("  note  " + notSet + " template keys not in the file, " + unknown + " keys in no template, " + noted + " with a template note; built in " + buildMs + " ms");
+            var kinds = new Dictionary<string, Kind>
+            {
+                { "Coop.Port", Kind.Int }, { "Mirror.Classes", Kind.Text }, { "Coop.AudioTrace", Kind.Bool }, { "VersusPoints.HumanDouble", Kind.Int },
+                { "Bot1.Antics", Kind.Int }, { "Bot1.HarmfulAntics", Kind.Bool }, { "Survival.RewardMedPackSize", Kind.Int }, { "Bot1.Name", Kind.Text },
+                { "Gadgets.StasisMineEnabled", Kind.Bool }, { "Bot1.AimSway", Kind.Text }, { "Wave1.Enemies", Kind.Text }, { "Escalation.PauseStepSeconds", Kind.Text },
+            };
+            foreach (var pair in kinds)
+            {
+                Option o;
+                if (!full.ById.TryGetValue(pair.Key, out o)) { Log("  skip  " + pair.Key + " is not on the Expert page of this file"); continue; }
+                Check(o.Kind == pair.Value, pair.Key + " is a " + o.Kind + (o.Kind == pair.Value ? "" : ", expected " + pair.Value));
+            }
+            Option sample;
+            if (full.ById.TryGetValue("Bot1.ReactionMaxMs", out sample))
+                Check(sample.Description.Length > 0, "[Bot1] ReactionMaxMs is described from the profile legend: " + Short(sample.Description));
+            if (full.ById.TryGetValue("Coop.PeerTimeoutStallGraceMs", out sample))
+                Check(sample.Description.Length > 0, "[Coop] PeerTimeoutStallGraceMs takes its group's note: " + Short(sample.Description));
+            if (full.ById.TryGetValue("Coop.TickMode", out sample))
+                Check(sample.Description.Length == 0, "[Coop] TickMode does not borrow StartKey's note");
+
+            RoundTrip(given);
+            WarningPhases(given);
+        }
+
+        static string Short(string text) { return text.Length > 70 ? text.Substring(0, 67) + "..." : text; }
+
+        static string WarningOf(Model m, string id)
+        {
+            Option o;
+            return m.ById.TryGetValue(id, out o) && o.WarnFunc != null ? o.WarnFunc(m) : null;
+        }
+
+        // The templates as a fresh install's file, with "Section.Key=value" edits;
+        // "!Section.Key" drops that line first, so the plugin's default applies.
+        static Model Setup(string edits)
+        {
+            var doc = IniDocument.Parse(Templates.Doc.ToBytes());
+            var sets = new List<string[]>();
+            foreach (var edit in edits.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (edit[0] == '!')
+                {
+                    string[] id = edit.Substring(1).Split('.');
+                    doc.CommentOut(id[0], id[1]);
+                }
+                else sets.Add(edit.Split(new[] { '=' }, 2));
+            }
+            var m = FromDoc(doc);
+            foreach (var s in sets) m.Set(m.ById[s[0]], s[1]);
+            return m;
+        }
+
+        // needle null: the row must stay quiet
+        static void Expect(string edits, string id, string needle)
+        {
+            string w = WarningOf(Setup(edits), id);
+            bool ok = needle == null ? w == null : w != null && w.Contains(needle);
+            Check(ok, (edits.Length == 0 ? "templates" : edits) + " -> " + id + ": " + (w == null ? "no warning" : Short(w.Replace(Environment.NewLine, " / "))));
+        }
+
+        // Phase 16: a setting that breaks a mode says what breaks and how to fix it.
+        static void WarningPhases(byte[] given)
+        {
+            Log("phase 16: dependency warnings");
+            Check(!Schema.Build().Any(o => o.Key.Equals("FollowIntoTubes", StringComparison.OrdinalIgnoreCase)), "no page row for the removed [Bot] FollowIntoTubes");
+            string[] quiet = {
+                "DS2Randomizer.Enabled", "DS2Randomizer.GlobalTemplates", "DS2Randomizer.VentRebinding", "Survival.Enabled", "Survival.Map",
+                "Survival.MaxAlive", "Menu.Enabled", "Menu.Modes", "Menu.Mode", "Arena.Arenas", "Versus.Enabled", "Necro.Enabled",
+                "VersusSlashers.Enabled", "MpMap.Enabled", "Bot.Enabled", "Coop.Network", "Coop.JoinAddress", "Coop.SuitSync",
+                "Coop.MirrorDeath", "Coop.PeerTimeoutMs", "Coop.Enabled", "Coop.HostNPCs", "Coop.MPUniformStreams", "Coop.SyncAllObjects",
+                "Coop.Peer", "Coop.DeathSync" };
+            foreach (var id in quiet) Expect("", id, null);
+
+            // the survival director: Survival waves and the pool, not the master switch
+            Expect("Survival.Enabled=0", "Menu.Enabled", "Survival waves (Survival page) is off");
+            Expect("DS2Randomizer.GlobalTemplates=0", "Menu.Enabled", "cross-level enemy pool (Loading page) is off");
+            Expect("Survival.Enabled=0 DS2Randomizer.GlobalTemplates=0", "Menu.Modes", "Turn both on");
+            Expect("DS2Randomizer.GlobalTemplates=0", "Arena.Arenas", "locks its doors");
+            Expect("Survival.Enabled=0", "VersusSlashers.Enabled", "no AI slashers");
+            Expect("Survival.Enabled=0", "Survival.Enabled", "Turn it on");
+            Expect("DS2Randomizer.GlobalTemplates=0", "Survival.Enabled", "enemy pool");
+            Expect("DS2Randomizer.GlobalTemplates=0", "DS2Randomizer.GlobalTemplates", "Survival needs it too");
+            Expect("DS2Randomizer.Enabled=0", "DS2Randomizer.Enabled", "Replacement chance 0 and More enemies off");
+            Expect("DS2Randomizer.Enabled=0", "Menu.Enabled", null);
+            Expect("DS2Randomizer.Enabled=0 Survival.Enabled=0 Menu.Enabled=0", "DS2Randomizer.Enabled", "nothing in the campaign");
+
+            // survival map
+            Expect("Survival.Map=mp_gov", "Survival.Map", "Set it to any");
+            Expect("Survival.Map=mp_gov", "Arena.Arenas", "every arena");
+            Expect("Survival.Map=arena_ch04", "Arena.Arenas", "every other arena");
+            Expect("Survival.Map=mp_typo", "Survival.Map", "No map is called that");
+            Expect("!Survival.Map", "Survival.Map", "Only mp_bombRun");
+            Expect("Survival.Map=", "Survival.Map", "Only mp_bombRun");
+            Expect("Menu.Enabled=0 Survival.Map=mp_gov MpMap.Map=mp_solar", "Survival.Map", "visit key loads mp_solar");
+            Expect("Menu.Enabled=0 Survival.Map=MP_SOLAR MpMap.Map=mp_solar", "Survival.Map", null);
+            var map = Setup("").ById["Survival.Map"];
+            Check(map.Check("ANY") == null && map.Check("arena_ch10") == null && map.Check("pdlc_mp_school") == null && map.Check("mp_typo") != null,
+                "Survival map accepts any, the picker's maps and the arenas, and refuses mp_typo");
+
+            // versus and the modes
+            Expect("Necro.Enabled=0", "Versus.Enabled", "spawns as Isaac");
+            Expect("!Necro.Enabled", "Versus.Enabled", "spawns as Isaac");
+            Expect("Necro.Enabled=0", "Necro.Enabled", "Turn it on");
+            Expect("Versus.Enabled=0", "Versus.Enabled", "still offers versus");
+            Expect("Versus.Enabled=0 Menu.Mode=4", "Menu.Mode", "Starts with versus");
+            Expect("Versus.SwapSeconds=1", "Versus.SwapSeconds", "raises this to 3");
+
+            // Mercenaries and Hold the Zone: shrinking bonuses or a run limit end every run
+            foreach (var id in new[] { "Mercenaries.BonusFadeSeconds", "Mercenaries.MaxRunSeconds", "Zone.BonusFadeSeconds", "Zone.MaxRunSeconds" })
+                Expect("", id, null);
+            Expect("Mercenaries.BonusFadeSeconds=0 Mercenaries.MaxRunSeconds=0", "Mercenaries.MaxRunSeconds", "go on for ever");
+            Expect("Mercenaries.BonusFadeSeconds=0 Mercenaries.MaxRunSeconds=0", "Mercenaries.BonusFadeSeconds", "go on for ever");
+            Expect("Zone.BonusFloorPercent=100 Zone.MaxRunSeconds=0", "Zone.BonusFadeSeconds", "go on for ever");
+            Expect("Zone.BonusFadeSeconds=0", "Zone.BonusFadeSeconds", null);
+            Expect("Mercenaries.MaxRunSeconds=60", "Mercenaries.MaxRunSeconds", "raises this to 120");
+            var maxRun = Setup("").ById["Zone.MaxRunSeconds"];
+            Check(maxRun.Effective("60", maxRun.CodeDefault) == "120" && maxRun.Effective("0", maxRun.CodeDefault) == "0" && maxRun.CodeDefault == "720",
+                "[Zone] MaxRunSeconds reads 60 as 120 and 0 as never, default 720");
+
+            // the co-op half
+            Expect("Coop.Enabled=0", "Coop.Enabled", "Set it to 1");
+            Expect("Coop.Enabled=0", "Coop.Network", "[Coop] Enabled is 0");
+            Expect("!Coop.Enabled", "Menu.Enabled", "whole co-op half");
+            Expect("Coop.Enabled=0", "Bot.Enabled", "No bot joins");
+            Expect("Coop.Enabled=0", "MpMap.Enabled", "visit key does nothing");
+            Expect("Coop.MPUniformStreams=0", "Coop.HostNPCs", "MPUniformStreams=1");
+            Expect("Coop.MPUniformStreams=0", "Coop.MPUniformStreams", "Share suits");
+            Expect("Coop.MPUniformStreams=0", "Coop.SuitSync", "MPUniformStreams=1");
+            Expect("Coop.SyncAllObjects=1", "Coop.SyncAllObjects", "SyncAllObjects=0");
+            Expect("Coop.SyncAllObjects=1", "Menu.Enabled", "HostNPCs=1 needs");
+            Expect("Coop.Peer=1.2.3.4", "Coop.Peer", "Not ip:port");
+            Expect("Coop.Peer=host:27015", "Coop.Network", "Peer");
+            Expect("Coop.Peer=1.2.3.4:27015;5.6.7.8:27016", "Coop.Peer", null);
+            Expect("Coop.PeerTimeout=0", "Coop.PeerTimeoutMs", "PeerTimeout=1");
+            Expect("!Coop.PeerTimeout", "Coop.PeerTimeoutMs", "PeerTimeout=1");
+            Expect("Coop.DeathSync=0", "Coop.MirrorDeath", "DeathSync=1");
+            Expect("Coop.DeathSync=0", "Coop.DeathSync", "Die together");
+            Expect("Coop.JoinAddress=example.com:27015", "Coop.JoinAddress", "refuses");
+
+            // vents and pathfinding memory
+            Expect("DS2Randomizer.VentRebinding=0", "DS2Randomizer.VentRebinding", "on foot");
+            Expect("DS2Randomizer.VentVariants=0", "DS2Randomizer.VentRebinding", null);
+            Expect("DS2Randomizer.VentVariants=0 Survival.Enabled=0", "DS2Randomizer.VentRebinding", "Survival uses it either way");
+            Expect("DS2Randomizer.NavPowerPoolKiB=0 Survival.MaxAlive=15", "Survival.MaxAlive", "Capped at 10");
+
+            // every warning and hint copes with a file, the templates, an empty file and every switch flipped
+            var flipped = Setup("");
+            foreach (var o in flipped.Options.ToList())
+                if (o.Kind == Kind.Bool && flipped.Current[o.Id] != Option.NotSet) flipped.Set(o, flipped.Current[o.Id] == "1" ? "0" : "1");
+            int evaluated = 0;
+            var thrown = new List<string>();
+            foreach (var m in new[] { Fresh(given), Setup(""), FromDoc(new IniDocument()), flipped })
+                foreach (var o in m.Options)
+                    foreach (var f in new[] { o.WarnFunc, o.HintFunc })
+                    {
+                        if (f == null) continue;
+                        try { f(m); evaluated++; }
+                        catch (Exception ex) { thrown.Add(o.Id + ": " + ex.GetType().Name); }
+                    }
+            Check(thrown.Count == 0, evaluated + " warnings and hints evaluated on four files" + (thrown.Count > 0 ? "; threw: " + string.Join(", ", thrown.Take(10).ToArray()) : ""));
+        }
+
+        static string WithLine(byte[] bytes, string section, string line)
+        {
+            var doc = IniDocument.Parse(bytes);
+            int h = doc.FindSection(section);
+            doc.Lines.Insert(h + 1, new IniLine(line, doc.NewLine));
+            doc.Touch();
+            return Encoding.GetEncoding(28591).GetString(doc.ToBytes());
+        }
+
+        // Phase 13: the old files merged into DS2Coop.ini, on the templates
+        // with a duplicate, an unknown section and a stray key added.
+        static void MigrationPhases()
+        {
+            var latin = Encoding.GetEncoding(28591);
+            var sources = new Dictionary<string, byte[]>
+            {
+                { "DS2Randomizer.ini", Model.Resource("Recommended.ini") },
+                { "DS2Coop.ini", latin.GetBytes(latin.GetString(Model.Resource("Template.DS2United.ini")) + "\r\n[SelftestCoopOnly]\r\nAlpha=1\r\n") },
+                { "DS2Survival.ini", latin.GetBytes(WithLine(Model.Resource("Template.DS2Survival.ini"), "Zone", "Ring=0")) },
+                { "DS2BotProfiles.ini", latin.GetBytes("Orphan=1\r\n" + latin.GetString(Model.Resource("Template.DS2BotProfiles.ini"))) },
+            };
+            foreach (bool wide in new[] { false, true })
+            {
+                string folder = Path.Combine(scratch, wide ? "migrate-utf16" : "migrate");
+                Directory.CreateDirectory(folder);
+                Log("phase 13: migration" + (wide ? " with DS2Survival.ini as UTF-16" : ""));
+                foreach (var pair in sources)
+                {
+                    byte[] bytes = pair.Value;
+                    if (wide && pair.Key == "DS2Survival.ini")
+                    {
+                        var enc = new UnicodeEncoding(false, true);
+                        bytes = enc.GetPreamble().Concat(enc.GetBytes(latin.GetString(bytes))).ToArray();
+                    }
+                    File.WriteAllBytes(Path.Combine(folder, pair.Key), bytes);
+                }
+                var before = Merger.Legacy.ToDictionary(n => n, n => File.ReadAllBytes(Path.Combine(folder, n)));
+                MergeResult r;
+                try { r = Merger.Migrate(folder); }
+                catch (Exception ex) { Check(false, "migration failed: " + ex.Message); continue; }
+                foreach (var s in r.Sources) Log("    source " + s);
+                foreach (var s in r.Merged) Log("    merged " + s);
+                foreach (var s in r.Duplicates) Log("    dup    " + s);
+                foreach (var s in r.Notes) Log("    note   " + s);
+                Check(File.Exists(r.Path), Path.GetFileName(r.Path) + " written");
+                Check(before.All(p => IniFile.SameBytes(p.Value, File.ReadAllBytes(Merger.SourcePathAfter(folder, p.Key)))), "the old files are unchanged");
+                Check(Merger.IsMerged(r.Path) && Path.GetFileName(r.Path) == Merger.FileName && File.Exists(Path.Combine(folder, Merger.PreviousName)),
+                    "the merged file is " + Merger.FileName + ", the co-op half's own " + Merger.PreviousName + " stays where it was");
+                var merged = IniDocument.Parse(File.ReadAllBytes(r.Path));
+                Check(merged.EncodingName == (wide ? "UTF-16 LE" : "ANSI/UTF-8"), "merged file is " + merged.EncodingName);
+                var parsed = Merger.Legacy.Select(n => new MergeSource(n, before[n])).ToList();
+                var problems = Merger.Verify(parsed, merged);
+                Check(problems.Count == 0, "every key keeps the value a plugin read" + (problems.Count > 0 ? ": " + string.Join("; ", problems.Take(5).ToArray()) : ""));
+                int sourceKeys = 0;
+                foreach (var s in parsed)
+                {
+                    var d = IniDocument.Parse(s.Bytes);
+                    foreach (var section in d.SectionNames()) sourceKeys += d.KeyNames(section).Count;
+                }
+                int mergedKeys = merged.SectionNames().Sum(s => merged.KeyNames(s).Count);
+                Check(mergedKeys == sourceKeys - 1, mergedKeys + " keys merged from " + sourceKeys + " (one duplicate)");
+                int zoneHeaders = merged.Lines.Count(l => string.Equals(IniDocument.SectionName(l.Text), "Zone", StringComparison.OrdinalIgnoreCase));
+                Check(zoneHeaders == 1, "one [Zone] section (" + zoneHeaders + " found)");
+                var coopZone = IniDocument.Parse(sources["DS2Coop.ini"]);
+                var survZone = IniDocument.Parse(sources["DS2Survival.ini"]);
+                int zoneKeys = coopZone.KeyNames("Zone").Count + survZone.KeyNames("Zone").Count - 1;
+                Check(merged.KeyNames("Zone").Count == zoneKeys, "[Zone] holds " + merged.KeyNames("Zone").Count + " keys from both files, " + zoneKeys + " expected");
+                Check(merged.GetRaw("Zone", "Ring") == coopZone.GetRaw("Zone", "Ring") && merged.GetRaw("Zone", "CaptureSeconds") == survZone.GetRaw("Zone", "CaptureSeconds"),
+                    "[Zone] Ring keeps DS2Coop.ini's value, CaptureSeconds DS2Survival.ini's");
+                Check(r.Duplicates.Count == 1 && r.Duplicates[0].Contains("Ring") && merged.Lines.Any(l => l.Text == "; Ring=0"), "the duplicate Ring=0 is reported and commented out");
+                Check(r.Notes.Any(n => n.Contains("Orphan")) && merged.Lines.Any(l => l.Text == "; Orphan=1"), "the key before any section is reported and commented out");
+                Check(merged.GetRaw("SelftestCoopOnly", "Alpha") == "1", "an unknown section is copied as it is");
+                foreach (var name in Merger.Legacy)
+                    Check(merged.Lines.Any(l => l.Text.StartsWith("; From " + name + ": ")), "header comment for " + name);
+                Check(r.Notes.Any(n => n.StartsWith("Windows reads all")), "Windows reads the merged file as the old ones: " + r.Notes.Last());
+                bool refused = false;
+                try { Merger.Migrate(folder); }
+                catch (IOException) { refused = true; }
+                Check(refused, "a second migration refuses to overwrite " + Merger.FileName);
+            }
+        }
+
+        // Phase 15: unknown keys survive, missing keys come back with their template comment.
+        static void RoundTrip(byte[] given)
+        {
+            Log("phase 15: save round trip with unknown and missing keys");
+            var doc = IniDocument.Parse(given);
+            doc.SetValue("Coop", "SelftestUnknownKey", "keep me", false, (IList<string>)new[] { "; a key no template knows" }, null);
+            doc.SetValue("SelftestSection", "Alpha", "1", true, (IList<string>)null, null);
+            doc.SetValue("SelftestSection", "Beta", "some text", false, (IList<string>)null, null);
+            int line = doc.FindKey("Bot", "HumanAim");
+            if (line >= 0) { doc.Lines.RemoveAt(line); doc.Touch(); }
+            int turret = doc.FindSection("Turret");
+            if (turret >= 0) { doc.Lines.RemoveRange(turret, doc.SectionEnd(turret) - turret); doc.Touch(); }
+            string ini = Scratch("roundtrip.ini", doc.ToBytes());
+            byte[] before = File.ReadAllBytes(ini);
+            var m = Fresh(before);
+            Option unknown = null, alpha = null, beta = null, aim = null, range = null;
+            Check(m.ById.TryGetValue("Coop.SelftestUnknownKey", out unknown) && unknown.Generated && unknown.Kind == Kind.Text &&
+                unknown.Description == ExpertKeys.UnknownNote, "the unknown key is an editable Expert row");
+            Check(m.ById.TryGetValue("SelftestSection.Alpha", out alpha) && alpha.Kind == Kind.Bool &&
+                m.ById.TryGetValue("SelftestSection.Beta", out beta) && beta.Kind == Kind.Text, "the unknown section's keys are Expert rows");
+            Check(m.ById.TryGetValue("Bot.HumanAim", out aim) && m.RawInFile[aim.Id] == null && m.Current[aim.Id] == aim.CodeDefault,
+                "[Bot] HumanAim is missing and shows the plugin default " + (aim != null ? aim.CodeDefault : "?"));
+            Check(m.ById.TryGetValue("Turret.Range", out range) && m.Current[range.Id] == Option.NotSet, "[Turret] Range is a template row marked not in file");
+            if (unknown == null || beta == null || aim == null || range == null) return;
+            m.Set(aim, "0");
+            m.Set(range, "25");
+            m.Set(beta, "changed text");
+            m.Set(m.ById["Coop.PauseKeepsRunning"], m.Current["Coop.PauseKeepsRunning"] == "1" ? "0" : "1");
+            Option tick;
+            if (m.ById.TryGetValue("Coop.NetSendPeriodMs", out tick) && m.Current[tick.Id] != Option.NotSet)
+                m.Set(tick, (m.Int(tick.Id) + 1).ToString());
+            SaveAndVerify(ini, m, before);
+            var after = IniDocument.Parse(File.ReadAllBytes(ini));
+            Check(after.GetRaw("Coop", "SelftestUnknownKey") == "keep me" && after.GetRaw("SelftestSection", "Alpha") == "1" &&
+                after.GetRaw("SelftestSection", "Beta") == "changed text", "unknown keys kept, the edited one written");
+            var comment = Templates.CommentLines("Bot", "HumanAim");
+            int at = after.FindKey("Bot", "HumanAim");
+            bool commented = comment != null && at >= comment.Count && comment.Select((c, i) => after.Lines[at - comment.Count + i].Text == c).All(b => b);
+            Check(commented, "[Bot] HumanAim was added with its " + (comment != null ? comment.Count : 0) + " template comment lines");
+            int headers = after.Lines.Count(l => string.Equals(IniDocument.SectionName(l.Text), "Turret", StringComparison.OrdinalIgnoreCase));
+            var order = after.SectionNames();
+            int pos = order.FindIndex(s => s.Equals("Turret", StringComparison.OrdinalIgnoreCase));
+            var tmpl = Templates.SectionOrder;
+            int ti = tmpl.FindIndex(s => s.Equals("Turret", StringComparison.OrdinalIgnoreCase));
+            string expectedBefore = null;
+            for (int i = ti - 1; i >= 0 && expectedBefore == null; i--)
+                if (order.Any(s => s.Equals(tmpl[i], StringComparison.OrdinalIgnoreCase))) expectedBefore = tmpl[i];
+            Check(headers == 1 && pos > 0 && string.Equals(order[pos - 1], expectedBefore, StringComparison.OrdinalIgnoreCase),
+                "[Turret] was created once, right after [" + expectedBefore + "]" + (pos > 0 ? " (after [" + order[pos - 1] + "])" : ""));
+            Check(after.GetRaw("Turret", "Range") == "25", "[Turret] Range=25 written");
+        }
+
         static void SaveAndVerify(string path, Model model, byte[] original)
         {
             var expected = new Dictionary<string, string>(model.Current);
@@ -343,12 +696,18 @@ namespace DS2RandomizerConfig
             CompareLines(before, after, changes);
 
             // every option reads back as intended; untouched ones as before
-            var reread = new Model(Schema.Build(), Model.LoadRecommended());
-            reread.LoadFrom(after);
+            var reread = FromDoc(after);
             int mismatches = 0;
             foreach (var o in reread.Options)
             {
-                if (reread.Loaded[o.Id] == expected[o.Id]) continue;
+                string want;
+                if (!expected.TryGetValue(o.Id, out want))
+                {
+                    mismatches++;
+                    Log("    new option after saving: " + o.Id);
+                    continue;
+                }
+                if (reread.Loaded[o.Id] == want) continue;
                 // an absent key that follows its default reads as that default
                 if (reread.RawInFile[o.Id] == null && o.DefaultFrom != null && reread.Loaded[o.Id] == reread.Loaded[o.DefaultFrom]) continue;
                 mismatches++;
@@ -403,7 +762,7 @@ namespace DS2RandomizerConfig
                 if (line.Eol != nl && !(lastLine && line.Eol == "")) badEol++;
                 string key = IniDocument.KeyName(line.Text);
                 if (key != null) addedKeys.Add(key);
-                else if (!(line.Text.Length == 0 || line.Text.StartsWith("; ") || IniDocument.SectionName(line.Text) != null)) badInsert++;
+                else if (!(line.Text.Length == 0 || line.Text.StartsWith(";") || IniDocument.SectionName(line.Text) != null)) badInsert++;
             }
             Check(i == a.Count, "every original line is still there, in order (" + i + "/" + a.Count + ")");
             Check(badValue == 0, valueChanges + " lines changed only after their '='");

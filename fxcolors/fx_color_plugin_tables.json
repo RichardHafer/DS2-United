@@ -1,0 +1,4300 @@
+{
+ "stasis": {
+  "vfx": [
+   {
+    "name": "stasisgun_projectile",
+    "key16": "6a656374696c6593fc76c12ec5efa060",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 9
+   },
+   {
+    "name": "stasisgun_impact",
+    "key16": "73746173697367756e5f696d70616374",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 11
+   },
+   {
+    "name": "stasis_launch",
+    "key16": "7374617369735f6c61756e6368000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "stasis_body",
+    "key16": "7374617369735f626f64790000000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   }
+  ]
+ },
+ "stasis_props": {
+  "vfx": [
+   {
+    "name": "canister_stasis",
+    "key16": "63616e69737465725f73746173697300",
+    "resident": false,
+    "streams": 16,
+    "chromatic_keys": 13
+   },
+   {
+    "name": "stasis_can_glow_01",
+    "key16": "63616e5f676c6f775f303193fc7681f0",
+    "resident": false,
+    "streams": 16,
+    "chromatic_keys": 4
+   }
+  ]
+ },
+ "kinesis": {
+  "vfx": [
+   {
+    "name": "tk_muzzle",
+    "key16": "746b5f6d757a7a6c6500000000000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 7
+   },
+   {
+    "name": "tk_impact",
+    "key16": "746b5f696d7061637400000000000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 5
+   },
+   {
+    "name": "tk_muzzle_failure",
+    "key16": "757a7a6c655f6661696c757265943b57",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "tk_fail_impact",
+    "key16": "746b5f6661696c5f696d706163740000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 8
+   },
+   {
+    "name": "tk_launch",
+    "key16": "746b5f6c61756e636800000000000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "tk_projectile_travel",
+    "key16": "5f74726176656c94fb69ea407d7d2921",
+    "resident": false,
+    "streams": 132,
+    "chromatic_keys": 3
+   }
+  ]
+ },
+ "lasers": {
+  "vfx": [
+   {
+    "name": "linegun_laserpointer",
+    "key16": "706f696e7465728c7921cf5a46085b71",
+    "resident": false,
+    "streams": 48,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "linegun_laserdot",
+    "key16": "6c696e6567756e5f6c61736572646f74",
+    "resident": false,
+    "streams": 48,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_laserpointam",
+    "key16": "7765705f6c61736572706f696e74616d",
+    "resident": false,
+    "streams": 48,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_lsrdotch",
+    "key16": "7765705f6c7372646f74636800000000",
+    "resident": false,
+    "streams": 40,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_plasma_lsrdot",
+    "key16": "706c61736d615f6c7372646f749705f0",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_single_lsrdot",
+    "key16": "73696e676c655f6c7372646f749705f0",
+    "resident": false,
+    "streams": 28,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_pulse_lsrdot",
+    "key16": "7765705f70756c73655f6c7372646f74",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_jav_lsrdot",
+    "key16": "7765705f6a61765f6c7372646f740000",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_javelin_lsrdot",
+    "key16": "656c696e5f6c7372646f749705f0b289",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_lsrdotch_line05",
+    "key16": "63685f6c696e6530359705f084735c7f",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "wep_line_lsrline05",
+    "key16": "655f6c73726c696e6530359705f0f458",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_line_lsrpntglow",
+    "key16": "7372706e74676c6f779705f0f458f550",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 1
+   }
+  ]
+ },
+ "lasers_empty": {
+  "vfx": [
+   {
+    "name": "laserpointerred",
+    "key16": "6c61736572706f696e74657272656400",
+    "resident": false,
+    "streams": 45,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "laser_dotred",
+    "key16": "6c617365725f646f7472656400000000",
+    "resident": false,
+    "streams": 45,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "wep_laserpointred",
+    "key16": "6c61736572706f696e747265649705f0",
+    "resident": false,
+    "streams": 44,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_lsrdotred",
+    "key16": "7765705f6c7372646f74726564000000",
+    "resident": false,
+    "streams": 34,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_plasma_lsrdotred",
+    "key16": "72646f747265649705f030085b08c678",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_single_lsrdotred",
+    "key16": "72646f747265649705f0fb582721c678",
+    "resident": false,
+    "streams": 25,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_pulse_lsrdotred",
+    "key16": "6c7372646f747265649705f0584e5bee",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_jav_lsrdotred",
+    "key16": "6a61765f6c7372646f747265649705f0",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "wep_javelin_lsrdotred",
+    "key16": "6f747265649705f0b289253afe50e31b",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_lsrdotch_line05red",
+    "key16": "7265649705f084735c7fc3eef4583dcc",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "wep_line_lsrline05_red",
+    "key16": "7265649705f0f458f550e34d79219bf2",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_line_lsrpntglowred",
+    "key16": "7265649705f0f458f550e366ee2e2492",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 5
+   }
+  ]
+ },
+ "blood": {
+  "vfx": [
+   {
+    "name": "ase_psec01_sink_01",
+    "key16": "6330315f73696e6b5f3031815bee4822",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "ase_psec01_windowblood",
+    "key16": "6f6f64815bee48223bb3fe3b6e5e674b",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_bloodfalll",
+    "key16": "6c6f6f6466616c6c6c822cee2c787d12",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_burst",
+    "key16": "626c645f6469736d5f62757273740000",
+    "resident": true,
+    "streams": 74,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_burstbig",
+    "key16": "6469736d5f6275727374626967822cee",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_forcesplat",
+    "key16": "6f72636573706c6174822cee2c787d2b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_kong_drain",
+    "key16": "6f6e675f647261696e822cee2c78bd4a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_kong_drips",
+    "key16": "6f6e675f6472697073822cee2c78bd4a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_spray",
+    "key16": "626c645f6469736d5f73707261790000",
+    "resident": true,
+    "streams": 65,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dism_spraybig",
+    "key16": "6469736d5f7370726179626967822cee",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "bld_dism_sprayhvy",
+    "key16": "6469736d5f7370726179687679822cee",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dism_spraylight",
+    "key16": "707261796c69676874822cee2c78bd7c",
+    "resident": false,
+    "streams": 56,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dism_spraywall",
+    "key16": "6d5f737072617977616c6c822cee2c78",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_sprayzerog",
+    "key16": "707261797a65726f67822cee2c78bd7c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_tripod_burst",
+    "key16": "6275727374822cee2c78fd827a652fee",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dism_tripod_flow",
+    "key16": "6f645f666c6f77822cee2c78fd827a65",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "bld_dism_tripod_spray",
+    "key16": "7370726179822cee2c78fd827a652fee",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dism_zerog_cam",
+    "key16": "6d5f7a65726f675f63616d822cee2c78",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dismpc_burst",
+    "key16": "626c645f6469736d70635f6275727374",
+    "resident": true,
+    "streams": 29,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dismpc_burstbig",
+    "key16": "5f6275727374626967822cee2c784d15",
+    "resident": true,
+    "streams": 30,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dismpc_bursttiny",
+    "key16": "72737474696e79822cee2c784d15b683",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_dismpc_spray",
+    "key16": "626c645f6469736d70635f7370726179",
+    "resident": true,
+    "streams": 28,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dismpc_spraybig",
+    "key16": "5f7370726179626967822cee2c784d15",
+    "resident": true,
+    "streams": 29,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dismpc_spraylight",
+    "key16": "6c69676874822cee2c784d151e677a9c",
+    "resident": true,
+    "streams": 29,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dismpc_spraytall",
+    "key16": "72617974616c6c822cee2c784d151e67",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "bld_dismpc_spraytiny",
+    "key16": "72617974696e79822cee2c784d151e67",
+    "resident": true,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_hispdimpact",
+    "key16": "626c645f6869737064696d7061637400",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_backfloor",
+    "key16": "666c6f6f72822ceee1133bad90123945",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_floor01",
+    "key16": "355f666c6f6f723031822ceee1133bad",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_floor02",
+    "key16": "355f666c6f6f723032822ceee1133bad",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_rampl",
+    "key16": "696763303130355f72616d706c822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_rampr",
+    "key16": "696763303130355f72616d7072822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_splat01",
+    "key16": "355f73706c61743031822ceee1133bad",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0105_splat02",
+    "key16": "355f73706c61743032822ceee1133bad",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "bld_igc0105_table",
+    "key16": "696763303130355f7461626c65822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0904_burst",
+    "key16": "696763303930345f6275727374822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0904_drips",
+    "key16": "696763303930345f6472697073822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0904_eyestab",
+    "key16": "345f65796573746162822ceee1137bae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0904_squirtle",
+    "key16": "71756972746c65822ceee1137baecf7c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_igc0904_temple",
+    "key16": "303930345f74656d706c65822ceee113",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_insider_spray",
+    "key16": "696e73696465725f7370726179822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "bld_kong_chompdown",
+    "key16": "675f63686f6d70646f776e822ceee359",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_kong_spray",
+    "key16": "626c645f6b6f6e675f73707261790000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_poke_bootlace",
+    "key16": "706f6b655f626f6f746c616365822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_poke_decal",
+    "key16": "626c645f706f6b655f646563616c0000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "bld_poke_mouth",
+    "key16": "626c645f706f6b655f6d6f7574680000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_poke_nostrils",
+    "key16": "706f6b655f6e6f737472696c73822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_poke_spray",
+    "key16": "626c645f706f6b655f73707261790000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_poke_squirts",
+    "key16": "626c645f706f6b655f73717569727473",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_rip_squirts",
+    "key16": "626c645f7269705f7371756972747300",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0202_slash",
+    "key16": "626c645f7365303230325f736c617368",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0202_spray",
+    "key16": "626c645f7365303230325f7370726179",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0202_stab",
+    "key16": "626c645f7365303230325f7374616200",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0202_stab02",
+    "key16": "7365303230325f737461623032822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0205_mouthspray",
+    "key16": "7370726179822cee9ba955ccee5f3535",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_se0205_stab",
+    "key16": "626c645f7365303230355f7374616200",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_suicde_mouth",
+    "key16": "626c645f7375696364655f6d6f757468",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_suicde_squirts",
+    "key16": "6364655f73717569727473822cee9b3b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_suicide_burst",
+    "key16": "737569636964655f6275727374822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_suicide_spray",
+    "key16": "737569636964655f7370726179822cee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bld_tkembed",
+    "key16": "626c645f746b656d6265640000000000",
+    "resident": false,
+    "streams": 106,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "blood_bigspray",
+    "key16": "626c6f6f645f62696773707261790000",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "blood_bigspray_tentacles",
+    "key16": "7385add4ace517677a9c86226e092321",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "blood_littlespray",
+    "key16": "645f6c6974746c657370726179822460",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "blood_puncture_medium",
+    "key16": "656469756d822460f4690515dc733557",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "blood_splatter01",
+    "key16": "626c6f6f645f73706c61747465723031",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "blood_splatter02",
+    "key16": "626c6f6f645f73706c61747465723032",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "bloodspray_child",
+    "key16": "626c6f6f6473707261795f6368696c64",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "bloodspray_child3",
+    "key16": "6473707261795f6368696c6433822460",
+    "resident": false,
+    "streams": 31,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "boss_jav_chest_bld",
+    "key16": "765f63686573745f626c6482c779f607",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "boss_jav_chest_bld_spurt",
+    "key16": "74a329d968ad9832fd7f764bb47cd873",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "boss_jav_hand_bld",
+    "key16": "5f6a61765f68616e645f626c6482c779",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "boss_jav_hand_bld_fly",
+    "key16": "645f666c7982c779f6070638311b764b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "boss_jav_neck_spray",
+    "key16": "65636b5f737072617982c779f607865d",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "boss_jav_shld_bld",
+    "key16": "5f6a61765f73686c645f626c6482c779",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "boss_jav_shld_impact",
+    "key16": "5f696d7061637482c779f607c67ce81a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "boss_mouth_blood",
+    "key16": "626f73735f6d6f7574685f626c6f6f64",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "boss_neck_impact",
+    "key16": "626f73735f6e65636b5f696d70616374",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "boss_neck_spray",
+    "key16": "626f73735f6e65636b5f737072617900",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "boss_pl_behead_spray",
+    "key16": "645f737072617982c779a64db61f1007",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "boss_pl_bloodpool",
+    "key16": "5f706c5f626c6f6f64706f6f6c82c779",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "brute_splat_src",
+    "key16": "62727574655f73706c61745f73726300",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 5
+   },
+   {
+    "name": "card_splat_01",
+    "key16": "636172645f73706c61745f3031000000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plybodybld",
+    "key16": "626c6483c0bf9e320a80096a7410ef9c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plybodybld2",
+    "key16": "3283c0bf9e320a80096a7410ef9ce21a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plydragstab",
+    "key16": "6283c0bf9e320a80096af41cfa2b7309",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plyheadbld",
+    "key16": "626c6483c0bf9e320a80096af4352d19",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plyrarmbld",
+    "key16": "626c6483c0bf9e320a80096a74741154",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch03_chrsty_plyscrnbld",
+    "key16": "626c6483c0bf9e320a80096ab47a535a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch11_poke_bloodtear",
+    "key16": "626c6f6f64746561728368b3666053ee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "ch11_poke_eyegoo",
+    "key16": "636831315f706f6b655f657965676f6f",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "ch1_morgue_vomit",
+    "key16": "6368315f6d6f726775655f766f6d6974",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "ch4_corpse_zerogblood",
+    "key16": "626c6f6f648360f2db72482276232a2e",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch5_bloodycam",
+    "key16": "6368355f626c6f6f647963616d000000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 8
+   },
+   {
+    "name": "ch6_blood_zerog",
+    "key16": "6368365f626c6f6f645f7a65726f6700",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch6_blood_zerog_02",
+    "key16": "6f645f7a65726f675f303283b0f2a25f",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ch6_rr_detritus_01",
+    "key16": "64657472697475735f303183b0f262f0",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "ch9_drill_blood_flr_ctr",
+    "key16": "728328f3143b6cefa25f2fee66729e7d",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 7
+   },
+   {
+    "name": "ch9_drill_crpt_ch1",
+    "key16": "6c6c5f637270745f6368318328f3143b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 8
+   },
+   {
+    "name": "chcsty_bloodch",
+    "key16": "6368637374795f626c6f6f6463680000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "chcsty_bloodsplat",
+    "key16": "74795f626c6f6f6473706c6174834077",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "chrele_bloodch",
+    "key16": "636872656c655f626c6f6f6463680000",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "chrele_plychestbld",
+    "key16": "706c796368657374626c6483182254ee",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "contact_impact_meat",
+    "key16": "706163745f6d656174833f7f797dce52",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "contact_impact_nondismember",
+    "key16": "729b782a39b3987d1660ee385b219d1f",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "death_screen",
+    "key16": "64656174685f73637265656e00000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "death_zerog",
+    "key16": "64656174685f7a65726f670000000000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 5
+   },
+   {
+    "name": "decal_blood_player01",
+    "key16": "6c61796572303184bd067c122460f469",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_poke",
+    "key16": "646563616c5f626c6f6f645f706f6b65",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_small02",
+    "key16": "645f736d616c6c303284bd067c122460",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_splat",
+    "key16": "6c5f626c6f6f645f73706c617484bd06",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_splat02",
+    "key16": "645f73706c6174303284bd067c122460",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_splatnpc02",
+    "key16": "63303284bd067c122460b47c30084466",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "decal_blood_tripod",
+    "key16": "6c6f6f645f747269706f6484bd067c12",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dementia_land_heart_stage_01",
+    "key16": "31868e1dbbad1238ad70c47cfc2bb5ae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dementia_land_heart_stage_02",
+    "key16": "32868e1dbbad1338ad70c47cfc2bb5ae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dementia_land_heart_stage_03",
+    "key16": "33868e1dbbad1438ad70c47cfc2bb5ae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dest_jar_head",
+    "key16": "646573745f6a61725f68656164000000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dis_puker_armcork",
+    "key16": "70756b65725f61726d636f726b8481f0",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "dis_puker_neckvomit",
+    "key16": "6e65636b766f6d69748481f0184855f0",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "dis_puker_vomit",
+    "key16": "6469735f70756b65725f766f6d697400",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "dis_puker_vomitpop",
+    "key16": "65725f766f6d6974706f708481f01848",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "divider_head_smack",
+    "key16": "5f686561645f736d61636b84b93b4c71",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "drag_player_death_blood",
+    "key16": "6484fa2ba64d2923021f2d7d78122460",
+    "resident": true,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "drag_tentacle_pop",
+    "key16": "5f74656e7461636c655f706f7084fa2b",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_brute_bloodimpact",
+    "key16": "6d706163748575f112865ceea25fef38",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_brute_pairdatkhip",
+    "key16": "746b6869708575f112865cee7838f206",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "emy_genbloodch",
+    "key16": "656d795f67656e626c6f6f6463680000",
+    "resident": true,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_genbloodspltch",
+    "key16": "626c6f6f6473706c7463688575f14f58",
+    "resident": true,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_infect_nose",
+    "key16": "656d795f696e666563745f6e6f736500",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_infector_bloodsplat",
+    "key16": "748575f1b9277d7d5ff0a25f6f773008",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_infector_infect",
+    "key16": "6f725f696e666563748575f1b9277d7d",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 10
+   },
+   {
+    "name": "emy_packpairedarmr",
+    "key16": "6b70616972656461726d728575f1f812",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_packpairedbldhit",
+    "key16": "64626c646869748575f1f812cb081922",
+    "resident": true,
+    "streams": 6,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_packpairedhdpop",
+    "key16": "697265646864706f708575f1f812cb08",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_packpairedhead",
+    "key16": "6b706169726564686561648575f1f812",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_packpairedscrn",
+    "key16": "6b7061697265647363726e8575f1f812",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_pod_expdfzomb",
+    "key16": "706f645f65787064667a6f6d628575f1",
+    "resident": false,
+    "streams": 41,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_pod_explode",
+    "key16": "656d795f706f645f6578706c6f646500",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_slr_drolsplt",
+    "key16": "656d795f736c725f64726f6c73706c74",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_slr_drool_src",
+    "key16": "736c725f64726f6f6c5f7372638575f1",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "emy_spittermp_bloodimpact",
+    "key16": "74a403e00aa9165480122460ac52f812",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_blddimpactdrg",
+    "key16": "63746472678575f1243b764be438cd08",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_bldsprayzg",
+    "key16": "5f626c6473707261797a678575f1243b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_tri_bloodhit",
+    "key16": "656d795f7472695f626c6f6f64686974",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_bloodhitgrav",
+    "key16": "686974677261768575f1243b764b671b",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_bloodimpact",
+    "key16": "6f6f64696d706163748575f1243b764b",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_bloodimpactsm",
+    "key16": "616374736d8575f1243b764b671b1166",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "emy_tri_buldgeglw",
+    "key16": "7472695f62756c646765676c778575f1",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "emy_tri_spurtch",
+    "key16": "656d795f7472695f7370757274636800",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_tri_thusterch",
+    "key16": "7472695f7468757374657263688575f1",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "emy_tri_tonguespit",
+    "key16": "5f746f6e677565737069748575f1243b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "emy_tri_weakspotdrg",
+    "key16": "616b73706f746472678575f1243bfe22",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "exploder_sack_parent",
+    "key16": "5f706172656e7485984def1fc27c3945",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "fgun_impact_meatss",
+    "key16": "706163745f6d656174737386cf5ace52",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "forcegun_impact_meat",
+    "key16": "63745f6d656174869f155d843e3ecd08",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "guardian_player_death",
+    "key16": "646561746887bd70ac07fe69749c55f0",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "guardianpod_explode",
+    "key16": "645f6578706c6f646587bd70ac074e60",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "guardianpod_explsm",
+    "key16": "6e706f645f6578706c736d87bd70ac07",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "hitreact_blood01",
+    "key16": "68697472656163745f626c6f6f643031",
+    "resident": true,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "hive_impact_weakspot",
+    "key16": "65616b73706f7488b922ce52f812c495",
+    "resident": false,
+    "streams": 8,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "hth_foot_stomp",
+    "key16": "6874685f666f6f745f73746f6d700000",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "hth_weapon_swing_impact",
+    "key16": "7488d4ee1f07e859de92f92dce52f812",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "hunter_paired_bleedout",
+    "key16": "6f757488457f55f07838da19764bcd19",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "hunter_paired_impact",
+    "key16": "5f696d7061637488457f55f07838da19",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "hunter_regen_mask",
+    "key16": "65725f726567656e5f6d61736b88457f",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "igc0105_decal_splat02",
+    "key16": "6c61743032893fa954cc06202b4b1e67",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_chest_poke",
+    "key16": "73745f706f6b6589ffedfbf123f28320",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_face_burst",
+    "key16": "655f627572737489ffedfbf123f2ee12",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_head_poke",
+    "key16": "686561645f706f6b6589ffedfbf123f2",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_head_pullout",
+    "key16": "6f757489ffedfbf123f21007f469f54c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_jaw_burst",
+    "key16": "6a61775f627572737489ffedfbf123f2",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "igc_01_02_l_arm_poke",
+    "key16": "726d5f706f6b6589ffedfbf123f23c0c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "igc_01_02_neck_burst",
+    "key16": "6b5f627572737489ffedfbf123f29613",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "igc_01_02_r_arm_poke",
+    "key16": "726d5f706f6b6589ffedfbf123f2420c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "impact_icy_blood",
+    "key16": "696d706163745f6963795f626c6f6f64",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "impact_markerheart",
+    "key16": "6d61726b6572686561727489cd08a3f0",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "impact_markerheart_big",
+    "key16": "62696789cd08a3f0b57053711007b2f0",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "javelin_impact_meat",
+    "key16": "706163745f6d6561748ab122f458ce52",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "javelin_mp_impact_meat",
+    "key16": "6561748ab122f4582e66ce52f8124457",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "linegun_impact_meat",
+    "key16": "706163745f6d6561748c7921cf5ace52",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "lurker_deadhorse_impact",
+    "key16": "748ca54755f00c07045f4a22ce52f812",
+    "resident": false,
+    "streams": 15,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "lurker_havok_splat",
+    "key16": "6861766f6b5f73706c61748ca54755f0",
+    "resident": false,
+    "streams": 19,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "lurker_paired_death01",
+    "key16": "61746830318ca54755f07838da190620",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "lurker_paired_impact01",
+    "key16": "7430318ca54755f07838da19ce52f812",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "lurker_projectile_impact",
+    "key16": "748464d50ed3db407d7d2921ce52f812",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "mds_impact_weakspot",
+    "key16": "5f7765616b73706f748d7cf01166797d",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "mil_blood_littlespray",
+    "key16": "73707261798d69efa25f2fee747e3421",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mil_bloodspray_child",
+    "key16": "795f6368696c648d69efa25f6f772009",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "mil_se_blood_medium",
+    "key16": "6f645f6d656469756d8d69ef5beea25f",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "mp_bld_dism_burst",
+    "key16": "6c645f6469736d5f62757273748d8012",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_bld_dism_spray",
+    "key16": "6c645f6469736d5f73707261798d8012",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 6
+   },
+   {
+    "name": "mp_bld_dism_spraylight",
+    "key16": "6768748d80122cee2c78bd7c2009393a",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "mp_bld_dism_squirtsmall",
+    "key16": "6c8d80122cee2c78bd7c993bf279354b",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_decal_bld_splatnpc02",
+    "key16": "328d001fbd067c122cee934da15a48a9",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_decal_blood_splat01",
+    "key16": "7430318d001fbd067c122460b47c3008",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_decal_blood_splat02",
+    "key16": "7430328d001fbd067c122460b47c3008",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "mp_decal_blood_splat06",
+    "key16": "7430368d001fbd067c122460b47c3008",
+    "resident": false,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_necro_damagewarning",
+    "key16": "696e678d805dfd70ff1e49088f90515a",
+    "resident": true,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_player_damagewarning",
+    "key16": "678d006a749c55f06c515920bf70f658",
+    "resident": true,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "mp_puker_hork",
+    "key16": "6d705f70756b65725f686f726b000000",
+    "resident": true,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "mp_puker_horkpop",
+    "key16": "6d705f70756b65725f686f726b706f70",
+    "resident": true,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_beetle_splatter",
+    "key16": "5f73706c61747465728e08ee0a203421",
+    "resident": false,
+    "streams": 12,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_beetle_xplodech",
+    "key16": "5f78706c6f646563688e08ee0a203421",
+    "resident": false,
+    "streams": 12,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_bosstri_weakspot",
+    "key16": "65616b73706f748e08ee1a79b373b995",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_kong_armchange",
+    "key16": "675f61726d6368616e67658e08eee359",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_kong_weakrifle",
+    "key16": "675f7765616b7269666c658e08eee359",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_kong_weakspot",
+    "key16": "6b6f6e675f7765616b73706f748e08ee",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_landmine_death",
+    "key16": "646d696e655f64656174688e08eeb457",
+    "resident": false,
+    "streams": 15,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_landmine_hit",
+    "key16": "6e70635f6c616e646d696e655f686974",
+    "resident": false,
+    "streams": 15,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "npc_landmine_splatter",
+    "key16": "61747465728e08eeb4574c3a56ee934d",
+    "resident": false,
+    "streams": 14,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_mineproj_goodrippy",
+    "key16": "7070798e08eef55805731fef1f60143b",
+    "resident": false,
+    "streams": 14,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_mineproj_xplodech",
+    "key16": "6f646563688e08eef55805731fef984d",
+    "resident": false,
+    "streams": 14,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "npc_nest_deathch",
+    "key16": "6e70635f6e6573745f64656174686368",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_nest_dismemch",
+    "key16": "6e6573745f6469736d656d63688e08ee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_nest_podburst",
+    "key16": "6e6573745f706f6462757273748e08ee",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "npc_nest_shoot",
+    "key16": "6e70635f6e6573745f73686f6f740000",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 5
+   },
+   {
+    "name": "npc_nest_spew",
+    "key16": "6e70635f6e6573745f73706577000000",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "npc_nest_spew_02",
+    "key16": "6e70635f6e6573745f737065775f3032",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "npc_nest_weakspot",
+    "key16": "6e6573745f7765616b73706f748e08ee",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "npc_nestproj_splode",
+    "key16": "6f6a5f73706c6f64658e08ee96771473",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "npc_pukepair_horkface",
+    "key16": "6b666163658e08ee1848c50859f0e072",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_puker_hork",
+    "key16": "6e70635f70756b65725f686f726b0000",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "npc_puker_horkpop",
+    "key16": "70756b65725f686f726b706f708e08ee",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_stalker_headbutt",
+    "key16": "656164627574748e08ee730904210238",
+    "resident": false,
+    "streams": 12,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "npc_xpldr_explodech",
+    "key16": "6578706c6f646563688e08ee984d54f0",
+    "resident": false,
+    "streams": 20,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "npc_xpldr_sacklight",
+    "key16": "7361636b6c696768748e08ee984d54f0",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "paired_meatcello_stomp2",
+    "key16": "3290e97125ee1507cc1fac5f1e801766",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "pc_pukepair_isaachorkch",
+    "key16": "6890f3690d217838423e7b06035f8a14",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "plasmacutter_impact_levweakspot",
+    "key16": "748518bcc3afeb1204513593ed445360",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "plasmacutter_impact_meat",
+    "key16": "749fec2a3ad38122423ecd08a3f01507",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "plasmacutter_impact_meat2",
+    "key16": "32a415bcc1c64b71ce52f81244572d7d",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "plasmacutter_impact_weakspot",
+    "key16": "7481baadac1dc852f812c495ed445360",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 5
+   },
+   {
+    "name": "plasmacutter_mp_impact_meat",
+    "key16": "74a1f50a1aad5157403ecd08a3f01507",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "player_bigspray",
+    "key16": "706c617965725f626967737072617900",
+    "resident": true,
+    "streams": 17,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "player_burstspray",
+    "key16": "65725f6275727374737072617990749c",
+    "resident": true,
+    "streams": 9,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "player_decomp_doorcut",
+    "key16": "6f7263757490749c55f08c131766865e",
+    "resident": false,
+    "streams": 15,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "player_face_spray",
+    "key16": "65725f666163655f737072617990749c",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "player_splatter01",
+    "key16": "65725f73706c6174746572303190749c",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ply_brute_chargebldchd",
+    "key16": "6368649074f112865cee83076a20e21a",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "ply_brute_chrgbldbkchd",
+    "key16": "6368649074f112865ceec371574b1445",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "pulserifle_impact_meat",
+    "key16": "65617490b578153b2621ce52f8124457",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "pulserifle_mp_impact_meat",
+    "key16": "74a07ad26de15357403ecd08a3f01507",
+    "resident": false,
+    "streams": 7,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "sack_child",
+    "key16": "7361636b5f6368696c64000000000000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "sack_spray01",
+    "key16": "7361636b5f7370726179303100000000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se0101_handimpact",
+    "key16": "30315f68616e64696d70616374933db3",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se0101_handprintl",
+    "key16": "30315f68616e647072696e746c933db3",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se0101_handprintr",
+    "key16": "30315f68616e647072696e7472933db3",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se0101_initialimpact",
+    "key16": "6c696d70616374933db3fbf1793abc07",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se0103_bloodcoughch",
+    "key16": "6f64636f7567686368933db34bf2a25f",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se0103_bloodcoughsmlch",
+    "key16": "6c6368933db34bf2a25f6f13172f4054",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se0103_blooddecal",
+    "key16": "30335f626c6f6f64646563616c933db3",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se0103_bloodslice",
+    "key16": "30335f626c6f6f64736c696365933db3",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se0103_bloodspray",
+    "key16": "30335f626c6f6f647370726179933db3",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "se0103_bloodstreamch",
+    "key16": "747265616d6368933db34bf2a25f6f77",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "se0103_drippingblood",
+    "key16": "6e67626c6f6f64933db34bf2143bd03a",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 4
+   },
+   {
+    "name": "se01_01_blood_burst",
+    "key16": "6f6f645f6275727374933db35eb3764b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se01_01_blood_spatter",
+    "key16": "6174746572933db35eb3764b671b1e67",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se01_01_blood_spray",
+    "key16": "6f6f645f7370726179933db35eb3764b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se01_01_blood_ventspray",
+    "key16": "79933db35eb3764b671bd622ee792009",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "se01_01_bloodwheel",
+    "key16": "5f626c6f6f64776865656c933db35eb3",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "se01_02_floorsplat",
+    "key16": "5f666c6f6f7273706c6174933db39eb9",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se02_16_smashblood",
+    "key16": "5f736d617368626c6f6f64937db9c6d2",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se02_16_trainimpact",
+    "key16": "61696e696d70616374937db9c6d2c673",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "se0301_blooddecal",
+    "key16": "30315f626c6f6f64646563616c93bdbf",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se0303_bldhits",
+    "key16": "7365303330335f626c64686974730000",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "se0303_hoodieburst",
+    "key16": "686f6f646965627572737493bdbf4bf2",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "se0303_sprayzerog",
+    "key16": "30335f73707261797a65726f6793bdbf",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se10_21_bloodsplat",
+    "key16": "5f626c6f6f6473706c61749325adaeb3",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se1110_bloodycam",
+    "key16": "7365313131305f626c6f6f647963616d",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 8
+   },
+   {
+    "name": "se1110_jetlegbits_ch",
+    "key16": "626974735f63689365b3d4f1d27d942c",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "se_03_01_blood_trickle",
+    "key16": "6b6c6593b5aeceae8c122460f4823a14",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "se_03_03_isaac_impact01",
+    "key16": "3193b5aeceae4e3e7b06333ecd08e3ab",
+    "resident": false,
+    "streams": 2,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "se_03_04_armstump",
+    "key16": "335f30345f61726d7374756d7093b5ae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se_03_04_bloodycam",
+    "key16": "345f626c6f6f647963616d93b5aeceae",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 8
+   },
+   {
+    "name": "se_03_04_isaacsplat",
+    "key16": "7361616373706c617493b5aeceae4f3e",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "se_eyestab_blood02",
+    "key16": "7461625f626c6f6f643032933525a177",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "seeker_impact_meat",
+    "key16": "696d706163745f6d656174938d4555f0",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "seh0409_blood_explode",
+    "key16": "706c6f64659305aa57e5764b671bee96",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "seh0409_blood_splats",
+    "key16": "5f73706c6174739305aa57e5764b671b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "seh0409_bloodimpact",
+    "key16": "6f6f64696d706163749305aa57e5764b",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 7
+   },
+   {
+    "name": "slasher_impact_nondismember",
+    "key16": "729d99b46ee17e7d1660ee385b219d1f",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "splat01",
+    "key16": "73706c61743031000000000000000000",
+    "resident": false,
+    "streams": 4,
+    "chromatic_keys": 3
+   },
+   {
+    "name": "swarm_pop",
+    "key16": "737761726d5f706f7000000000000000",
+    "resident": false,
+    "streams": 21,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "tk_embed",
+    "key16": "746b5f656d6265640000000000000000",
+    "resident": false,
+    "streams": 106,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "tk_impale",
+    "key16": "746b5f696d70616c6500000000000000",
+    "resident": false,
+    "streams": 80,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "tk_pin",
+    "key16": "746b5f70696e00000000000000000000",
+    "resident": false,
+    "streams": 85,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "tk_pin_bloodsplat",
+    "key16": "696e5f626c6f6f6473706c617494fb69",
+    "resident": false,
+    "streams": 51,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "vfx_ase_bloodpool",
+    "key16": "6173655f626c6f6f64706f6f6c9646f1",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "vfx_ase_brutehit",
+    "key16": "7666785f6173655f6272757465686974",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "vfx_ase_brutesplode",
+    "key16": "75746573706c6f64659646f13922f670",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "vfx_ase_hitdebris",
+    "key16": "6173655f6869746465627269739646f1",
+    "resident": false,
+    "streams": 1,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "wep_javeline_imptmeat",
+    "key16": "746d6561749705f0b289253a56ee1166",
+    "resident": false,
+    "streams": 75,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "yoyo_impact_blood",
+    "key16": "5f696d706163745f626c6f6f6499b761",
+    "resident": true,
+    "streams": 3,
+    "chromatic_keys": 2
+   },
+   {
+    "name": "zombie_elbow",
+    "key16": "7a6f6d6269655f656c626f7700000000",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "zombie_headexplode_head",
+    "key16": "649a970e51ee1007cc96b05f4cee1007",
+    "resident": false,
+    "streams": 75,
+    "chromatic_keys": 1
+   },
+   {
+    "name": "zombie_headexplode_wallimpact",
+    "key16": "74a1450bf1b9c25f4cee3f4bb452f812",
+    "resident": false,
+    "streams": 5,
+    "chromatic_keys": 0
+   },
+   {
+    "name": "zombie_paired_spray01",
+    "key16": "72617930319a970e51ee7838da191e67",
+    "resident": false,
+    "streams": 31,
+    "chromatic_keys": 1
+   }
+  ],
+  "textures": [
+   {
+    "name": "blood",
+    "format": "DXT5",
+    "w": 128,
+    "h": 128,
+    "levels": 3,
+    "level0": 16384,
+    "total": 21504,
+    "texmod_hash": "7CFD49E8",
+    "prefix_crc256": "E58A3FB9",
+    "mid_crc256": "C8DCCEBC",
+    "kind": "coloured",
+    "mean_hue": 9.8,
+    "saturated_share": 0.999,
+    "streams": 2,
+    "vfx_users": 1,
+    "stream_sample": [
+     "nest.str",
+     "hornets_nest.str"
+    ]
+   },
+   {
+    "name": "blood01",
+    "format": "DXT5",
+    "w": 128,
+    "h": 128,
+    "levels": 3,
+    "level0": 16384,
+    "total": 21504,
+    "texmod_hash": "2FD99B78",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 9.4,
+    "saturated_share": 0.929,
+    "streams": 3,
+    "vfx_users": 62,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood02",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "2136B632",
+    "prefix_crc256": "3E46BEB0",
+    "mid_crc256": "3E46BEB0",
+    "kind": "coloured",
+    "mean_hue": 10.0,
+    "saturated_share": 1.0,
+    "streams": 23,
+    "vfx_users": 4,
+    "stream_sample": [
+     "landminelauncher.str",
+     "street_hallway.str",
+     "hallway04_z01.str",
+     "transport_hub_a.str"
+    ]
+   },
+   {
+    "name": "blood03",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "EA6FED7D",
+    "prefix_crc256": "1F5E98C5",
+    "mid_crc256": "B19F9E78",
+    "kind": "coloured",
+    "mean_hue": 9.2,
+    "saturated_share": 0.997,
+    "streams": 3,
+    "vfx_users": 32,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_bile01_ca",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "080AFCAA",
+    "prefix_crc256": "A04F4876",
+    "mid_crc256": "DD8C7C92",
+    "kind": "coloured",
+    "mean_hue": 21.8,
+    "saturated_share": 0.471,
+    "streams": 3,
+    "vfx_users": 6,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_bile02_ca",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "4C9DCFB7",
+    "prefix_crc256": "07F180F7",
+    "mid_crc256": "0E3D1817",
+    "kind": "coloured",
+    "mean_hue": 33.3,
+    "saturated_share": 0.601,
+    "streams": 3,
+    "vfx_users": 13,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_bile03_ca",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "A218BAB5",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "85E2668E",
+    "kind": "coloured",
+    "mean_hue": 25.1,
+    "saturated_share": 0.385,
+    "streams": 26,
+    "vfx_users": 2,
+    "stream_sample": [
+     "crawler.str",
+     "street_hallway.str",
+     "hallway04_z01.str",
+     "npcs_school_end.str"
+    ]
+   },
+   {
+    "name": "blood_blur_c",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "3FE91180",
+    "prefix_crc256": "948C7F2A",
+    "mid_crc256": "4320F513",
+    "kind": "greyscale",
+    "mean_hue": 300.0,
+    "saturated_share": 0.0,
+    "streams": 7,
+    "vfx_users": 2,
+    "stream_sample": [
+     "mp_lurker.str",
+     "pack_boy.str",
+     "lurker.str",
+     "mpslasherfemeyes.str"
+    ]
+   },
+   {
+    "name": "blood_cerb_03_ca",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "8648871A",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "65DF4182",
+    "kind": "greyscale",
+    "mean_hue": 68.6,
+    "saturated_share": 0.191,
+    "streams": 3,
+    "vfx_users": 14,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_decal02",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "93D8F59E",
+    "prefix_crc256": "428BA1F9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 359.4,
+    "saturated_share": 0.962,
+    "streams": 3,
+    "vfx_users": 70,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_decal_splat03",
+    "format": "DXT1",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "95610E83",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "coloured",
+    "mean_hue": 5.7,
+    "saturated_share": 0.25,
+    "streams": 7,
+    "vfx_users": 2,
+    "stream_sample": [
+     "mp_lurker.str",
+     "pack_boy.str",
+     "lurker.str",
+     "mpslasherfemeyes.str"
+    ]
+   },
+   {
+    "name": "blood_dissolve03_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "9D5AFEA6",
+    "prefix_crc256": "F54081AE",
+    "mid_crc256": "237426D1",
+    "kind": "coloured",
+    "mean_hue": 358.0,
+    "saturated_share": 0.82,
+    "streams": 3,
+    "vfx_users": 82,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_droplet",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 2,
+    "level0": 65536,
+    "total": 81920,
+    "texmod_hash": "04CC355D",
+    "prefix_crc256": "1EB4D27D",
+    "mid_crc256": "CE48AE73",
+    "kind": "coloured",
+    "mean_hue": 356.9,
+    "saturated_share": 0.943,
+    "streams": 2,
+    "vfx_users": 3,
+    "stream_sample": [
+     "pastor_study_z01.str",
+     "chamber.str"
+    ]
+   },
+   {
+    "name": "blood_fresh02_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "DDCC1257",
+    "prefix_crc256": "D0766638",
+    "mid_crc256": "3195CC77",
+    "kind": "coloured",
+    "mean_hue": 360.0,
+    "saturated_share": 0.986,
+    "streams": 7,
+    "vfx_users": 3,
+    "stream_sample": [
+     "mp_lurker.str",
+     "pack_boy.str",
+     "lurker.str",
+     "mpslasherfemeyes.str"
+    ]
+   },
+   {
+    "name": "blood_fresh03_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "7A8236D6",
+    "prefix_crc256": "BBE59B4F",
+    "mid_crc256": "7BF8272F",
+    "kind": "coloured",
+    "mean_hue": 0.0,
+    "saturated_share": 0.974,
+    "streams": 7,
+    "vfx_users": 3,
+    "stream_sample": [
+     "mp_lurker.str",
+     "pack_boy.str",
+     "lurker.str",
+     "mpslasherfemeyes.str"
+    ]
+   },
+   {
+    "name": "blood_goop_01",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "44E28054",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 0.4,
+    "saturated_share": 0.836,
+    "streams": 3,
+    "vfx_users": 49,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_goop_02",
+    "format": "DXT1",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "E52DBCEE",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "coloured",
+    "mean_hue": 9.5,
+    "saturated_share": 0.208,
+    "streams": 2,
+    "vfx_users": 2,
+    "stream_sample": [
+     "skysphere.str",
+     "drill_machine_folderstream.str"
+    ]
+   },
+   {
+    "name": "blood_goop_03",
+    "format": "DXT1",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "27BFDFA7",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "greyscale",
+    "mean_hue": 5.5,
+    "saturated_share": 0.103,
+    "streams": 3,
+    "vfx_users": 1,
+    "stream_sample": [
+     "mpslasherfemeyes.str",
+     "necroplayer_puker.str",
+     "necroplayer_spitter.str"
+    ]
+   },
+   {
+    "name": "blood_goop_04",
+    "format": "DXT1",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "0F05E12C",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "greyscale",
+    "mean_hue": 1.4,
+    "saturated_share": 0.179,
+    "streams": 17,
+    "vfx_users": 3,
+    "stream_sample": [
+     "mp_lurker.str",
+     "pack_boy.str",
+     "lurker.str",
+     "mpslasherfemeyes.str"
+    ]
+   },
+   {
+    "name": "blood_gore_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 256,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "C08828B6",
+    "prefix_crc256": "4A3F86AB",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 357.1,
+    "saturated_share": 0.957,
+    "streams": 1,
+    "vfx_users": 1,
+    "stream_sample": [
+     "igc_3_03.str"
+    ]
+   },
+   {
+    "name": "blood_handprint_ca",
+    "format": "DXT5",
+    "w": 128,
+    "h": 128,
+    "levels": 3,
+    "level0": 16384,
+    "total": 21504,
+    "texmod_hash": "3D658DE6",
+    "prefix_crc256": "7A7DE876",
+    "mid_crc256": "2DA775AF",
+    "kind": "coloured",
+    "mean_hue": 356.1,
+    "saturated_share": 0.99,
+    "streams": 2,
+    "vfx_users": 2,
+    "stream_sample": [
+     "ch01_hos.str",
+     "ch01_hos.str"
+    ]
+   },
+   {
+    "name": "blood_hit_decal",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "AC392598",
+    "prefix_crc256": "927A3F63",
+    "mid_crc256": "F13CEF21",
+    "kind": "coloured",
+    "mean_hue": 359.1,
+    "saturated_share": 1.0,
+    "streams": 2,
+    "vfx_users": 3,
+    "stream_sample": [
+     "ch01_hos.str",
+     "ch01_hos.str"
+    ]
+   },
+   {
+    "name": "blood_paint01_ca",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "2C21DF90",
+    "prefix_crc256": "1EF3DF24",
+    "mid_crc256": "A1C687B4",
+    "kind": "coloured",
+    "mean_hue": 1.2,
+    "saturated_share": 0.247,
+    "streams": 111,
+    "vfx_users": 19,
+    "stream_sample": [
+     "uniadvanced.str",
+     "npcm_bossinsider.str",
+     "npcm_patient.str",
+     "npcm_patient_openwound.str"
+    ]
+   },
+   {
+    "name": "blood_rampr",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "455B96C7",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 355.8,
+    "saturated_share": 0.947,
+    "streams": 3,
+    "vfx_users": 1,
+    "stream_sample": [
+     "chase_hall_z02.str",
+     "surgery_z01.str",
+     "security_gate_control_room.str"
+    ]
+   },
+   {
+    "name": "blood_splatter02c",
+    "format": "DXT5",
+    "w": 512,
+    "h": 256,
+    "levels": 3,
+    "level0": 131072,
+    "total": 172032,
+    "texmod_hash": "70FA4960",
+    "prefix_crc256": "E0C22C5D",
+    "mid_crc256": "E6BD1D30",
+    "kind": "coloured",
+    "mean_hue": 357.3,
+    "saturated_share": 0.976,
+    "streams": 3,
+    "vfx_users": 47,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_splatter03_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "DDD9B0B0",
+    "prefix_crc256": "88083114",
+    "mid_crc256": "E68C71D1",
+    "kind": "coloured",
+    "mean_hue": 0.0,
+    "saturated_share": 0.986,
+    "streams": 3,
+    "vfx_users": 3,
+    "stream_sample": [
+     "church_shuttlebay_z01.str",
+     "vfx_halo_jump.str",
+     "mtb_escape.str"
+    ]
+   },
+   {
+    "name": "blood_splatter04_ca",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "EA7AC826",
+    "prefix_crc256": "BC774718",
+    "mid_crc256": "3CC91B97",
+    "kind": "coloured",
+    "mean_hue": 0.0,
+    "saturated_share": 1.0,
+    "streams": 5,
+    "vfx_users": 6,
+    "stream_sample": [
+     "ch01_hos.str",
+     "ch01_hos.str",
+     "church_shuttlebay_z01.str",
+     "vfx_halo_jump.str"
+    ]
+   },
+   {
+    "name": "blood_splatter05_ca",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "387346BA",
+    "prefix_crc256": "80CA3D2A",
+    "mid_crc256": "7D503F3F",
+    "kind": "coloured",
+    "mean_hue": 0.0,
+    "saturated_share": 1.0,
+    "streams": 3,
+    "vfx_users": 3,
+    "stream_sample": [
+     "church_shuttlebay_z01.str",
+     "vfx_halo_jump.str",
+     "mtb_escape.str"
+    ]
+   },
+   {
+    "name": "blood_spray02",
+    "format": "DXT5",
+    "w": 128,
+    "h": 128,
+    "levels": 3,
+    "level0": 16384,
+    "total": 21504,
+    "texmod_hash": "31E262FD",
+    "prefix_crc256": "1BE35444",
+    "mid_crc256": "B1ABAB6E",
+    "kind": "greyscale",
+    "mean_hue": null,
+    "saturated_share": 0.0,
+    "streams": 5,
+    "vfx_users": 3,
+    "stream_sample": [
+     "scientistmale.str",
+     "infector.str",
+     "super_infector.str",
+     "pregnant.str"
+    ]
+   },
+   {
+    "name": "blood_squib_01",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "E87F696E",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "D0DA9196",
+    "kind": "coloured",
+    "mean_hue": 0.4,
+    "saturated_share": 0.98,
+    "streams": 2,
+    "vfx_users": 2,
+    "stream_sample": [
+     "observation_z01.str",
+     "mtb_escape.str"
+    ]
+   },
+   {
+    "name": "blood_squib_02",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "312BBA99",
+    "prefix_crc256": "5E51B4C9",
+    "mid_crc256": "48F1CBF2",
+    "kind": "coloured",
+    "mean_hue": 0.3,
+    "saturated_share": 0.987,
+    "streams": 6,
+    "vfx_users": 10,
+    "stream_sample": [
+     "igc_3_03.str",
+     "se03_03.str",
+     "drill_machine_folderstream.str",
+     "mining_camp_tunnel_02.str"
+    ]
+   },
+   {
+    "name": "blood_squib_03",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "B2A73D15",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "6519EB4A",
+    "kind": "coloured",
+    "mean_hue": 0.4,
+    "saturated_share": 0.986,
+    "streams": 4,
+    "vfx_users": 4,
+    "stream_sample": [
+     "observation_z01.str",
+     "igc_3_03.str",
+     "drill_machine_folderstream.str",
+     "dementia_land_z01.str"
+    ]
+   },
+   {
+    "name": "blood_squib_04",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "40BFCFA5",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "A944FFAA",
+    "kind": "coloured",
+    "mean_hue": 1.2,
+    "saturated_share": 0.967,
+    "streams": 3,
+    "vfx_users": 72,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   },
+   {
+    "name": "blood_zerog",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 9,
+    "level0": 65536,
+    "total": 87408,
+    "texmod_hash": "3C7C49DE",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 0.4,
+    "saturated_share": 0.993,
+    "streams": 2,
+    "vfx_users": 2,
+    "stream_sample": [
+     "admin_hallway_z01.str",
+     "hydrogen_thruster_room_z01.str"
+    ]
+   },
+   {
+    "name": "blood_zerog_01",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "D5589D45",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "coloured",
+    "mean_hue": 0.1,
+    "saturated_share": 0.617,
+    "streams": 6,
+    "vfx_users": 6,
+    "stream_sample": [
+     "psec_03_floor_02_hall_left_03.str",
+     "church_shuttlebay_z01.str",
+     "igc_3_03.str",
+     "skysphere.str"
+    ]
+   },
+   {
+    "name": "blood_zerog_02",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "CFDDB083",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "coloured",
+    "mean_hue": 0.1,
+    "saturated_share": 0.68,
+    "streams": 5,
+    "vfx_users": 5,
+    "stream_sample": [
+     "psec_03_floor_02_hall_left_03.str",
+     "church_shuttlebay_z01.str",
+     "igc_3_03.str",
+     "skysphere.str"
+    ]
+   },
+   {
+    "name": "blood_zerog_03",
+    "format": "DXT1",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 32768,
+    "total": 43008,
+    "texmod_hash": "EB2AE0FD",
+    "prefix_crc256": "3CD760F0",
+    "mid_crc256": "3CD760F0",
+    "kind": "coloured",
+    "mean_hue": 0.1,
+    "saturated_share": 0.635,
+    "streams": 6,
+    "vfx_users": 6,
+    "stream_sample": [
+     "observation_z01.str",
+     "psec_03_floor_02_hall_left_03.str",
+     "church_shuttlebay_z01.str",
+     "igc_3_03.str"
+    ]
+   },
+   {
+    "name": "bloodpage01",
+    "format": "DXT5",
+    "w": 512,
+    "h": 512,
+    "levels": 3,
+    "level0": 262144,
+    "total": 344064,
+    "texmod_hash": "3D8D5E33",
+    "prefix_crc256": "81FF1339",
+    "mid_crc256": "3AC102BC",
+    "kind": "coloured",
+    "mean_hue": 5.2,
+    "saturated_share": 0.972,
+    "streams": 1,
+    "vfx_users": 1,
+    "stream_sample": [
+     "school_entry_z02.str"
+    ]
+   },
+   {
+    "name": "bloodspray_tile000",
+    "format": "DXT5",
+    "w": 128,
+    "h": 128,
+    "levels": 3,
+    "level0": 16384,
+    "total": 21504,
+    "texmod_hash": "E3F9CFA0",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "B0F8F613",
+    "kind": "coloured",
+    "mean_hue": 4.1,
+    "saturated_share": 1.0,
+    "streams": 36,
+    "vfx_users": 4,
+    "stream_sample": [
+     "scientistmale.str",
+     "bully.str",
+     "hunter.str",
+     "infector.str"
+    ]
+   },
+   {
+    "name": "dual_blood01",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "D565BDB7",
+    "prefix_crc256": "58815724",
+    "mid_crc256": "EA01E377",
+    "kind": "coloured",
+    "mean_hue": 353.4,
+    "saturated_share": 0.999,
+    "streams": 15,
+    "vfx_users": 2,
+    "stream_sample": [
+     "street_hallway.str",
+     "hallway04_z01.str",
+     "garage_int_z01.str",
+     "living_hall_int_z01.str"
+    ]
+   },
+   {
+    "name": "gobbet01",
+    "format": "DXT5",
+    "w": 256,
+    "h": 256,
+    "levels": 3,
+    "level0": 65536,
+    "total": 86016,
+    "texmod_hash": "D210A063",
+    "prefix_crc256": "76C57AB9",
+    "mid_crc256": "76C57AB9",
+    "kind": "coloured",
+    "mean_hue": 9.4,
+    "saturated_share": 0.996,
+    "streams": 3,
+    "vfx_users": 63,
+    "stream_sample": [
+     "global_assets.str",
+     "global_mp_assets.str",
+     "global_mp_assets.str"
+    ]
+   }
+  ]
+ },
+ "weapons": {
+  "plasma_cutter": {
+   "vfx": [
+    {
+     "name": "plasmacutter_muzzle",
+     "key16": "65725f6d757a7a6c6590f476f5123580",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "plasmacutter_muzzless",
+     "key16": "7a6c65737390f476f512358055f0d5a5",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 8
+    },
+    {
+     "name": "plasmacutter_projectile",
+     "key16": "6590f476f512358055f0a06092137c4c",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "plasmacutter_projectiless",
+     "key16": "7383cbc28cba6a712673df20633b9477",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "plasmacutter_spcl",
+     "key16": "6d616375747465725f7370636c90f476",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "plasmacutter_impact_armor",
+     "key16": "7283c911bbad6771ce52f812440cda5f",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "plasmacutter_impact_default",
+     "key16": "749fcbb3f5d2513ecd08a3f04c26494e",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 7
+    },
+    {
+     "name": "plasmacutter_impact_glass",
+     "key16": "739fa3db15df6471ce52f812c431f476",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "plasmacutter_impact_levweakspot",
+     "key16": "748518bcc3afeb1204513593ed445360",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "plasmacutter_impact_nodecal",
+     "key16": "6c810fc999af4c3ecd08a3f0661bbd06",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "plasmacutter_impact_weakspot",
+     "key16": "7481baadac1dc852f812c495ed445360",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "plasmacutter_impact_wood",
+     "key16": "649cb21f06c28322423ecd08a3f02f60",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "plasmacutter_imp_dftss",
+     "key16": "74737390f476f512358055f011664626",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 7
+    },
+    {
+     "name": "pc_impact_tracer",
+     "key16": "70635f696d706163745f747261636572",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 7
+    },
+    {
+     "name": "plasmacutter_tracer",
+     "key16": "65725f74726163657290f476f5123580",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    }
+   ]
+  },
+  "pulse_rifle": {
+   "vfx": [
+    {
+     "name": "pulserifle_muzzle",
+     "key16": "657269666c655f6d757a7a6c6590b578",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "pulserifle_muzzle_alt",
+     "key16": "655f616c7490b578153b26216e852a4f",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "pulserifle_muzzle_alt01",
+     "key16": "3190b578153b26216e852a4f350cecab",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "pulserifle_muzzless",
+     "key16": "5f6d757a7a6c65737390b578153b2621",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "pulse01",
+     "key16": "70756c73653031000000000000000000",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "pulse01_ss",
+     "key16": "70756c736530315f7373000000000000",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "pulserifle_alt_fly",
+     "key16": "666c655f616c745f666c7990b578153b",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "pulserifle_alt_explode",
+     "key16": "6f646590b578153b26214e4b4425984d",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "pulserifle_exp_ch",
+     "key16": "657269666c655f6578705f636890b578",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "puslerifle_exp_ch2",
+     "key16": "666c655f6578705f636832900d4e153b",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "pulserifle_impact",
+     "key16": "657269666c655f696d7061637490b578",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "pulserifle_impact_armor",
+     "key16": "7290b578153b2621ce52f812440cda5f",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "pulserifle_impact_glass",
+     "key16": "7390b578153b2621ce52f812c431f476",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "pulserifle_impact_nodecal",
+     "key16": "6ca494afad0b4e3ecd08a3f0661bbd06",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "pulserifle_impactss",
+     "key16": "5f696d70616374737390b578153b2621",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "pulserifle_tracer",
+     "key16": "657269666c655f74726163657290b578",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "pc_impact_tracer",
+     "key16": "70635f696d706163745f747261636572",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 7
+    }
+   ]
+  },
+  "line_gun": {
+   "vfx": [
+    {
+     "name": "linegun_muzzle",
+     "key16": "6c696e6567756e5f6d757a7a6c650000",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "linegun_muzzle_alt",
+     "key16": "5f6d757a7a6c655f616c748c7921cf5a",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 8
+    },
+    {
+     "name": "linegun_muzzle_max",
+     "key16": "5f6d757a7a6c655f6d61788c7921cf5a",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "linegun_projectile",
+     "key16": "5f70726f6a656374696c658c7921cf5a",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "linegun_projectile_max",
+     "key16": "6d61788c7921cf5a2673df20633b54ee",
+     "resident": false,
+     "streams": 14,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "linegun_alt_projectile",
+     "key16": "696c658c7921cf5a4e4b046aea407d7d",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "linegun_alt_projectiless",
+     "key16": "73852a0739b3fd7e2673df20633b9477",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "linegun_alt_activate",
+     "key16": "637469766174658c7921cf5a4e4b440c",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "linegun_alt_activatess",
+     "key16": "6573738c7921cf5a4e4b440c633b3e7d",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "linegun_ball01",
+     "key16": "6c696e6567756e5f62616c6c30310000",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "linegun_ball01_ss",
+     "key16": "67756e5f62616c6c30315f73738c7921",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "linegun_ball_control01",
+     "key16": "6c30318c7921cf5ab6066cefdb59a460",
+     "resident": false,
+     "streams": 5,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "linegun_ball_ss",
+     "key16": "6c696e6567756e5f62616c6c5f737300",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "linegun_impact",
+     "key16": "6c696e6567756e5f696d706163740000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "linegun_impact_glass",
+     "key16": "745f676c6173738c7921cf5ace52f812",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "linegun_impact_nodecal",
+     "key16": "63616c8c7921cf5ace52f812845def1f",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "linegun_impact_max",
+     "key16": "5f696d706163745f6d61788c7921cf5a",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    }
+   ]
+  },
+  "contact_beam": {
+   "vfx": [
+    {
+     "name": "contactbeam_muzzle",
+     "key16": "6265616d5f6d757a7a6c65833f7f797d",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "contactbeam_muzzle_alt",
+     "key16": "616c74833f7f797d0a073d57a5a654ee",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "contactbeam_muzzle_charge",
+     "key16": "65a159d92fc2a5efd5a53a219e32912e",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "contactbeam_muzzle_charged",
+     "key16": "64a29519630b4d57a5a654ee83076a20",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "contactbeam_muzzle_ready",
+     "key16": "79a3e324bfcd88516e852a4f75762d19",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "cctbeam_muzzle_altss",
+     "key16": "655f616c74737383a30f6d516e852a4f",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 8
+    },
+    {
+     "name": "contactbeam_projectile",
+     "key16": "696c65833f7f797d0a07fd69ea407d7d",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "contactbeam_impact_all",
+     "key16": "616c6c833f7f797d0a073d3ecd08a3f0",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "contactbeam_impact",
+     "key16": "6265616d5f696d70616374833f7f797d",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "contactbeam_impactss",
+     "key16": "6d706163747373833f7f797d0a073d3e",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    }
+   ]
+  },
+  "ripper": {
+   "vfx": [
+    {
+     "name": "yoyo_muzzle",
+     "key16": "796f796f5f6d757a7a6c650000000000",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "yoyo_muzzle_alt",
+     "key16": "796f796f5f6d757a7a6c655f616c7400",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "yoyo_muzzless",
+     "key16": "796f796f5f6d757a7a6c657373000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "yoyo_return",
+     "key16": "796f796f5f72657475726e0000000000",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "ripper_primary_fly",
+     "key16": "7072696d6172795f666c7992896655f0",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "ripper_alt_fly",
+     "key16": "7269707065725f616c745f666c790000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "yoyo_shatter",
+     "key16": "796f796f5f7368617474657200000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "wep_yoyo_skid",
+     "key16": "7765705f796f796f5f736b6964000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "yoyo_impact_nodecal",
+     "key16": "745f6e6f646563616c99b761ce52f812",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "yoyo_impact_nodecalll",
+     "key16": "63616c6c6c99b761ce52f812845def1f",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "yoyo_impact_sparks",
+     "key16": "706163745f737061726b7399b761ce52",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "yoyo_impact_sparksll",
+     "key16": "7061726b736c6c99b761ce52f812c47c",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 6
+    }
+   ]
+  },
+  "flamethrower": {
+   "vfx": [
+    {
+     "name": "flamer_muzzle",
+     "key16": "666c616d65725f6d757a7a6c65000000",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "flamer_muzzle_alt",
+     "key16": "65725f6d757a7a6c655f616c74867451",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "flamer_muzzless",
+     "key16": "666c616d65725f6d757a7a6c65737300",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "flamer_muzzle_altss",
+     "key16": "7a6c655f616c74737386745155f0d5a5",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "flamer_muzzle_altzgss",
+     "key16": "747a67737386745155f0d5a53a214e4b",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "flamer_muzzle_zerogss",
+     "key16": "726f67737386745155f0d5a53a217623",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "flamer_pilot_light",
+     "key16": "70696c6f745f6c6967687486745155f0",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "flamer_projectile",
+     "key16": "65725f70726f6a656374696c65867451",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "flamer_projectiless",
+     "key16": "6a656374696c65737386745155f0a060",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "flamer_zerog_projectile",
+     "key16": "6586745155f06271a7eea06092137c4c",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "flamer_zerog_projectiless",
+     "key16": "73a1510716c63c2e2673df20633b9477",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "flamer_alt_fly",
+     "key16": "666c616d65725f616c745f666c790000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "flamer_alt_explode",
+     "key16": "616c745f6578706c6f646586745155f0",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "flamer_alt_explodess",
+     "key16": "706c6f6465737386745155f0e17eee96",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "flamer_exp_ch",
+     "key16": "666c616d65725f6578705f6368000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "flamer_exp_ch_ss",
+     "key16": "666c616d65725f6578705f63685f7373",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "flamer_exp_ch2_ss",
+     "key16": "65725f6578705f6368325f7373867451",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "flamer_impact",
+     "key16": "666c616d65725f696d70616374000000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "flamer_impact_zerog",
+     "key16": "6163745f7a65726f6786745155f01166",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "flamer_impactss",
+     "key16": "666c616d65725f696d70616374737300",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "flamer_impact_zerogss",
+     "key16": "726f67737386745155f01166797d7623",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "wep_npcfire",
+     "key16": "7765705f6e7063666972650000000000",
+     "resident": false,
+     "streams": 13,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "wep_npcfiress",
+     "key16": "7765705f6e7063666972657373000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "wep_npcfiredrag",
+     "key16": "7765705f6e7063666972656472616700",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 5
+    }
+   ]
+  },
+  "force_gun": {
+   "vfx": [
+    {
+     "name": "forcegun_muzzle",
+     "key16": "666f72636567756e5f6d757a7a6c6500",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "forcegun_alt_muzzle",
+     "key16": "6c745f6d757a7a6c65869f155d843e0c",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "fgun_muzzless",
+     "key16": "6667756e5f6d757a7a6c657373000000",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "fgun_alt_muzzless",
+     "key16": "5f616c745f6d757a7a6c65737386cf5a",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "forcegun_alt_chargeup",
+     "key16": "7267657570869f155d843e0cacf08307",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "forcegun_alt_fly",
+     "key16": "666f72636567756e5f616c745f666c79",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "forcegun_alt_explode",
+     "key16": "6578706c6f6465869f155d843e0cacf0",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "forcegun_alt_bounce",
+     "key16": "6c745f626f756e6365869f155d843e0c",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "forcegun_impact",
+     "key16": "666f72636567756e5f696d7061637400",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "fgun_impactss",
+     "key16": "6667756e5f696d706163747373000000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    }
+   ]
+  },
+  "javelin": {
+   "vfx": [
+    {
+     "name": "wep_javeline_muzzle",
+     "key16": "6e655f6d757a7a6c659705f0b289253a",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "wep_javeline_muzzalt",
+     "key16": "6d757a7a616c749705f0b289253a56ee",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "javelin_muzzless",
+     "key16": "6a6176656c696e5f6d757a7a6c657373",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "javelin_muzzle_altss",
+     "key16": "655f616c7473738ab122f4586e852a4f",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "javelin_projectile_light",
+     "key16": "74a1b5a9db1daf6092137c4cf5502133",
+     "resident": false,
+     "streams": 9,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "javelin_projectile_decay",
+     "key16": "79a4eec047afb36092137c4cf51ebd06",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "wep_javeline_elechdalt",
+     "key16": "616c749705f0b289253a56ee2521431a",
+     "resident": false,
+     "streams": 138,
+     "chromatic_keys": 7
+    },
+    {
+     "name": "wep_javeline_imptaltnpc",
+     "key16": "639705f0b289253a56ee11663c4b4466",
+     "resident": false,
+     "streams": 138,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "wep_javeline_impta",
+     "key16": "656c696e655f696d7074619705f0b289",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "javelin_alt_ss_explode",
+     "key16": "6f64658ab122f4584e4bc47c4325984d",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "javelin_impactss",
+     "key16": "6a6176656c696e5f696d706163747373",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "wep_javeline_impact_glass",
+     "key16": "738663df630b7221ce52f812c431f476",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "javelin_lightning_ch",
+     "key16": "6e696e675f63688ab122f458463a477e",
+     "resident": false,
+     "streams": 139,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "wep_javelin_sel",
+     "key16": "7765705f6a6176656c696e5f73656c00",
+     "resident": false,
+     "streams": 6,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "puslerifle_exp_ch2",
+     "key16": "666c655f6578705f636832900d4e153b",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    }
+   ]
+  },
+  "detonator": {
+   "vfx": [
+    {
+     "name": "wep_detonator_muzzle",
+     "key16": "5f6d757a7a6c659705f0cc7d7f08ec72",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "wep_det_m_projectile",
+     "key16": "6a656374696c659705f0cc7daeefa060",
+     "resident": false,
+     "streams": 9,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "wep_det_m_beam",
+     "key16": "7765705f6465745f6d5f6265616d0000",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "wep_det_m_laser",
+     "key16": "7765705f6465745f6d5f6c6173657200",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "wep_det_m_haze",
+     "key16": "7765705f6465745f6d5f68617a650000",
+     "resident": false,
+     "streams": 7,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "wep_det_m_trail",
+     "key16": "7765705f6465745f6d5f747261696c00",
+     "resident": false,
+     "streams": 9,
+     "chromatic_keys": 6
+    },
+    {
+     "name": "wep_det_explode",
+     "key16": "7765705f6465745f6578706c6f646500",
+     "resident": false,
+     "streams": 9,
+     "chromatic_keys": 5
+    }
+   ]
+  },
+  "seeker_rifle": {
+   "vfx": [
+    {
+     "name": "seeker_muzzle",
+     "key16": "7365656b65725f6d757a7a6c65000000",
+     "resident": true,
+     "streams": 2,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "seeker_muzzless",
+     "key16": "7365656b65725f6d757a7a6c65737300",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "seeker_tracer",
+     "key16": "7365656b65725f747261636572000000",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "seeker_impact",
+     "key16": "7365656b65725f696d70616374000000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "seeker_impact_nodecal",
+     "key16": "646563616c938d4555f01166797d1660",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "seeker_impactss",
+     "key16": "7365656b65725f696d70616374737300",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    },
+    {
+     "name": "seeker_impact_nodecalss",
+     "key16": "73938d4555f01166797d16608c13a178",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 4
+    }
+   ]
+  },
+  "rivet_gun": {
+   "vfx": [
+    {
+     "name": "rivet_muzzle",
+     "key16": "72697665745f6d757a7a6c6500000000",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 3
+    },
+    {
+     "name": "rivet_muzzle_alt",
+     "key16": "72697665745f6d757a7a6c655f616c74",
+     "resident": false,
+     "streams": 3,
+     "chromatic_keys": 0
+    },
+    {
+     "name": "rivet_tracer",
+     "key16": "72697665745f74726163657200000000",
+     "resident": false,
+     "streams": 2,
+     "chromatic_keys": 1
+    },
+    {
+     "name": "rivet_projectile_trail",
+     "key16": "61696c92b922046aea407d7d2921c673",
+     "resident": false,
+     "streams": 4,
+     "chromatic_keys": 5
+    },
+    {
+     "name": "rivet_impact",
+     "key16": "72697665745f696d7061637400000000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    },
+    {
+     "name": "rivet_impactss",
+     "key16": "72697665745f696d7061637473730000",
+     "resident": true,
+     "streams": 3,
+     "chromatic_keys": 2
+    }
+   ]
+  }
+ }
+}

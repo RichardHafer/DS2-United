@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 #pragma once
 #include <array>
 #include <cstdint>

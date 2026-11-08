@@ -1,14 +1,15 @@
 @echo off
-rem Rebuilds the variant pool, the skin model streams, the generated headers and the plugin.
-rem Run after editing variants\ds2_variants.json or a skin's DDS files.
+rem Builds the enabled variant packs (variants\packs) into the pool and the model stream,
+rem then the plugin. Run after changing a pack. See variants\README.md.
 cd /d "%~dp0"
-python tools\build_variants.py --write || goto :fail
-python tools\verify_skin_pool.py || goto :fail
-python tools\embed_stream_requirements.py || goto :fail
-call "%~dp0build_observer.cmd" || goto :fail
+python -I tools\variant_pack.py check || goto :fail
+python -I tools\variant_pack.py build --write || goto :fail
+call "%~dp0build_ds2coop.cmd"
+if %errorlevel% neq 0 goto :fail
 echo.
-echo Done. Copy build\DS2RandomizerObserver.asi to the game's plugins folder and
-echo analysis\runtime_stream\ds2_randomizer_*.str and .toc next to deadspace2.exe (game closed).
+echo Done. With the game closed: build\DS2United.asi into plugins\, and
+echo analysis\runtime_stream\ds2_randomizer_pool.str/.toc and ds2_randomizer_models.str/.toc
+echo into the game's randomizer\ folder.
 exit /b 0
 :fail
 echo.

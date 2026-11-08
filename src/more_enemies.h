@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 #pragma once
 #include "selection.h"
 #include <cstdint>
@@ -40,7 +41,7 @@ inline constexpr unsigned kMoreEnemiesMaxPerSecond = 112;
 enum class MoreEnemiesStatus : unsigned {
     Disabled, Reentrant, AttributesUnreadable, UnknownTarget, UnsupportedArrival,
     ProtectedFamily, MultiplierOne, BudgetExhausted, CompletionNotWritable,
-    CountNotWritable, VtableMismatch, CrossFamilyRefused, SwarmSlot, Multiplied, CorpseTemplate, Count
+    CountNotWritable, VtableMismatch, CrossFamilyRefused, SwarmSlot, Multiplied, CorpseTemplate, SceneActor, Count
 };
 
 inline const char* moreEnemiesStatusName(unsigned value) {
@@ -49,7 +50,7 @@ inline const char* moreEnemiesStatusName(unsigned value) {
         "unsupported_arrival", "protected_family", "multiplier_one",
         "budget_exhausted", "completion_message_not_writable",
         "spawn_count_not_writable", "handle_events_vtable_mismatch",
-        "cross_family_refused", "swarm_slot", "multiplied", "corpse_template"
+        "cross_family_refused", "swarm_slot", "multiplied", "corpse_template", "scene_actor"
     };
     return value < static_cast<unsigned>(MoreEnemiesStatus::Count) ? names[value]
                                                                   : "invalid_status";

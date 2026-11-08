@@ -3,7 +3,7 @@
 A key in the wrong section is silently ignored (25.09.: LocalNamePatterns sat in
 [Gate], so the finale rule never ran). usage: python tools/check_ini_sections.py [ini ...]
 
-Each INI is checked against the sources of the plugin that reads it: DS2Coop.ini
+Each INI is checked against the sources of the plugin that reads it: DS2United.ini
 against everything, the randomizer INIs without the co-op and loader sources
 (the co-op [Necro] section reads a Leaper key, which is a family name in the
 randomizer tables).
@@ -33,7 +33,7 @@ def read_sources(include_coop):
 
 
 bad = 0
-for ini in sys.argv[1:] or [str(ROOT / "DS2Coop.ini")]:
+for ini in sys.argv[1:] or [str(ROOT / "DS2United.ini")]:
     code = read_sources("coop" in Path(ini).name.lower())
     section, seen = None, {}
     for line in open(ini, encoding="utf-8", errors="ignore"):

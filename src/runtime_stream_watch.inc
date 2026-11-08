@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Read-only worker snapshots; native lists can change during sampling.
 struct WatchedStream {
     ds2::native::StreamState state;

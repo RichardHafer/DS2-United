@@ -251,5 +251,30 @@ int main() {
     scriptedCfg.scriptedArrivals = true;
     animatedPool[0].context = "SPAWNMODE_ZOMBIE_PLAYDEAD";
     assert(buildPlan(scriptedCfg, animated, animatedPool, 8).donors.empty());
+    // The Severed tiers (18.10.): a twitcher roll on a plain slasher offers the security and
+    // classic copies, on an enhanced slasher only the oracle copy; an ordinary draw keeps the
+    // tiers apart in the family as well.
+    {
+        PoolSettings severed;
+        severed.enabled = true;
+        severed.chance = 0;
+        severed.twitcherChance = 100;
+        EnemyRecord plainSource{{30,31,32,33},{40,41,42,43},"Zombie","default_NONE_descriptor",true,true,true,false};
+        EnemyRecord enhancedSource{{34,35,36,37},{44,45,46,47},"Zombie","default_NONE_descriptor",true,true,true,false};
+        enhancedSource.enhanced = true;
+        EnemyRecord security{{50,51,52,53},{60,61,62,63},"Zombie","SPAWNMODE_NONE",true,true,true,false};
+        security.retargeted = true;
+        EnemyRecord oracle{{54,55,56,57},{64,65,66,67},"Zombie","SPAWNMODE_NONE",true,true,true,false};
+        oracle.retargeted = oracle.enhanced = true;
+        EnemyRecord slasher{{58,59,60,61},{68,69,70,71},"Zombie","SPAWNMODE_NONE",true,true,true,false};
+        const std::vector<EnemyRecord> tiers{security, oracle, slasher};
+        const auto plainPlan = buildPlan(severed, plainSource, tiers, 8);
+        assert(plainPlan.twitcherOnly && plainPlan.donors.size() == 1 && tiers[plainPlan.donors[0]].guid == security.guid);
+        const auto enhancedPlan = buildPlan(severed, enhancedSource, tiers, 8);
+        assert(enhancedPlan.twitcherOnly && enhancedPlan.donors.size() == 1 && tiers[enhancedPlan.donors[0]].guid == oracle.guid);
+        severed.chance = 100;
+        for (const size_t i : buildPlan(severed, plainSource, tiers, 8).donors) assert(tiers[i].guid != oracle.guid);
+        for (const size_t i : buildPlan(severed, enhancedSource, tiers, 8).donors) assert(tiers[i].guid != security.guid);
+    }
     std::puts("Selection tests passed.");
 }

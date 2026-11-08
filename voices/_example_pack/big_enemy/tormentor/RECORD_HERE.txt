@@ -1,0 +1,5 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  big_enemy_tormentor_01.wav shock
+
+pack.ini section [big_enemy_tormentor] lists them; more files are fine, add them there too.

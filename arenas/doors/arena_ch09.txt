@@ -1,0 +1,2 @@
+# marked in the running arena (door key), copied 16.10.2026
+doormark 5AA532CE-0346C427-52444F52-45554749 state=locked at=(-117.67 -3.75 -67.87)

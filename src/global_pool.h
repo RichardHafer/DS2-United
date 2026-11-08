@@ -1,4 +1,6 @@
+// Dead Space 2 United by Hafer.
 #pragma once
+#include <cstring>
 #include "selection.h"
 #include "generated_global_targets.h"
 #include "generated_vent_donors.h"
@@ -8,6 +10,13 @@
 #include "generated_variant_donors.h"
 
 namespace ds2 {
+// The enhanced looks: the models of the pool's super_* targets (super_slasher EC703B0F and the rest).
+inline bool enhancedModel(const Guid& model) {
+    if (model == Guid{}) return false;
+    for (const auto& row : kGlobalTargets)
+        if (row.model == model && std::strncmp(row.package, "super_", 6) == 0) return true;
+    return false;
+}
 // Build once before hooks are installed. Plan indices require a stable pool.
 inline bool appendGlobalTargets(std::vector<EnemyRecord>& pool) {
     auto combined = pool;
@@ -228,11 +237,22 @@ inline bool appendBossDonors(std::vector<EnemyRecord>& pool) {
 // vanish into the base model's slot and never be picked on its own.
 // Why the last appendVariantDonors said no, for the log.
 inline std::string variantDonorFailure;
-inline bool appendVariantDonors(std::vector<EnemyRecord>& pool) {
+// A retargeted variant is built from another character package (the twitcher on
+// slasher records, 17.10.). All its copies share that package's MetaModel as the
+// model key, so the family draw rolls its chance once, not once per copy. One
+// that cannot be appended is left out on its own instead of failing the pool.
+inline bool rowRetargeted(const VariantDonorRow& row) { return row.package && row.package[0]; }
+inline unsigned retargetRowsSkipped = 0;
+inline std::string retargetSkipReason;
+inline bool appendVariantDonors(std::vector<EnemyRecord>& pool, bool statVariants = true, bool retargets = true) {
     auto combined = pool;
     variantDonorFailure.clear();
+    retargetRowsSkipped = 0;
+    retargetSkipReason.clear();
     for (const auto& row : kVariantDonors) {
         if (row.guid == Guid{}) continue;   // the placeholder of a build without variants
+        const bool retarget = rowRetargeted(row);
+        if (retarget ? !retargets : !statVariants) continue;
         const EnemyRecord* source = nullptr;
         for (const auto& record : pool) {
             if (record.guid == row.guid) { variantDonorFailure = std::string(row.name) + ": variant guid already in the pool"; return false; }
@@ -244,18 +264,27 @@ inline bool appendVariantDonors(std::vector<EnemyRecord>& pool) {
         // spawning component and vent contract, so it competes for vent
         // spawns the way a direct copy competes for direct ones (13.09.)
         if (!source || source->ambiguous || source->family != row.family ||
-            !(directContext(source->context) || ventContext(source->context) || scriptedContext(source->context)) || row.chance > 100) {
-            variantDonorFailure = std::string(row.name) + (!source ? ": source not in the pool" : source->ambiguous ? ": source ambiguous" :
-                source->family != row.family ? ": family mismatch" : row.chance > 100 ? ": chance" : ": context " + source->context);
+            !(directContext(source->context) || ventContext(source->context) || scriptedContext(source->context)) || row.chance > 100 ||
+            (retarget && row.model == Guid{})) {
+            const std::string why = std::string(row.name) + (!source ? ": source not in the pool" : source->ambiguous ? ": source ambiguous" :
+                source->family != row.family ? ": family mismatch" : row.chance > 100 ? ": chance" : retarget && row.model == Guid{} ? ": no model" :
+                ": context " + source->context);
+            if (retarget) {
+                ++retargetRowsSkipped;
+                if (retargetSkipReason.empty()) retargetSkipReason = why;
+                continue;
+            }
+            variantDonorFailure = why;
             return false;
         }
         EnemyRecord target = *source;
         target.guid = row.guid;
-        target.model = {source->model[0] ^ row.guid[1], source->model[1] ^ row.guid[1], source->model[2], source->model[3]};
+        target.model = retarget ? row.model : Guid{source->model[0] ^ row.guid[1], source->model[1] ^ row.guid[1], source->model[2], source->model[3]};
         target.sourceEnabled = false;
         target.privateTemplate = true;
         target.chance = row.chance;
         target.variantName = row.name;
+        target.retargeted = retarget;
         target.speedPercent = row.speed;
         target.scalePercent = row.scale;
         // the copy keeps the source's vent and scripted contracts: a variant

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Loot amounts: more ammo and credits per pickup.
 //
 // Every pickup decides its quantity once, in PickupItem's constructor

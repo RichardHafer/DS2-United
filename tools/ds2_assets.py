@@ -66,8 +66,37 @@ def simgroup(data):
     image_at = (size + 15) & ~15
     return result, image_at
 
+LOOSE_MAGIC = 0x91C8773C
+# Baked images (the Outbreak DLC maps): objects already in their runtime layout,
+# no field list. Retail reader 0x0085C110: types at +8 (u16 count at +0x0C),
+# images at +0x14 (count at +0x10), 16 bytes each: data offset, image id, size,
+# u16, u16 type index. The loader refuses the set unless every type's version
+# matches the class, so these only carry the class here, not the fields.
+BAKED_MAGIC = 0x011795D9
+
+def baked_images(data, base):
+    size = u32(data, base+4)
+    if base+size > len(data):
+        raise ValueError("Invalid parameter image bounds")
+    types = base + u32(data,base+8)
+    ntypes = u16(data,base+12)
+    nimages = u32(data,base+16)
+    images = base + u32(data,base+20)
+    if max(types+ntypes*8,images+nimages*16) > base+size:
+        raise ValueError("Invalid parameter tables")
+    result = {}
+    for index in range(nimages):
+        offset, image_id, length, _, type_index = struct.unpack_from("<IIIHH",data,images+index*16)
+        if type_index >= ntypes or (offset and base+offset+length > base+size):
+            raise ValueError("Invalid baked image")
+        result[image_id] = {"type_id":u32(data,types+type_index*8),"fields":[],"baked":True,
+                            "data_offset":base+offset if offset else 0,"size":length}
+    return result
+
 def loose_images(data, base):
-    if base + 32 > len(data) or u32(data, base) != 0x91C8773C:
+    if base + 24 <= len(data) and u32(data, base) == BAKED_MAGIC:
+        return baked_images(data, base)
+    if base + 32 > len(data) or u32(data, base) != LOOSE_MAGIC:
         raise ValueError("Unsupported parameter image magic")
     size = u32(data, base+4)
     if base+size > len(data):

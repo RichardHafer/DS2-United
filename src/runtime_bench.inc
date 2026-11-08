@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Bench upgrade randomizer. Include at file scope; install once at startup.
 //
 // Retail resolves an upgrade node's type from its name hash every time it is

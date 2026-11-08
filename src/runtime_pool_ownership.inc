@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Every entity built from a pool packet belongs to the level, not to the pool.
 //
 // PoolActorsFollowLevel rewrites the stream handle of the packets this plugin

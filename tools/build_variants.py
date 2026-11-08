@@ -44,7 +44,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from ds2_paths import MODDING_TOOLS, WORK  # noqa: E402
 sys.path.insert(0, str(MODDING_TOOLS))
 
-from ds2_assets import assets, simgroup  # noqa: E402
+from ds2_assets import assets, loose_images, simgroup  # noqa: E402
 from stream_framing import frame_stream, HEADER  # noqa: E402
 from remap_pool_guids import guid_hash, remap  # noqa: E402
 from resolve_pool_dependencies import closure, compact  # noqa: E402
@@ -95,6 +95,187 @@ def apply_value(raw, flags, spec):
 
 
 CHARACTER_STREAMS = Path("ds2dat10/global_assets/global_assets/ds_assets/char_str/npc")
+CHARACTER_TOC = "global_assets\\global_assets\\ds_assets\\char_str\\npc\\"
+
+
+def root_guid(name):
+    """A stream root's SimGroup name back to its GUID (the inverse of uuid_name)."""
+    parts = name.strip("{}").split("-")
+    w1 = (int(parts[2], 16) << 16) | int(parts[1], 16)
+    w2 = struct.unpack("<I", bytes.fromhex(parts[3] + parts[4][:4]))[0]
+    w3 = struct.unpack("<I", bytes.fromhex(parts[4][4:]))[0]
+    return "%08X-%08X-%08X-%08X" % (int(parts[0], 16), w1, w2, w3)
+
+
+def retarget_targets(work, package, entity_copies, by_archive, rcb=None):
+    """What a record needs to be built from another character package: the
+    package's MetaModel and rig, its model stream (the root SimGroup) and its
+    dismemberment prop. The twitcher packages ship in retail global_assets, but
+    no retail record uses them (17.10.). The rig is the dismemberment prop's:
+    the plain twitcher's template still names the slasher rig, its prop the
+    twitcher rig, which the security and oracle packages use throughout.
+    `rcb` overrides it."""
+    import ds2str
+    archive = str(CHARACTER_STREAMS / package).replace("/", "\\")
+    stream = ds2str.StreamSet(str(work / CHARACTER_STREAMS / package))
+    roots = [meta["name"] for meta, _chunks in assets(stream) if meta["type"] == "SimGroup" and meta["name"].startswith("{")]
+    if len(roots) != 1:
+        raise SystemExit("%s: %d root SimGroups, expected one" % (package, len(roots)))
+    out = {"package": package, "archive": archive, "stream": root_guid(roots[0]),
+           "toc_name": CHARACTER_TOC + package[:-4].replace("/", "\\") if package.endswith(".str") else CHARACTER_TOC + package.replace("/", "\\")}
+    rigs = {}
+    for node in by_archive.get(archive, []):
+        entity = entity_copies.get((node["guid"], node["archive"], node["asset"]))
+        if not entity:
+            continue
+        if entity.get("class") == "DismemberableProp":
+            out.setdefault("prop", entity["guid"])
+        if entity.get("class") in ("ScriptableProp", "DismemberableProp") and has_field(entity, "CMD_SetModel") and has_field(entity, "CMD_SetRCB"):
+            model = model_guid(entity)
+            if out.setdefault("model", model) != model:
+                raise SystemExit("%s: the package's records name two models" % package)
+            rigs[entity["class"]] = field_guid(entity, "CMD_SetRCB")
+    if rcb or rigs:
+        out["rcb"] = rcb or rigs.get("DismemberableProp") or rigs.get("ScriptableProp")
+        if len(set(rigs.values())) > 1:
+            print("%s: the records name rigs %s; the copies take %s" % (package, rigs, out["rcb"]))
+    missing = [key for key in ("model", "rcb", "prop") if key not in out]
+    if missing:
+        raise SystemExit("%s: no %s in the catalog" % (package, ", ".join(missing)))
+    return out
+
+
+# Parameter images are shared by id: the loose image mount (0x0085D020, ParamImageTOC) asks
+# AttributePacket::Find (0x007CEB30) for every image id and skips the image when the id is
+# already registered. A copy whose fields or references changed under the original id got
+# the original's image (18.10.: the twitchers spawned as slashers with 100 health). So every
+# image a copy changed gets an id of its own, a hash of its content: identical content keeps
+# sharing, different content never does.
+def image_signatures(data):
+    records, base = simgroup(data)
+    images = loose_images(data, base)
+    out = {}
+    for image_id, image in images.items():
+        parts = [struct.pack("<I", image["type_id"])]
+        for f in image["fields"]:
+            if f["flags"] == 12:
+                at = f["offset"] + 8 + struct.unpack("<i", struct.pack("<I", f["value"]))[0]
+                value = data[at:at + 16]
+            else:
+                value = struct.pack("<I", f["value"])
+            parts.append(struct.pack("<IBB", f["field_id"], f["flags"], f["value_index"]) + value)
+        out[image_id] = b"".join(parts)
+    return out, base
+
+
+def renumber_changed_images(original, data, image_ids):
+    """`image_ids`: id -> signature of every id the pool and earlier copies use."""
+    before, _base = image_signatures(original)
+    after, base = image_signatures(data)
+    changes = {}
+    for image_id, signature in after.items():
+        if before.get(image_id) == signature:
+            continue
+        new = zlib.crc32(signature) & 0xFFFFFFFF
+        salt = 0
+        while image_ids.get(new, signature) != signature or new in after and new != image_id:
+            salt += 1
+            new = zlib.crc32(signature + struct.pack("<I", salt)) & 0xFFFFFFFF
+        image_ids[new] = signature
+        changes[image_id] = new
+    if not changes:
+        return data, 0
+    out = bytearray(data)
+    refs, nrefs = struct.unpack_from("<I", out, 8)[0], struct.unpack_from("<H", out, 0x14)[0]
+    for i in range(nrefs):
+        old = struct.unpack_from("<I", out, refs + 4 * i)[0]
+        if old in changes:
+            struct.pack_into("<I", out, refs + 4 * i, changes[old])
+    table, count = base + struct.unpack_from("<I", out, base + 16)[0], struct.unpack_from("<I", out, base + 20)[0]
+    for i in range(count):
+        old = struct.unpack_from("<I", out, table + 12 * i)[0]
+        if old in changes:
+            struct.pack_into("<I", out, table + 12 * i, changes[old])
+    check, _ = image_signatures(bytes(out))
+    for old, new in changes.items():
+        if check.get(new) != after[old]:
+            raise SystemExit("image %08X -> %08X did not keep its content" % (old, new))
+    return bytes(out), len(changes)
+
+
+def pool_image_ids(pool_path):
+    import ds2str
+    stream = ds2str.StreamSet(pool_path)
+    out = {}
+    for meta, chunks in assets(stream):
+        if meta["type"] != "SimGroup":
+            continue
+        try:
+            signatures, _base = image_signatures(stream.asset_payload(chunks, meta["size"]))
+        except ValueError:
+            continue
+        for image_id, signature in signatures.items():
+            out.setdefault(image_id, signature)
+    return out
+
+
+def loose_retarget(work, retarget, entity_copies, by_archive):
+    """A retarget onto a package shipped as a loose stream of its own (randomizer\\<stream_name>,
+    requested by the plugin like the pool). Either a package file: the Severed twitchers from the
+    port's DS2DAT12, whose records are baked, so model, rig and prop come from the spec and are
+    checked against the package (an asset's SHDR holds its full GUID at +16). Or a retail package
+    with its animation banks taken from a package file (the plain twitcher on the Severed banks),
+    under a stream GUID of its own. Bank resource ids are shared: a retail twitcher package loaded
+    next to these would decide the banks for all of them, so none is forced then."""
+    import ds2str
+    name = retarget["stream_name"]
+    if not re.match(r"^ds2_[a-z0-9_]{1,40}$", name):
+        raise SystemExit("retarget stream_name %r: ds2_ plus lower-case letters, digits, _" % name)
+
+    def guid_of(item):
+        return "-".join("%08X" % w for w in struct.unpack_from("<4I", item["header"], 16))
+
+    if retarget.get("package_file"):
+        source = ROOT / retarget["package_file"]
+        stream_bytes = source.read_bytes()
+        items = skin_assets.load_package(ds2str.StreamSet(str(source)))
+        roots = [it for it in items if it["meta"]["type"] == "SimGroup" and it["meta"]["name"].startswith("{")]
+        if len(roots) != 1:
+            raise SystemExit("%s: %d root SimGroups, expected one" % (source.name, len(roots)))
+        guids = {guid_of(it): it["meta"]["type"] for it in items}
+        for key, kind in (("model", "MetaModel"), ("rcb", "RCB")):
+            if guids.get(retarget.get(key, "")) != kind:
+                raise SystemExit("%s: no %s with the GUID %s" % (source.name, kind, retarget.get(key)))
+        records, _base = simgroup(roots[0]["payload"])
+        if retarget.get("prop") not in {r["guid"] for r in records}:
+            raise SystemExit("%s: no record %s for the dismemberment prop" % (source.name, retarget.get("prop")))
+        out = {"model": retarget["model"], "rcb": retarget["rcb"], "prop": retarget["prop"], "stream": root_guid(roots[0]["meta"]["name"])}
+        package = retarget["package_file"]
+    else:
+        out = dict(retarget_targets(work, retarget["package"], entity_copies, by_archive, retarget.get("rcb")))
+        items = skin_assets.load_package(ds2str.StreamSet(str(work / CHARACTER_STREAMS / retarget["package"])))
+        donor = {it["meta"]["name"]: it for it in skin_assets.load_package(ds2str.StreamSet(str(ROOT / retarget["bnk_from"])))
+                 if it["meta"]["type"] == "BNK"}
+        out["stream"] = variant_guid(out["stream"], name)
+        chunks, replaced = bytearray(), 0
+        for it in items:
+            asset = {"header": it["header"], "name": it["meta"]["name"], "path": it["meta"]["path"], "type": it["meta"]["type"], "payload": it["payload"]}
+            if it["meta"]["type"] == "BNK" and it["meta"]["name"] in donor:
+                other = donor[it["meta"]["name"]]
+                if guid_of(other) != guid_of(it):
+                    raise SystemExit("%s: bank %s has another GUID in %s" % (retarget["package"], it["meta"]["name"], retarget["bnk_from"]))
+                asset["header"], asset["payload"] = other["header"], other["payload"]
+                replaced += 1
+            if it["meta"]["type"] == "SimGroup" and it["meta"]["name"].startswith("{"):
+                asset["name"] = uuid_name(out["stream"])
+            chunks.extend(asset_chunks(asset))
+        stream_bytes = frame_stream(bytes(HEADER) + bytes(chunks))
+        print("%s: %s with %d of %d banks from %s, stream %s" % (name, retarget["package"], replaced, sum(1 for it in items if it["meta"]["type"] == "BNK"),
+                                                                   retarget["bnk_from"], out["stream"]))
+        package = retarget["package"]
+    out.update({"loose": True, "stream_name": name, "toc_name": STREAM_FOLDER + name, "bytes": stream_bytes, "package": package,
+                "content_size": sum(len(it["payload"]) for it in items)})
+    return out
 
 
 def pool_resource_ids(pool_path):
@@ -180,7 +361,9 @@ def append_skin(data, work, entity, variant, taken_ids):
     for the variant's own model stream."""
     import ds2str
     skin = variant["skin"]
-    archive = work / CHARACTER_STREAMS / skin["package"]
+    # "package_file": the package rebuilt with other meshes, textures or banks
+    # (a variant pack's model/ folder); everything is copied from it instead
+    archive = (ROOT / skin["package_file"]) if skin.get("package_file") else work / CHARACTER_STREAMS / skin["package"]
     old = model_guid(entity)
     # "model": another package's MetaModel for this record (the look of
     # slasher_var1 on the proven npcs_admin slasher); the record's own model
@@ -225,7 +408,7 @@ def append_skin(data, work, entity, variant, taken_ids):
     report["content_size"] = sum(len(a["payload"]) for a in out)
     report["assets"] = [{"type": a["type"], "name": a["name"], "path": a["path"], "bytes": len(a["payload"]),
                          "sha256": hashlib.sha256(a["payload"]).hexdigest(), "source": a["source"]} for a in out]
-    report["archive"] = str(archive.relative_to(work))
+    report["archive"] = str(archive.relative_to(work) if archive.is_relative_to(work) else archive.relative_to(ROOT))
     report["tint"] = skin["tint"]
     return old, new, report
 
@@ -243,6 +426,19 @@ def main():
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
     import ds2str
+
+    if not args.write:
+        # A dry run works on a scratch copy: restoring the base and appending
+        # rewrite the pool and its manifest, which a dry run must not touch.
+        import shutil
+        scratch = ROOT / "variants/build/dry_run"
+        scratch.mkdir(parents=True, exist_ok=True)
+        for suffix in (".str", ".toc", ".toc.json", ".base.str"):
+            source = args.pool.with_name(args.pool.stem + suffix)
+            if source.exists():
+                shutil.copyfile(source, scratch / source.name)
+        args.pool = scratch / args.pool.name
+        print("dry run on a scratch copy in %s" % scratch)
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
     entities = {}
@@ -264,12 +460,26 @@ def main():
     # Start from the pool as it was before any variant: the build appends,
     # so a rerun on its own output would carry every variant twice.
     base_pool = args.pool.with_name(args.pool.stem + ".base.str")
+    previous = json.loads(args.pool.with_suffix(".toc.json").read_text()).get("variants") or {}
+    if not previous.get("rows") and not previous.get("model_streams") and not previous.get("banks"):
+        # A pool that carries no variant is the base, whatever an older base file
+        # holds: the base of 13.09. predated the boss donors, the chapter
+        # dependencies and the field patches, and restoring it dropped them.
+        pool_bytes = args.pool.read_bytes()
+        if not base_pool.exists() or base_pool.read_bytes() != pool_bytes:
+            if base_pool.exists():
+                stale = base_pool.with_name(base_pool.name + ".stale-" + hashlib.sha256(base_pool.read_bytes()).hexdigest()[:8])
+                if not stale.exists():
+                    stale.write_bytes(base_pool.read_bytes())
+            base_pool.write_bytes(pool_bytes)
+            print("base refreshed from the variant-free pool (%d bytes)" % len(pool_bytes))
     if base_pool.exists():
         args.pool.write_bytes(base_pool.read_bytes())
         manifest_path = args.pool.with_suffix(".toc.json")
         manifest = json.loads(manifest_path.read_text())
+        earlier = {name for _identity, name in (manifest.get("variants") or {}).get("forced_packages", [])}
         manifest.pop("variants", None)
-        manifest["forced"] = [e for e in manifest["forced"] if not e[1].startswith("ds2_randomizer_")]
+        manifest["forced"] = [e for e in manifest["forced"] if not e[1].startswith("ds2_randomizer_") and e[1] not in earlier]
         manifest["stream_sha256"] = hashlib.sha256(args.pool.read_bytes()).hexdigest()
         manifest_path.write_text(json.dumps(manifest, indent=1))
         print("pool restored from %s" % base_pool.name)
@@ -293,6 +503,8 @@ def main():
     used = set(existing)
     used.add(merged_stream["guid"])
     taken_ids = pool_resource_ids(args.pool)
+    image_ids = pool_image_ids(args.pool)
+    images_renumbered = 0
     # "model_sources": "all": one INI variant that covers every source record
     # of the model (direct, vent, scripted), because the randomizer replaces
     # records per spawn contract, not models. Each source becomes a record
@@ -320,6 +532,11 @@ def main():
             vent = context in ("SPAWNMODE_VENT|Wall", "SPAWNMODE_VENT|Ceiling", "SPAWNMODE_VENT|default_FLOOR_descriptor", "SPAWNMODE_VENT|Floor")
             if not (direct or vent or scripted):
                 continue
+            # "contexts": ["direct", "vent"] leaves the scripted entrances out (a twitcher has no
+            # slasher play-dead or infection animations)
+            contexts = variant.get("contexts")
+            if contexts and not ((direct and "direct" in contexts) or (vent and "vent" in contexts) or (scripted and "scripted" in contexts)):
+                continue
             try:
                 if model_guid(entities[guid]) != look:
                     continue
@@ -331,6 +548,14 @@ def main():
             # player (scripted slashers, transport_hub_a); no copy of those
             if any(f.get("name") == "CMD_SetTrackingGroup1" and f.get("value") == 0
                    for img in entities[guid]["images"] for f in img.get("fields", [])):
+                continue
+            # "require_fields": a source must author these (a field it lacks keeps the engine
+            # default, and the twitcher must never play dead on slasher animations)
+            authored = {img.get("class", "") + "." + (f.get("name") or "") for img in entities[guid]["images"] for f in img.get("fields", [])}
+            if any(key not in authored for key in variant.get("require_fields", [])):
+                continue
+            # "exclude_sources": records whose copies must not spawn (Ellie's slashers track only NPCs)
+            if guid in variant.get("exclude_sources", []):
                 continue
             chosen.append(guid)
         if variant["source"] not in chosen:
@@ -344,6 +569,8 @@ def main():
     skin_cache = {}
     identity_owner = {}
     shared_maps = {}
+    retarget_cache = {}
+    forced_packages = []
     for variant in expanded:
         name, source = variant["name"], variant["source"]
         label = variant["ini_name"]
@@ -374,6 +601,28 @@ def main():
                     template_nodes.setdefault(key, node)
             if label not in skin_cache:
                 nodes.update(template_nodes)
+        # "retarget": {"package": ...}: the record is built from another character
+        # package. Its model, rig, model stream and dismemberment prop references go to
+        # that package; the base package's own records are not copied (both packages
+        # are resident through the pool TOC).
+        retarget_pairs = None
+        if variant.get("retarget"):
+            if variant.get("skin"):
+                raise SystemExit("%s: retarget and skin exclude each other" % name)
+            if label not in retarget_cache:
+                retarget = variant["retarget"]
+                retarget_cache[label] = (loose_retarget(args.work, retarget, entity_copies, by_archive) if retarget.get("package_file") or retarget.get("bnk_from")
+                                         else retarget_targets(args.work, retarget["package"], entity_copies, by_archive, retarget.get("rcb")))
+            target = retarget_cache[label]
+            base = entities[source]
+            retarget_pairs = {model_guid(base): target["model"], field_guid(base, "CMD_SetRCB"): target["rcb"],
+                              stream_guid(base): target["stream"], field_guid(base, "CMD_SetDismembermentEntity"): target["prop"]}
+            if len(set(retarget_pairs)) != 4:
+                raise SystemExit("%s: the source's model, rig, stream and prop are not four references" % name)
+            nodes = {key: node for key, node in nodes.items()
+                     if node["guid"] not in retarget_pairs and "\\char_str\\npc\\" not in node["archive"].lower()}
+            if not target.get("loose") and (target["stream"], target["toc_name"]) not in forced_packages:
+                forced_packages.append((target["stream"], target["toc_name"]))
         # Every closure record except the source itself is shared between the
         # source records of one model (the 168 KB global_assets slice with the
         # drop list and dismemberment prop was copied 96 times, 43 MB of pool).
@@ -393,6 +642,11 @@ def main():
         hashes = [guid_hash(g) for g in used]
         if len(set(hashes)) != len(hashes):
             raise SystemExit("%s: identity hash collision" % name)
+        if retarget_pairs:
+            for old_guid, new_guid in retarget_pairs.items():
+                if mapping.get(old_guid, new_guid) != new_guid:
+                    raise SystemExit("%s: %s is mapped to %s already" % (name, old_guid, mapping[old_guid]))
+                mapping[old_guid] = new_guid
         entity = entities[source]
         model_stream = None
         if variant.get("skin") and label in skin_cache:
@@ -477,6 +731,7 @@ def main():
             if payload is None:
                 raise SystemExit("asset missing in %s: %s" % (archive, asset))
             payload = bytearray(payload)
+            original_payload = bytes(payload)
             # "drop_list": the record's own drop list travels in the closure
             # (ItemDropListComponent.CMD_SetItemDropListGUID); its items and
             # weights are rewritten in the copy. A GUID field's dword is the
@@ -573,6 +828,12 @@ def main():
             raw_group = bytes(payload)
             group_guids = [group[i]["guid"] for i in sorted(group)]
             payload, stats = remap(bytes(payload), mapping)
+            payload, renumbered = renumber_changed_images(original_payload, payload, image_ids)
+            images_renumbered += renumbered
+            if retarget_pairs and asset == entity["asset"] and archive == entity["archive"]:
+                for old_guid in retarget_pairs:
+                    if struct.pack("<4I", *(int(w, 16) for w in old_guid.split("-"))) in payload:
+                        raise SystemExit("%s: the copy still names the base package's %s" % (name, old_guid))
             if label in skins and asset == entity["asset"] and archive == entity["archive"]:
                 if struct.pack("<4I", *(int(w, 16) for w in skins[label]["source_model"].split("-"))) in payload:
                     raise SystemExit("%s: CMD_SetModel still names the base model" % name)
@@ -643,6 +904,8 @@ def main():
                 print("     %-52s %10d -> %-10d" % (key, old, new))
         rows.append({"guid": mapping[source], "source": source, "family": variant["family"],
                      "name": label, "chance": int(variant.get("chance", 100)), "base": variant.get("base", ""),
+                     "package": retarget_cache[label]["toc_name"] if retarget_pairs else "",
+                     "model": retarget_cache[label]["model"] if retarget_pairs else "",
                      "speed": int(round(float(variant.get("speed", 1.0)) * 100)),
                      "scale": int(round(float(variant.get("scale", 1.0)) * 100))})
         if label in skins:
@@ -652,8 +915,26 @@ def main():
             # parts fall back to the base look (13.09.)
             skins[label]["owners"] = sorted(set(skins[label].get("owners", [])) | set(mapping[node["guid"]] for node in nodes.values()) | set(model_stream.get("root_owners", []) if model_stream else []))
 
+    # the mod's own animation banks (tools/build_anim_banks.py): a BNK resource with
+    # the retail header values, attached to every character whose name the bank names
+    banks_added = []
+    for bank in spec.get("banks", []):
+        payload = (ROOT / bank["file"]).read_bytes()
+        if hashlib.sha256(payload).hexdigest() != bank["sha256"] or struct.unpack_from("<I", payload, 4)[0] != 9:
+            raise SystemExit("%s changed since build_anim_banks.py or is no version 9 bank" % bank["file"])
+        words = [int(w, 16) for w in bank["guid"]]
+        guid = "%08X-%08X-%08X-%08X" % tuple(words)
+        if words[0] in taken_ids or guid in used:
+            raise SystemExit("%s: its GUID %s is taken in the pool" % (bank["name"], guid))
+        used.add(guid)
+        taken_ids.add(words[0])
+        header = bytearray(b"RDHS" + struct.pack("<IHHI", 0x3D074740, 16, 1, 0x30B00ADF) + struct.pack("<4I", *words) + bytes(4))
+        data.extend(asset_chunks({"header": bytes(header), "payload": payload, "name": bank["name"], "path": bank["path"], "type": "BNK"}))
+        banks_added.append({"name": bank["name"], "guid": guid, "bytes": len(payload), "states": bank["states"]})
+        print("%-16s animation bank %s, %d bytes, guid %s, %d state(s)" % ("banks", bank["name"], len(payload), guid, len(bank["states"])))
     data = bytearray(frame_stream(bytes(data)))
-    print("appended %d groups for %d variants, pool now %d bytes" % (len(appended), len(rows), len(data)))
+    print("appended %d groups for %d variants and %d animation banks, pool now %d bytes, %d changed parameter images under ids of their own" % (
+        len(appended), len(rows), len(banks_added), len(data), images_renumbered))
     if not args.write:
         print("dry run; pass --write to emit")
         return
@@ -662,6 +943,15 @@ def main():
     manifest = json.loads(manifest_path.read_text())
     from build_research_toc import build as build_pool_toc
     forced = [tuple(e) for e in manifest["forced"] if not e[1].startswith("ds2_randomizer_")]
+    # a retargeted variant's package is forced resident like the families' own packages
+    from append_boss_donors import stock_identity
+    forced_rows = []
+    for _stream, toc_name in forced_packages:
+        identity = stock_identity(toc_name)
+        forced_rows.append([identity, toc_name])
+        if all(existing != toc_name for _identity, existing in forced):
+            forced.append((identity, toc_name))
+            print("forced resident for a retarget: %s (%08X)" % (toc_name, identity))
     written = []
     if merged_stream["roots"]:
         model_streams.append(merged_stream)
@@ -683,12 +973,42 @@ def main():
                         "toc_sha256": hashlib.sha256(toc).hexdigest(), "content_size": ms["content_size"], "assets": ms["assets"],
                         "roots": ms["roots"], "root_records": ms["root_records"]})
         print("wrote %s (%d bytes) and its TOC" % (stream_path.name, len(stream_bytes)))
+    # the retargets' loose package streams; the plugin requests them by name after the pool
+    loose = {t["stream_name"]: t for t in retarget_cache.values() if t.get("loose")}
+    # stream-only packs: a package shipped as it is (Gabe's patrol helmet, uni_pdlcsecurityweller)
+    import ds2str
+    for extra in spec.get("streams", []):
+        source = ROOT / extra["package_file"]
+        items = skin_assets.load_package(ds2str.StreamSet(str(source)))
+        roots = [it for it in items if it["meta"]["type"] == "SimGroup" and it["meta"]["name"].startswith("{")]
+        if len(roots) != 1:
+            raise SystemExit("%s: %d root SimGroups, expected one" % (source.name, len(roots)))
+        if extra["stream_name"] in loose:
+            raise SystemExit("stream %s twice" % extra["stream_name"])
+        loose[extra["stream_name"]] = {"stream_name": extra["stream_name"], "toc_name": STREAM_FOLDER + extra["stream_name"], "bytes": source.read_bytes(),
+                                       "stream": root_guid(roots[0]["meta"]["name"]), "package": extra["package_file"],
+                                       "content_size": sum(len(it["payload"]) for it in items)}
+    for old_file in list(args.pool.parent.glob("ds2_twitcher_*")) + list(args.pool.parent.glob("ds2_severed_*")):
+        if old_file.suffix in (".str", ".toc") and old_file.stem not in loose:
+            old_file.unlink()
+    for target in loose.values():
+        stream_path = args.pool.parent / (target["stream_name"] + ".str")
+        stream_path.write_bytes(target["bytes"])
+        identity = guid_hash(target["stream"])
+        toc = build_toc(target["toc_name"], identity, target["content_size"], [tuple(e) for e in manifest["shared"]], [])
+        stream_path.with_suffix(".toc").write_bytes(toc)
+        written.append({"name": target["stream_name"], "guid": target["stream"], "identity": "%08X" % identity, "sources": [target["package"]],
+                        "bytes": len(target["bytes"]), "stream_sha256": hashlib.sha256(target["bytes"]).hexdigest(),
+                        "toc_sha256": hashlib.sha256(toc).hexdigest(), "content_size": target["content_size"], "assets": 0,
+                        "roots": 1, "root_records": 0, "retarget": True})
+        print("wrote %s (%d bytes, stream %s) and its TOC" % (stream_path.name, len(target["bytes"]), target["stream"]))
     toc = build_pool_toc(STREAM_FOLDER + manifest["root_name"], manifest["content_size"], [tuple(e) for e in manifest["shared"]], forced)
     args.pool.with_suffix(".toc").write_bytes(toc)
     manifest["forced"] = [list(e) for e in forced]
     manifest["toc_bytes"] = len(toc)
     manifest["toc_sha256"] = hashlib.sha256(toc).hexdigest()
-    manifest["variants"] = {"rows": rows, "appended": appended, "skins": skins, "model_streams": written}
+    manifest["variants"] = {"rows": rows, "appended": appended, "skins": skins, "model_streams": written, "forced_packages": forced_rows,
+                            "banks": banks_added}
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     refresh_manifest(args.pool)
 
@@ -705,16 +1025,20 @@ def main():
              "// `skinModel` is the skin's MetaModel (zero without a skin): the walking",
              "// figure takes its model from Entity::AttachModel, and the plugin swaps the",
              "// base model for this one there (runtime_variants.inc).",
-             "struct VariantDonorRow { Guid guid, source; const char* family; const char* name; unsigned chance, speed, scale; Guid skinModel; };",
+             "// `package` is the character package a retargeted variant is built from (its",
+             "// TOC name, empty otherwise) and `model` that package's MetaModel.",
+             "struct VariantDonorRow { Guid guid, source; const char* family; const char* name; unsigned chance, speed, scale; Guid skinModel; const char* package; Guid model; };",
              "inline constexpr VariantDonorRow kVariantDonors[] = {"]
     for row in sorted(rows, key=lambda r: r["guid"]):
         skin_model = skins.get(row["name"], {}).get("model", "00000000-00000000-00000000-00000000")
-        lines.append("    {%s,%s,%s,%s,%d,%d,%d,%s},  // %s" % (words(row["guid"]), words(row["source"]), json.dumps(row["family"]),
-                                                              json.dumps(row["name"]), row["chance"], row["speed"], row["scale"], words(skin_model), row["base"]))
+        lines.append("    {%s,%s,%s,%s,%d,%d,%d,%s,%s,%s},  // %s" % (words(row["guid"]), words(row["source"]), json.dumps(row["family"]),
+                                                                    json.dumps(row["name"]), row["chance"], row["speed"], row["scale"], words(skin_model),
+                                                                    json.dumps(row.get("package", "")),
+                                                                    words(row.get("model") or "00000000-00000000-00000000-00000000"), row["base"]))
     if not rows:
         # a build without variants: one all-zero row keeps the array non-empty,
         # appendVariantDonors and the tests skip it
-        lines.append('    {{0u,0u,0u,0u},{0u,0u,0u,0u},"","",0,100,100,{0u,0u,0u,0u}},  // no variants in this build')
+        lines.append('    {{0u,0u,0u,0u},{0u,0u,0u,0u},"","",0,100,100,{0u,0u,0u,0u},"",{0u,0u,0u,0u}},  // no variants in this build')
     lines += ["};",
               "// Every record of a skinned variant's closure, each with the skin's MetaModel:",
               "// the detached parts and the template are entities of their own and take",

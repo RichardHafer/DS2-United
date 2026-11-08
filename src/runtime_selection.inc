@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 ds2::PoolSettings settings;
 std::vector<ds2::EnemyRecord> pool;
 std::vector<ds2::SelectionPlan> plans;
@@ -30,8 +31,41 @@ thread_local SelectionFrame selectionFrames[16];
 // donor already decided: OnLookup takes it instead of the plan, OnCreated
 // reports the actor so the caller can place it.
 thread_local size_t forcedDonorIndex = SIZE_MAX;
+struct DividerPlacement {
+    alignas(16) float matrix[16]{};
+    uintptr_t spawner = 0, frame = 0;
+    bool locationApplied = false;
+};
+thread_local DividerPlacement* dividerPlacement = nullptr;
 thread_local bool extraSpawnActive = false;
 thread_local uint32_t lastCreatedActor = 0;
+// A survival vent spawn drives an MP slasher spawner whose target the catalog
+// skips; the director hands OnLookup that target's record, so the forced
+// donor is rebound to its spawning component like a campaign vent spawn.
+thread_local const ds2::EnemyRecord* forcedVentSource = nullptr;
+// ... and may send it through another VentMarker of the map than the
+// spawner's own: once the rebind is settled OnLookup writes `vent` into the
+// source's spawning header (+0x18, the vent the arrival goes through). The
+// header keeps it, so the next check accepts any of the maps' VentMarkers.
+struct VentRedirect { bool active = false, written = false; Guid vent{}, was{}; };
+thread_local VentRedirect ventRedirect;
+volatile LONG ventRedirectsWritten = 0, ventRedirectsSame = 0, ventRedirectFailures = 0;
+bool WriteBytes(uintptr_t address, const void* input, size_t bytes);   // runtime_more_enemies.inc
+bool KnownVentMarker(const Guid& vent) {
+    for (const auto& m : ds2::kSurvivalVentMarkers) if (m.vent == vent) return true;
+    return false;
+}
+// Set around a survival spawn (runtime_survival.inc): OnCreated leaves the
+// enemy to the director's own watchdog and clears its campaign messages.
+thread_local bool survivalSpawnActive = false;
+// Set while a survival run holds a campaign arena (runtime_survival.inc): the director owns every
+// enemy there and the level's own spawners create none (17.10., Transport Hub: a vent spawner
+// fired in the wave break and more_enemies copied it three times).
+volatile LONG arenaRunOwnsSpawns = 0;
+namespace survival_rt { void NoteLevelSpawnRefused(uint32_t spawner, const Guid& target, const std::string& family); }
+// Filled by OnCreated during a forced spawn: selection status and the vent rebind.
+thread_local unsigned lastCreatedStatus = 0, lastCreatedBind = 0;
+thread_local bool lastCreatedArmed = false, lastCreatedApplied = false;
 safetyhook::MidHook bindingOwnerHook, bindingConstructorHook;
 
 void OnBindingOwner(SafetyHookContext& ctx) {
@@ -105,6 +139,7 @@ int ConfigInt(const std::string& ini, const char* section, const char* key, int 
 unsigned ventBlocklistApplied = 0;
 // Families [VentFamilies] keeps out of vents, and how many records that cost.
 std::set<std::string> ventFamilyBlocked;
+std::set<Guid> ventFamilyBlockedGuids;   // blocked by [VentFamilies] alone
 unsigned ventFamilyBlockedRecords = 0;
 unsigned poolFamilyUnpackaged = 0;
 unsigned poolPassiveDonors = 0;
@@ -112,9 +147,28 @@ unsigned withdrawnDonors = 0;
 const Guid kWithdrawnDonors[] = {
     {0x30CA2DABu, 0x7FED4260u, 0x4D444E52u, 0x4C4F4F50u},   // pack boy stand-in, no state machines
 };
+// The survival director takes them all the same (16.10.: the stand-in is a plain copy of
+// an authored pack boy; of 154 probed it had 2-4 state machines 145 times, and every miss
+// came from one scripted skybox spawner in chapter 2, which the director never drives).
+std::set<Guid> withdrawnForCampaign;
 bool directDonors = false;
 bool variantsEnabled = false;
 unsigned variantsLoaded = 0;
+// Severed twitchers (retargeted variant rows, 17.10.): their own switch, so they come
+// without the stat variants ([DS2Randomizer] Variants), which broke spawns in September.
+bool twitchersEnabled = false;
+unsigned twitcherRowsLoaded = 0, oracleRowsLoaded = 0, enhancedSources = 0, twitcherPlans = 0, twitcherPlansEmpty = 0;
+// The plugin checks residency per family only: a twitcher whose package the pool TOC
+// does not force would spawn without a model. Its rows stay out then.
+const char* twitchersRefused = "";
+bool StreamForced(const char* name) {
+    for (const auto& requirement : ds2::kStreamRequirements)
+        if (requirement.name && name && _stricmp(requirement.name, name) == 0) return true;
+    // a loose package stream (the Severed twitchers) is requested by name with the pool
+    for (const char* stream : ds2::kModelStreams)
+        if (stream && name && _stricmp(stream, name) == 0) return true;
+    return false;
+}
 
 void LoadEnemyPool(const std::string& ini) {
     settings.enabled = GetPrivateProfileIntA("DS2Randomizer", "Enabled", 0, ini.c_str()) != 0;
@@ -130,12 +184,28 @@ void LoadEnemyPool(const std::string& ini) {
     settings.infectedArrivals = ConfigInt(ini, "DS2Randomizer", "InfectedArrivals", 0, 0, 1) != 0;
     settings.seed = GetPrivateProfileIntA("DS2Randomizer", "Seed", 1, ini.c_str());
     settings.chance = ConfigInt(ini, "DS2Randomizer", "Chance", 100, 0, 100);
+    if (!settings.enabled && survivalWanted) {
+        // Survival needs the selection hook and the pool; the campaign keeps its enemies.
+        settings.enabled = true;
+        settings.chance = 0;
+        survivalOnly = true;
+    }
     {
         // VariantBias=<name>: that variant wins every draw it is a candidate in (test aid)
         char bias[64]{};
         GetPrivateProfileStringA("DS2Randomizer", "VariantBias", "", bias, sizeof(bias), ini.c_str());
         settings.preferredVariant = bias;
     }
+    // The campaign share applies only where the randomizer itself runs (not survival-only).
+    twitchersEnabled = ConfigInt(ini, "DS2Randomizer", "Twitchers", 1, 0, 1) != 0;
+    twitchersRefused = "";
+    for (const auto& row : ds2::kVariantDonors)
+        if (twitchersEnabled && ds2::rowRetargeted(row) && !StreamForced(row.package)) {
+            twitchersEnabled = false;
+            twitchersRefused = "its package is not forced resident by the pool TOC";
+        }
+    settings.twitcherChance = twitchersEnabled && !survivalOnly ? static_cast<unsigned>(ConfigInt(ini, "DS2Randomizer", "TwitcherChance", 15, 0, 100)) : 0;
+    settings.pregnantChance = twitchersEnabled && !survivalOnly ? static_cast<unsigned>(ConfigInt(ini, "DS2Randomizer", "SeveredPregnantChance", 15, 0, 100)) : 0;
     maxDonorLookups = ConfigInt(ini, "DS2Randomizer", "MaxDonorLookups", 8, 1, 16);
     for (const auto& row : ds2::kEnemyCatalog) {
         ds2::EnemyRecord record{row.guid, row.model, row.family, row.context};
@@ -150,6 +220,7 @@ void LoadEnemyPool(const std::string& ini) {
         record.chapter = row.chapter;
         record.scriptedKey = row.scriptedKey;
         record.passive = row.passive;
+        record.enhanced = ds2::enhancedModel(row.model);
         const auto messages = ds2::scriptMessagesFor(row.guid);
         record.deathMessage = messages.death;
         record.healthModifiedMessage = messages.healthModified;
@@ -157,7 +228,7 @@ void LoadEnemyPool(const std::string& ini) {
         record.awareMessage = messages.aware;
         for (const auto& entry : ds2::kVentGuids) if (entry.target == row.guid) { record.vent = entry.vent; break; }
         record.sourceEnabled = GetPrivateProfileIntA("Sources", record.family.c_str(), 1, ini.c_str()) != 0;
-        record.targetEnabled = GetPrivateProfileIntA("Targets", record.family.c_str(), 1, ini.c_str()) != 0;
+        record.targetEnabled = !IsSceneActor(row.guid) && GetPrivateProfileIntA("Targets", record.family.c_str(), 1, ini.c_str()) != 0;
         record.weight = ConfigInt(ini, "Weights", row.family, 100, 0, 1000);
         pool.push_back(std::move(record));
     }
@@ -180,6 +251,7 @@ void LoadEnemyPool(const std::string& ini) {
         for (const auto& withdrawn : kWithdrawnDonors)
             if (record.guid == withdrawn && record.targetEnabled) {
                 record.targetEnabled = false;
+                withdrawnForCampaign.insert(record.guid);
                 ++withdrawnDonors;
             }
     // The Divider and the Ubermorph. Their records are in the pool either way;
@@ -189,7 +261,16 @@ void LoadEnemyPool(const std::string& ini) {
     // Stat variants. Their chance can be tuned per name in [Variants]; 0 takes
     // one out without touching the pool.
     variantsEnabled = ConfigInt(ini, "DS2Randomizer", "Variants", 0, 0, 1) != 0;
-    if (globalTemplates && variantsEnabled && !ds2::appendVariantDonors(pool)) { globalTemplates = false; poolStageFailed = "variant_donors: " + ds2::variantDonorFailure; }
+    if (globalTemplates && (variantsEnabled || twitchersEnabled) && !ds2::appendVariantDonors(pool, variantsEnabled, twitchersEnabled)) {
+        globalTemplates = false;
+        poolStageFailed = "variant_donors: " + ds2::variantDonorFailure;
+    }
+    twitcherRowsLoaded = oracleRowsLoaded = enhancedSources = 0;
+    for (const auto& record : pool) {
+        if (record.retargeted) ++twitcherRowsLoaded;
+        if (record.retargeted && record.enhanced) ++oracleRowsLoaded;
+        if (!record.retargeted && record.enhanced && record.sourceEnabled) ++enhancedSources;
+    }
     unsigned variants = 0;
     for (auto& record : pool) {
         if (record.variantName.empty()) continue;
@@ -252,6 +333,7 @@ void LoadEnemyPool(const std::string& ini) {
     // the two to disagree.
     unsigned familyBlocked = 0;
     ventFamilyBlocked.clear();
+    ventFamilyBlockedGuids.clear();
     for (auto& record : pool) {
         // Only records that could ever have been a vent donor in the first place.
         // Setting the flag on the other 44 of the 57 Lurker records would change
@@ -263,12 +345,15 @@ void LoadEnemyPool(const std::string& ini) {
             continue;
         record.ventBlocked = true;
         ventFamilyBlocked.insert(record.family);
+        ventFamilyBlockedGuids.insert(record.guid);
         ++familyBlocked;
     }
     ventFamilyBlockedRecords = familyBlocked;
+    twitcherPlans = twitcherPlansEmpty = 0;
     for (const auto& source : pool) {
         plans.push_back(ds2::buildPlan(settings, source, pool, maxDonorLookups));
         allowedSpawnerPlans.push_back(ds2::buildAllowedSpawnerPlan(settings, source, pool, maxDonorLookups));
+        if (plans.back().twitcherOnly) ++(plans.back().donors.empty() ? twitcherPlansEmpty : twitcherPlans);
     }
     // PlanDump=<guid>: the donor order the plan holds for that source, for the log
     {
@@ -296,21 +381,40 @@ void LoadEnemyPool(const std::string& ini) {
 // Called after the original lookup, before the original creation call.
 void OnLookup(SafetyHookContext& ctx) {
     if (!settings.enabled) return;
+    auto refuseForced = [&]() {
+        if ((survivalSpawnActive || forcedDonorIndex < pool.size()) && ctx.eax == ctx.esp + 0x30)
+            std::memset(reinterpret_cast<void*>(ctx.eax), 0, sizeof(ds2::native::SpawnInfo32));
+    };
     SelectionFrame* state = nullptr;
     for (auto& frame : selectionFrames) if (!frame.stack) { state = &frame; break; }
-    if (!state) { InterlockedIncrement(&frameOverflows); return; }
+    if (!state) { InterlockedIncrement(&frameOverflows); refuseForced(); return; }
     *state = {};
     state->stack = ctx.esp;
+    // Only an enemy the catalog knows is refused; props and pickups of the level still come.
+    if (!survivalSpawnActive && ctx.eax == ctx.esp + 0x30 && InterlockedCompareExchange(&arenaRunOwnsSpawns, 0, 0)) {
+        Guid target{};
+        if (Read(ctx.ebp + 0x0C, target.data(), 16) && !IsCorpseTemplate(target)) {
+            const auto known = std::lower_bound(pool.begin(), pool.end(), target, [](const auto& r, const Guid& g) { return r.guid < g; });
+            if (known != pool.end() && known->guid == target) {
+                std::memset(reinterpret_cast<void*>(ctx.eax), 0, sizeof(ds2::native::SpawnInfo32));
+                state->status = static_cast<unsigned>(ds2::SelectionStatus::SpawnerBlocked);
+                survival_rt::NoteLevelSpawnRefused(ctx.edi, target, known->family);
+                return;
+            }
+        }
+    }
     // Never block here. The stream thread holds this mutex while it calls into the
     // manager, and this path calls into the manager too; waiting for it with the
     // engine's own lock held is how a level ends up loading forever.
     std::unique_lock<std::recursive_mutex> guard(streamProbeMutex, std::try_to_lock);
     if (!guard.owns_lock()) {
         state->status = static_cast<unsigned>(ds2::SelectionStatus::StreamProbeBusy);
+        refuseForced();
         return;
     }
     if (InterlockedCompareExchange(&streamSelectionAllowed, 1, 1) == 0) {
         state->status = static_cast<unsigned>(ds2::SelectionStatus::GlobalPoolUnavailable);
+        refuseForced();
         return;
     }
     auto& selectionStatus = state->status;
@@ -318,12 +422,18 @@ void OnLookup(SafetyHookContext& ctx) {
     const auto spawnerRule = RuleForSpawner(ctx.edi, ctx.ebp);
     if (spawnerRule.mode == ds2::SpawnerMode::Block) {
         selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::SpawnerBlocked);
+        refuseForced();
         return;
     }
     Guid original{};
-    if (!Read(ctx.ebp + 0x0C, original.data(), 16)) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::SourceReadFailed); return; }
+    if (!Read(ctx.ebp + 0x0C, original.data(), 16)) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::SourceReadFailed); refuseForced(); return; }
     if (forcedDonorIndex >= pool.size() && IsCorpseTemplate(original)) {
         selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::CorpseTemplate);
+        return;
+    }
+    if (forcedDonorIndex >= pool.size() && IsSceneActor(original)) {
+        // Story tracks resolve this actor by its authored GUID.
+        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::SceneActor);
         return;
     }
     if (ctx.eax == ctx.esp + 0x30) {
@@ -335,6 +445,9 @@ void OnLookup(SafetyHookContext& ctx) {
         [](const auto& record, const Guid& guid) { return record.guid < guid; });
     const bool knownSource = found != pool.end() && found->guid == original;
     const bool forced = forcedDonorIndex < pool.size();
+    // The record a vent rebind works against: the catalog's, or the one a
+    // survival vent spawn brought along (forced only).
+    const ds2::EnemyRecord* ventSource = knownSource ? &*found : forced ? forcedVentSource : nullptr;
     // An extra spawn (placement) drives whatever spawner it was bound to, and
     // that spawner's authored target may be no enemy at all: a prop, a
     // container, a pickup. The catalog has no row for it and the plan no
@@ -371,9 +484,11 @@ void OnLookup(SafetyHookContext& ctx) {
                     if (std::strncmp(row.package, "super_", 6) != 0 || found->family != row.family) continue;
                     const auto candidate = std::lower_bound(pool.begin(), pool.end(), row.guid,
                         [](const auto& record, const Guid& guid) { return record.guid < guid; });
-                    if (candidate == pool.end() || candidate->guid != row.guid || !candidate->targetEnabled ||
-                        !candidate->ordinary || candidate->guid == original) continue;
-                    superIndex = static_cast<size_t>(candidate - pool.begin());
+                    if (candidate == pool.end() || candidate->guid != row.guid) continue;
+                    const size_t index = static_cast<size_t>(candidate - pool.begin());
+                    // A super skin must still satisfy this spawn's animation and vent contract.
+                    if (std::find(plan->donors.begin(), plan->donors.end(), index) == plan->donors.end()) continue;
+                    superIndex = index;
                     break;
                 }
             }
@@ -392,11 +507,11 @@ void OnLookup(SafetyHookContext& ctx) {
         !Read(ctx.eax, &originalPacket, sizeof(originalPacket)) || !originalPacket.record || !originalPacket.attributes ||
         !Read(originalPacket.recordField0C, originalResolved.data(), 16) || originalResolved != original ||
         !Read(originalPacket.attributes, &originalDescriptor, 4) || !originalDescriptor) {
-        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidOriginal); return;
+        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidOriginal); refuseForced(); return;
     }
     unsigned manager = 0;
     if (!Read(base + 0x1C1C0A0, &manager, 4) || !manager || manager != ctx.ebx) {
-        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidManager); return;
+        selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidManager); refuseForced(); return;
     }
     using Lookup = void* (__thiscall*)(void*, ds2::native::SpawnInfo32*, const Guid*, unsigned);
     for (const auto index : *donors) {
@@ -426,13 +541,37 @@ void OnLookup(SafetyHookContext& ctx) {
         if (!Read(donor.recordField0C, resolved.data(), 16) || resolved != chosen.guid ||
             !Read(donor.attributes, &descriptor, 4) || !descriptor) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidDonor); continue; }
         if (knownSource && (!settings.crossFamily || chosen.family == found->family) && descriptor != originalDescriptor) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::DescriptorMismatch); continue; }
-        if (knownSource && settings.ventRebinding && ds2::ventContext(found->context)) {
+        if (!knownSource && ventSource && chosen.family == ventSource->family && descriptor != originalDescriptor) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::DescriptorMismatch); continue; }
+        if (ventSource && settings.ventRebinding && ds2::ventContext(ventSource->context)) {
             ds2::native::VentHeaders headers{};
             auto reader = [](uint32_t address, void* output, size_t size) { return Read(address, output, size); };
+            // the catalog's copy of the same record counts too (16.10.: a campaign arena's spawner,
+            // known to the catalog, never got the chosen vent and sent the tripod room's enemies
+            // out through the surgery ward's own vents, 20 to 50 m away)
+            const bool redirect = ventRedirect.active && forcedVentSource && (ventSource == forcedVentSource || ventSource->guid == forcedVentSource->guid);
+            Guid expectedVent = ventSource->vent;
+            if (redirect) {
+                // an earlier redirect left another of the map's vents in the header
+                Guid current{};
+                if (ds2::native::spawningVent(originalPacket.componentSet, static_cast<uint32_t>(base + 0x1CA4078), reader, current) && KnownVentMarker(current))
+                    expectedVent = current;
+            }
             const auto result = ds2::native::prepareVentHeaders(originalPacket.componentSet, donor.componentSet,
-                static_cast<uint32_t>(base + 0x1CA4078), found->vent, reader, headers, chosen.privateTemplate);
+                static_cast<uint32_t>(base + 0x1CA4078), expectedVent, reader, headers, chosen.privateTemplate);
             state->bindResult = 200 + static_cast<unsigned>(result);
             if (result != ds2::native::RebindResult::Ready) { selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidDonor); continue; }
+            if (redirect && !ventRedirect.written) {
+                ventRedirect.was = expectedVent;
+                if (expectedVent == ventRedirect.vent) {
+                    ventRedirect.written = true;
+                    InterlockedIncrement(&ventRedirectsSame);
+                } else if (WriteBytes(headers.source + 0x18, ventRedirect.vent.data(), sizeof(Guid))) {
+                    ventRedirect.written = true;
+                    InterlockedIncrement(&ventRedirectsWritten);
+                } else {
+                    InterlockedIncrement(&ventRedirectFailures);
+                }
+            }
             if (headers.source != headers.donor) {
                 if (!state->binding.arm(ctx.eax, donor.componentSet, headers.source, headers.donor)) {
                     selectionStatus = static_cast<unsigned>(ds2::SelectionStatus::InvalidDonor); continue;
@@ -444,10 +583,15 @@ void OnLookup(SafetyHookContext& ctx) {
             // definition, or the swap is armed and the replacement will run on
             // the source's spawning component: vent, activation flags and
             // spawn-done message alike. Anything else took the `continue` above.
-            if (ds2::ventMessageRelaxed(settings, *found, chosen))
+            if (ds2::ventMessageRelaxed(settings, *ventSource, chosen))
                 InterlockedIncrement(&relaxedVentSwaps);
         }
         donor.transform = originalPacket.transform;
+        if (dividerPlacement && !dividerPlacement->frame && dividerPlacement->spawner == ctx.edi &&
+            forced && chosen.family == "DividerCore") {
+            dividerPlacement->frame = ctx.esp;
+            donor.transform = reinterpret_cast<uintptr_t>(dividerPlacement->matrix);
+        }
         // Keep the level's stream handle, not the donor's.
         //
         // The create path at 0x00776480 reads the packet's handle at +0x08, asks

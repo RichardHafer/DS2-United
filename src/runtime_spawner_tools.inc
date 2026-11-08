@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 bool spawnerToolsEnabled = false, spawnerIdentityVerified = false;
 std::mutex spawnerToolsMutex;
 ds2::SpawnerRules spawnerRules;
@@ -29,6 +30,10 @@ bool ReadSpawnerIdentity(uint32_t object, uint32_t attributes, Guid& guid) {
 // (tools/find_corpse_templates.py). The ch11 convergence spawns one every few
 // seconds and deletes it on a trigger it only reaches as a ragdoll, so a
 // living stand-in piles up until the game crashes during the eyepoke scene.
+// A spawn target a story scene names as its actor (generated_scene_actors.h).
+bool IsSceneActor(const Guid& guid) {
+    return std::binary_search(std::begin(ds2::kSceneActors), std::end(ds2::kSceneActors), guid);
+}
 bool IsCorpseTemplate(const Guid& guid) {
     for (const auto& row : ds2::kCorpseTemplates)
         if (guid[0] == row.guid[0] && guid[1] == row.guid[1] &&
@@ -37,49 +42,17 @@ bool IsCorpseTemplate(const Guid& guid) {
     return false;
 }
 
-// Which difficulty the player picked, straight out of the game's own settings.
-//
-// `Game.PDiff` in `%LOCALAPPDATA%\EA Games\Dead Space 2\settings.txt` is written
-// by the game itself: 0 Casual, 1 Normal, 2 Survivalist, 3 Zealot, 4 Hard Core.
-// Reading a file the game maintains beats hunting for the value in memory, and
-// it cannot be wrong about what the menu was set to. It is re-read whenever the
-// rules are, so switching difficulty needs no restart of anything but the level.
+// The difficulty being played: 0 Casual, 1 Normal, 2 Survivalist, 3 Zealot, 4 Hard Core.
+// The live global Options.difficulty (0x01F6031C, RVA 0x1B6031C), written by a new game,
+// a save's load and the in-game change. `Game.PDiff` in settings.txt is not it: the game
+// writes that only when a campaign is finished, as the best difficulty finished on
+// (analysis/DIFFICULTY_NATIVE_2026-10-20.md section 2).
 uint8_t currentDifficulty = ds2::kAnyDifficulty;
 
-std::string PlayerSettingsPath() {
-    char local[MAX_PATH]{};
-    if (!GetEnvironmentVariableA("LOCALAPPDATA", local, MAX_PATH)) return {};
-    return std::string(local) + "\\EA Games\\Dead Space 2\\settings.txt";
-}
-
-// Last write time of settings.txt, or zero when it cannot be read. The game
-// rewrites the file when the player picks a difficulty for a new game, which
-// happens after this plugin has already loaded the rules once. Watching the
-// time stamp is what keeps a difficulty scoped rule honest in the very first
-// level of a fresh game.
-uint64_t PlayerSettingsWriteTime() {
-    WIN32_FILE_ATTRIBUTE_DATA data{};
-    const std::string path = PlayerSettingsPath();
-    if (path.empty() || !GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data)) return 0;
-    return (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << 32) | data.ftLastWriteTime.dwLowDateTime;
-}
-
 uint8_t ReadPlayerDifficulty() {
-    const std::string path = PlayerSettingsPath();
-    if (path.empty()) return ds2::kAnyDifficulty;
-    std::ifstream file(path);
-    std::string line;
-    while (std::getline(file, line)) {
-        const auto equals = line.find('=');
-        if (equals == std::string::npos) continue;
-        std::string key = line.substr(0, equals);
-        while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) key.pop_back();
-        if (key != "Game.PDiff") continue;
-        const int value = std::atoi(line.c_str() + equals + 1);
-        return value >= 0 && value < ds2::kDifficultyCount
-            ? static_cast<uint8_t>(value) : ds2::kAnyDifficulty;
-    }
-    return ds2::kAnyDifficulty;
+    int32_t value = -1;
+    if (!Read(base + 0x1B6031C, &value, sizeof(value))) return ds2::kAnyDifficulty;
+    return value >= 0 && value < ds2::kDifficultyCount ? static_cast<uint8_t>(value) : ds2::kAnyDifficulty;
 }
 
 ds2::SpawnerRule RuleForSpawner(uint32_t object, uint32_t attributes) {
@@ -192,14 +165,10 @@ void PollSpawnerTools(FILE* log) {
             std::fprintf(log, "spawner_rules tick=%lu result=read_failed_or_oversize_preserve_previous\n", lastReadError);
         }
     }
-    // The rules only reload when their file changes, but the difficulty lives
-    // in the game's own settings file and changes on its own schedule: a new
-    // game picks it after the first load above has already happened. So the
-    // settings file gets its own check, by time stamp, every poll.
-    static uint64_t settingsWriteTime = 0;
-    const uint64_t writeTime = PlayerSettingsWriteTime();
-    if (writeTime && writeTime != settingsWriteTime) {
-        settingsWriteTime = writeTime;
+    // The rules only reload when their file changes; the difficulty changes on
+    // its own schedule (a new game, a save's load, the pause menu), so the
+    // global is read again every poll.
+    {
         const uint8_t difficulty = ReadPlayerDifficulty();
         bool changed = false;
         {
@@ -208,7 +177,7 @@ void PollSpawnerTools(FILE* log) {
             currentDifficulty = difficulty;
         }
         if (changed)
-            std::fprintf(log, "spawner_rules tick=%lu result=difficulty_changed playing=%s\n",
+            std::fprintf(log, "spawner_rules tick=%lu result=difficulty_changed playing=%s source=global_01F6031C\n",
                 GetTickCount(), ds2::difficultyName(difficulty));
     }
     std::array<RecentSpawner, 256> snapshot;

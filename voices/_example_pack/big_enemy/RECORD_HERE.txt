@@ -1,0 +1,6 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  big_enemy_01.wav           warning  (subtitle: Big one!)
+  big_enemy_02.wav           a curse
+
+pack.ini section [big_enemy] lists them; more files are fine, add them there too.

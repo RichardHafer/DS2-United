@@ -6,7 +6,7 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     enum Tone { Neutral, Info, Note, Warning, Error, Pending, Good }
 
@@ -534,15 +534,19 @@ namespace DS2RandomizerConfig
     sealed class NavList : Control
     {
         readonly string[] items;
-        int selected, hover = -1;
+        readonly int[] breaks;    // a divider follows these entries
+        int selected, hover = -1, itemHeight = Look.S(38);
         public bool[] Changed;
+        public bool[] Disabled;   // greyed out, cannot be selected
         public int[] Matches;     // null while not searching
         public event Action SelectedChanged;
 
-        public NavList(string[] items)
+        public NavList(string[] items, int[] breaks)
         {
             this.items = items;
+            this.breaks = breaks ?? new int[0];
             Changed = new bool[items.Length];
+            Disabled = new bool[items.Length];
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                 ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
             TabStop = true;
@@ -555,24 +559,40 @@ namespace DS2RandomizerConfig
             get { return selected; }
             set
             {
-                if (value < 0 || value >= items.Length || value == selected) return;
+                if (value < 0 || value >= items.Length || value == selected || Disabled[value]) return;
                 selected = value;
                 Invalidate();
                 if (SelectedChanged != null) SelectedChanged();
             }
         }
 
-        public int ItemHeight { get { return Look.S(38); } }
+        public int ItemHeight
+        {
+            get { return itemHeight; }
+            set { if (value != itemHeight) { itemHeight = value; Invalidate(); } }
+        }
+
         public int Count { get { return items.Length; } }
+        static int BreakHeight { get { return Look.S(13); } }
+
+        // Height of the whole list at the given entry height.
+        public int HeightFor(int entry) { return Look.S(4) + items.Length * entry + breaks.Length * BreakHeight; }
+
+        int BreaksBefore(int i)
+        {
+            int n = 0;
+            foreach (int b in breaks) if (b < i) n++;
+            return n;
+        }
 
         Rectangle ItemRect(int i)
         {
-            return new Rectangle(Look.S(10), Look.S(2) + i * ItemHeight, Width - Look.S(20), ItemHeight - Look.S(4));
+            return new Rectangle(Look.S(10), Look.S(2) + i * ItemHeight + BreaksBefore(i) * BreakHeight, Width - Look.S(20), ItemHeight - Look.S(4));
         }
 
         int HitTest(Point p)
         {
-            for (int i = 0; i < items.Length; i++) if (ItemRect(i).Contains(p)) return i;
+            for (int i = 0; i < items.Length; i++) if (ItemRect(i).Contains(p)) return Disabled[i] ? -1 : i;
             return -1;
         }
 
@@ -580,6 +600,13 @@ namespace DS2RandomizerConfig
         {
             var g = e.Graphics;
             g.Clear(BackColor);
+            using (var pen = new Pen(Look.Border))
+                foreach (int b in breaks)
+                {
+                    if (b < 0 || b >= items.Length - 1) continue;
+                    int y = ItemRect(b).Bottom + Look.S(2) + BreakHeight / 2;
+                    g.DrawLine(pen, Look.S(22), y, Width - Look.S(22), y);
+                }
             g.SmoothingMode = SmoothingMode.AntiAlias;
             for (int i = 0; i < items.Length; i++)
             {
@@ -592,7 +619,8 @@ namespace DS2RandomizerConfig
                     if (Focused && ShowFocusCues) Look.DrawRound(g, Look.Blend(Look.Selected, Look.Accent, 0.6f), r, Look.S(4));
                 }
                 bool none = Matches != null && Matches[i] == 0;
-                Color color = sel ? Look.Text : none ? Look.Blend(Look.Panel, Look.Muted, 0.6f) : Look.Secondary;
+                Color color = Disabled[i] ? Look.Blend(Look.Panel, Look.Muted, 0.45f) : sel ? Look.Text :
+                    none ? Look.Blend(Look.Panel, Look.Muted, 0.6f) : Look.Secondary;
                 int right = r.Right - Look.S(10);
                 if (Matches != null)
                 {
@@ -643,11 +671,19 @@ namespace DS2RandomizerConfig
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Up) SelectedIndex = selected - 1;
-            else if (e.KeyCode == Keys.Down) SelectedIndex = selected + 1;
+            if (e.KeyCode == Keys.Up) SelectedIndex = Step(-1);
+            else if (e.KeyCode == Keys.Down) SelectedIndex = Step(1);
             else if (e.KeyCode == Keys.Home) SelectedIndex = 0;
             else if (e.KeyCode == Keys.End) SelectedIndex = items.Length - 1;
             base.OnKeyDown(e);
+        }
+
+        // The next entry in that direction that can be selected.
+        int Step(int direction)
+        {
+            for (int i = selected + direction; i >= 0 && i < items.Length; i += direction)
+                if (!Disabled[i]) return i;
+            return selected;
         }
 
         protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
@@ -718,7 +754,7 @@ namespace DS2RandomizerConfig
             int top = (Height - h1 - h2 - h3 - Look.S(4)) / 2;
             var flags = TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
             TextRenderer.DrawText(g, "DEAD SPACE 2", Look.Small, new Rectangle(x, top, width, h1), Look.Accent, flags | TextFormatFlags.EndEllipsis);
-            TextRenderer.DrawText(g, "Randomizer settings", Look.Title, new Rectangle(x, top + h1, width, h2), Look.Text, flags | TextFormatFlags.EndEllipsis);
+            TextRenderer.DrawText(g, "United settings", Look.Title, new Rectangle(x, top + h1, width, h2), Look.Text, flags | TextFormatFlags.EndEllipsis);
             TextRenderer.DrawText(g, iniPath, Look.Small, new Rectangle(x, top + h1 + h2 + Look.S(4), width, h3), Look.Muted, flags | TextFormatFlags.PathEllipsis);
         }
     }

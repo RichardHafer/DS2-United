@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Divider probe: why a pool Divider core drops no parts.
 //
 // Read-only observation of the two retail functions that turn a severed

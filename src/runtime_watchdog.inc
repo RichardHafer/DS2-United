@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Watchdog over the enemies the randomizer created. Include at file scope.
 //
 // A replaced enemy that never dies can hold a room closed. Each one is tracked
@@ -87,6 +88,8 @@ uint32_t timeoutMs = 90000;
 uintptr_t moduleBase = 0;
 safetyhook::MidHook tickHook;
 void OnTick(SafetyHookContext&);
+extern void (*gameThreadWork)();   // below
+extern bool driverOnly;
 
 struct Pending { uint32_t actor = 0, vtable = 0; Guid guid{}; };
 Pending queue[kQueueCapacity]{};
@@ -288,11 +291,25 @@ bool CheckSignature(FILE* log, const char* name, uintptr_t rva,
 bool InstallKill(uintptr_t baseAddress, FILE* log) {
     std::lock_guard<std::mutex> guard(lock);
     moduleBase = baseAddress;
-    if (!enabled || (!killEnabled && !repairEnabled && !releaseEnabled) || tickHook) return false;
-    const unsigned char setHealth[] = {0xF3,0x0F,0x10,0x1D,0xD0,0x5E,0xAA,0x01,
-                                       0xF3,0x0F,0x10,0x44,0x24,0x04,0x0F,0x57};
+    if (tickHook) return false;
     const unsigned char tick[] = {0x83,0xEC,0x08,0x53,0x56,0x8B,0xF1,0x83,
                                   0x4E,0x14,0x01,0x8B,0x4E,0x0C,0x8B,0x56};
+    if (!enabled || (!killEnabled && !repairEnabled && !releaseEnabled)) {
+        // The game-thread work (queued vent repeats, area extra spawns, the placement
+        // key, survival's fallback driver) rides on this tick. With the watchdog off
+        // it is installed for that alone (13.10.: Watchdog=0 left the queue undrained).
+        if (!gameThreadWork) return false;
+        if (!CheckSignature(log, "tick", kTickRva, tick, sizeof(tick))) {
+            std::fprintf(log, "game-thread driver: tick signature moved; queued vent repeats, area extra spawns and the placement key stay off\n");
+            return false;
+        }
+        driverOnly = true;
+        tickHook = safetyhook::create_mid(reinterpret_cast<void*>(moduleBase + kTickRva), OnTick);
+        std::fprintf(log, "watchdog tick %s as the game-thread driver only (watchdog features off)\n", tickHook ? "installed" : "FAILED");
+        return false;
+    }
+    const unsigned char setHealth[] = {0xF3,0x0F,0x10,0x1D,0xD0,0x5E,0xAA,0x01,
+                                       0xF3,0x0F,0x10,0x44,0x24,0x04,0x0F,0x57};
     bool verified = CheckSignature(log, "tick", kTickRva, tick, sizeof(tick));
     bool killable = CheckSignature(log, "set health", kSetHealthRva, setHealth, sizeof(setHealth));
     // The strongest check: both vtables must really carry SetHealth in slot +0x20.
@@ -352,6 +369,27 @@ bool InstallKill(uintptr_t baseAddress, FILE* log) {
 // Direct reads guarded by SEH. On the game thread this is far cheaper than
 // ReadProcessMemory, and a bad pointer costs an exception instead of a crash.
 // Kept in its own function because SEH and C++ objects do not share a frame.
+// A state array the engine built holds 4-aligned heap pointers or nulls. Dump 75636 (02.11., arena
+// restart): DeadSpaceNPCMainSM's array 2D888C98 had been freed and refilled with text, state 3 read
+// 0x1C and state 2 0x402B349A; the update read [0x1C+0xC]. Every state up to the current one is
+// checked, so a refilled block is caught even when the current entry still reads.
+inline bool PlausiblePointer(uint32_t p) { return p >= 0x10000u && (p & 3u) == 0 && p < 0xC0000000u; }
+__declspec(noinline) bool ArrayPlausible(uint32_t array, uint32_t index) {
+    __try {
+        // only up to the current state: the array's length is not stored here, past it lies other memory
+        for (uint32_t i = 0; i <= index; ++i) {
+            const uint32_t entry = *reinterpret_cast<const uint32_t*>(array + i * 4);
+            if (!entry) continue;
+            if (!PlausiblePointer(entry)) return false;
+            const uint32_t transitions = *reinterpret_cast<const uint32_t*>(entry + machine::kStateTransArr);
+            const uint32_t update = *reinterpret_cast<const uint32_t*>(entry + machine::kStateUpdateMessage);
+            if (!PlausiblePointer(transitions) || !PlausiblePointer(update)) return false;
+        }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
 __declspec(noinline) bool ProbeTable(uint32_t sm, uint32_t& tableId, uint32_t& array, uint32_t& rank) {
     __try {
         tableId = *reinterpret_cast<const uint32_t*>(sm + machine::kTableId);
@@ -359,14 +397,20 @@ __declspec(noinline) bool ProbeTable(uint32_t sm, uint32_t& tableId, uint32_t& a
         rank = *reinterpret_cast<const uint32_t*>(sm + machine::kAllocNumber);
         const uint32_t index = *reinterpret_cast<const uint32_t*>(sm + machine::kCurState);
         if (!array || index > 256) return false;
+        if (!PlausiblePointer(array) || !ArrayPlausible(array, index)) return false;
         const uint32_t entry = *reinterpret_cast<const uint32_t*>(array + index * 4);
         if (!entry) return false;
         const uint32_t update = *reinterpret_cast<const uint32_t*>(entry + machine::kStateUpdateMessage);
         const uint32_t transitions = *reinterpret_cast<const uint32_t*>(entry + machine::kStateTransArr);
         if (!update || !transitions) return false;
-        // The update walks both lists, so both must be readable, not just set.
-        (void)*reinterpret_cast<const uint32_t*>(update);
-        (void)*reinterpret_cast<const uint32_t*>(transitions);
+        // The update walks both lists, so both must be readable, not just set,
+        // and so must their first element: it reads message +0/+4 and
+        // transition +0/+8 (dump 39300, 09.10.: NPCGhostSM whose update list
+        // pointed at code, *update readable, [*update+4] not).
+        const uint32_t message = *reinterpret_cast<const uint32_t*>(update);
+        const uint32_t transition = *reinterpret_cast<const uint32_t*>(transitions);
+        if (message) { (void)*reinterpret_cast<const uint32_t*>(message); (void)*reinterpret_cast<const uint32_t*>(message + 4); }
+        if (transition) { (void)*reinterpret_cast<const uint32_t*>(transition); (void)*reinterpret_cast<const uint32_t*>(transition + 8); }
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -391,11 +435,117 @@ __declspec(noinline) bool PokeArray(uint32_t sm, uint32_t array) {
 // seen on a newer table is from the previous generation, and it is migrated
 // while the old block is still mapped. Waiting for the probe to fail lost the
 // race every time: the free happens on another thread inside the same call.
+// A machine whose current state the update would fault on, with no newer table
+// to move to, gets a table of empty states: every list it walks is empty, so
+// the update does nothing and the machine idles until its owner goes.
+struct IdleState { uint32_t transitions, name, enter, update, exit; };
+const uint32_t kNoEntries = 0;
+const char kIdleName[] = "idle";
+const IdleState kIdleState = {static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&kNoEntries)), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(kIdleName)),
+                              static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&kNoEntries)), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&kNoEntries)),
+                              static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&kNoEntries))};
+uint32_t idleArray[257]{};
+volatile LONG idled = 0;
+struct IdledNote { uint32_t sm, tableId; };
+IdledNote idledNotes[8]{};
+// True when the update would fault right away: no array, or the current state's
+// lists or their first elements unreadable. A null state is the game's own case.
+__declspec(noinline) bool WouldFault(uint32_t sm) {
+    __try {
+        const uint32_t array = *reinterpret_cast<const uint32_t*>(sm + machine::kStateArr);
+        const uint32_t index = *reinterpret_cast<const uint32_t*>(sm + machine::kCurState);
+        if (!array || index > 256) return true;
+        if (array == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(idleArray))) return false;
+        if (!PlausiblePointer(array) || !ArrayPlausible(array, index)) return true;
+        const uint32_t entry = *reinterpret_cast<const uint32_t*>(array + index * 4);
+        if (!entry) return false;
+        const uint32_t update = *reinterpret_cast<const uint32_t*>(entry + machine::kStateUpdateMessage);
+        const uint32_t transitions = *reinterpret_cast<const uint32_t*>(entry + machine::kStateTransArr);
+        const uint32_t message = *reinterpret_cast<const uint32_t*>(update);
+        const uint32_t transition = *reinterpret_cast<const uint32_t*>(transitions);
+        if (message) { (void)*reinterpret_cast<const uint32_t*>(message); (void)*reinterpret_cast<const uint32_t*>(message + 4); }
+        if (transition) { (void)*reinterpret_cast<const uint32_t*>(transition); (void)*reinterpret_cast<const uint32_t*>(transition + 8); }
+        return false;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return true;
+    }
+}
+__declspec(noinline) bool Idle(uint32_t sm) {
+    if (!idleArray[0])
+        for (auto& slot : idleArray) slot = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&kIdleState));
+    __try {
+        uint32_t& index = *reinterpret_cast<uint32_t*>(sm + machine::kCurState);
+        if (index > 256) index = 0;
+        *reinterpret_cast<uint32_t*>(sm + machine::kStateArr) = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(idleArray));
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+void IdleIfBroken(uint32_t sm, uint32_t tableId) {
+    if (!repairEnabled || !WouldFault(sm) || !Idle(sm)) return;
+    const LONG n = InterlockedIncrement(&idled) - 1;
+    if (n < 8) idledNotes[n] = IdledNote{sm, tableId};
+}
+
+// Enemies that live through a level teardown (our resident pool's, 09.09. and dump 75636) keep
+// machines whose tables the teardown freed; the block is refilled by the next load, possibly while
+// such a machine ticks, so a check at the top of the update can lose that race. A machine allocated
+// before the last teardown (m_allocNumber is handed out in order: dump 14224, old <= 642, new >= 645)
+// that still ticks afterwards and belongs to a DeadSpaceNPC is parked on the idle table at once,
+// without reading its table. NoteTeardown is called by the survival director and the co-op restart.
+volatile LONG maxRankSeen = 0, teardownRank = 0, teardowns = 0, survivorsParked = 0;
+struct ParkedNote { uint32_t sm, tableId, rank, actor; };
+ParkedNote parkedNotes[8]{};
+char teardownWhy[64] = "";
+void NoteTeardown(const char* why) {
+    const LONG mark = InterlockedCompareExchange(&maxRankSeen, 0, 0);
+    if (mark > InterlockedCompareExchange(&teardownRank, 0, 0)) InterlockedExchange(&teardownRank, mark);
+    InterlockedIncrement(&teardowns);
+    std::snprintf(teardownWhy, sizeof(teardownWhy), "%s", why ? why : "?");
+}
+// A mark set for a restart that never came (no loading screen followed) would park the level's own
+// enemies on their next tick: the director takes it back. Machines already parked stay parked.
+volatile LONG teardownMarksDropped = 0;
+void DropTeardownMark(LONG mark) {
+    if (InterlockedCompareExchange(&teardownRank, 0, mark) == mark) InterlockedIncrement(&teardownMarksDropped);
+}
+LONG TeardownMark() { return InterlockedCompareExchange(&teardownRank, 0, 0); }
+// The machine's owner as a DeadSpaceNPC: the tree root sits at actor+0x248 (machine::kActorTree), the
+// NetReflectable at actor+0x5C answers its class rep through a "mov eax,imm32; ret" getter (+0x78).
+constexpr uint32_t kNpcClassRepRva = 0x1CA8328;
+__declspec(noinline) uint32_t NpcOwnerOf(uint32_t sm) {
+    __try {
+        const uint32_t tree = *reinterpret_cast<const uint32_t*>(sm + 0x18);
+        if (!PlausiblePointer(tree)) return 0;
+        const uint32_t actor = tree - machine::kActorTree;
+        const uint32_t vt = *reinterpret_cast<const uint32_t*>(actor + 0x5C);
+        if (!PlausiblePointer(vt)) return 0;
+        const uint32_t getter = *reinterpret_cast<const uint32_t*>(vt + 0x78);
+        if (getter < moduleBase + 0x1000 || getter >= moduleBase + 0x1800000) return 0;
+        const unsigned char* g = reinterpret_cast<const unsigned char*>(static_cast<uintptr_t>(getter));
+        if (g[0] != 0xB8 || g[5] != 0xC3) return 0;
+        return *reinterpret_cast<const uint32_t*>(getter + 1) == moduleBase + kNpcClassRepRva ? actor : 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
 void OnMachineTick(uint32_t sm) {
     InterlockedIncrement(&machineTicks);
     uint32_t tableId = 0, array = 0, rank = 0;
     const bool usable = ProbeTable(sm, tableId, array, rank);
     if (!tableId) return;
+    if (array == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(idleArray))) return;   // already idled
+    if (rank < 0x10000000u && static_cast<LONG>(rank) > InterlockedCompareExchange(&maxRankSeen, 0, 0)) InterlockedExchange(&maxRankSeen, static_cast<LONG>(rank));
+    const LONG mark = InterlockedCompareExchange(&teardownRank, 0, 0);
+    if (repairEnabled && mark && rank && static_cast<LONG>(rank) <= mark) {
+        const uint32_t actor = NpcOwnerOf(sm);
+        if (actor && Idle(sm)) {
+            const LONG n = InterlockedIncrement(&survivorsParked) - 1;
+            if (n < 8) parkedNotes[n] = ParkedNote{sm, tableId, rank, actor};
+            return;
+        }
+    }
     const uint32_t live = liveTables.Lookup(tableId);
     const uint32_t liveRank = liveTables.RankOf(tableId);
     if (usable && (!live || rank >= liveRank)) {
@@ -403,7 +553,7 @@ void OnMachineTick(uint32_t sm) {
         return;
     }
     if (!repairEnabled || !live || live == array) {
-        if (!usable) InterlockedIncrement(&repairNoDonor);
+        if (!usable) { InterlockedIncrement(&repairNoDonor); IdleIfBroken(sm, tableId); }
         return;
     }
     InterlockedIncrement(&stale);
@@ -413,6 +563,7 @@ void OnMachineTick(uint32_t sm) {
     } else {
         PokeArray(sm, array);
         InterlockedIncrement(&repairNoDonor);
+        IdleIfBroken(sm, tableId);
     }
 }
 
@@ -420,6 +571,7 @@ void OnMachineTick(uint32_t sm) {
 // multiplier uses it to space its repeats out in time; this hook is the only
 // periodic call the plugin has on the thread that owns the actors.
 void (*gameThreadWork)() = nullptr;
+bool driverOnly = false;   // the tick runs gameThreadWork alone (Watchdog=0)
 
 // The twelve bytes the dispatch expects. Laid out by hand rather than by the
 // compiler so the padding after the flag byte is ours and is zero.
@@ -625,6 +777,10 @@ void SayProxiedDeath(const DeathProxy& p) {
 // Game thread, on every state machine update. With nothing queued it only runs
 // the table check and the game-thread work; each queue is one atomic read.
 void OnTick(SafetyHookContext& context) {
+    if (driverOnly) {
+        if (gameThreadWork) gameThreadWork();
+        return;
+    }
     OnMachineTick(context.ecx);
     if (gameThreadWork) gameThreadWork();
     // One release per tick. The dispatch runs every listener of the message, and
@@ -1009,7 +1165,10 @@ void WriteDiagnostics(FILE* log) {
                        InterlockedCompareExchange(&releaseFaults, 0, 0) +
                        InterlockedCompareExchange(&killFaults, 0, 0) +
                        InterlockedCompareExchange(&stagingFull, 0, 0) +
-                       InterlockedCompareExchange(&proxiesNoDispatch, 0, 0);
+                       InterlockedCompareExchange(&proxiesNoDispatch, 0, 0) +
+                       InterlockedCompareExchange(&survivorsParked, 0, 0) +
+                       InterlockedCompareExchange(&idled, 0, 0) +
+                       InterlockedCompareExchange(&teardowns, 0, 0);
     if (total == lastTotal) return;
     lastTotal = total;
     std::fprintf(log, "watchdog summary: tracked=%ld expired=%ld killed=%ld family_excluded=%ld "
@@ -1035,6 +1194,22 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&corpses, 0, 0),
                  InterlockedCompareExchange(&killFaults, 0, 0),
                  InterlockedCompareExchange(&stagingFull, 0, 0));
+    if (InterlockedCompareExchange(&teardowns, 0, 0) && !InterlockedCompareExchange(&survivorsParked, 0, 0))
+        std::fprintf(log, "watchdog teardowns=%ld mark_rank=%ld dropped=%ld last='%s': no enemy machine older than the mark ticked since (none parked)\n",
+                     InterlockedCompareExchange(&teardowns, 0, 0), InterlockedCompareExchange(&teardownRank, 0, 0),
+                     InterlockedCompareExchange(&teardownMarksDropped, 0, 0), teardownWhy);
+    if (const LONG parked = InterlockedCompareExchange(&survivorsParked, 0, 0)) {
+        std::fprintf(log, "watchdog survivors_parked=%ld teardowns=%ld mark_rank=%ld last='%s' (enemy machines older than the last level teardown, parked unread)", parked,
+                     InterlockedCompareExchange(&teardowns, 0, 0), InterlockedCompareExchange(&teardownRank, 0, 0), teardownWhy);
+        for (LONG i = 0; i < parked && i < 8; ++i)
+            std::fprintf(log, " [sm %08X table %08X rank %u actor %08X]", parkedNotes[i].sm, parkedNotes[i].tableId, parkedNotes[i].rank, parkedNotes[i].actor);
+        std::fprintf(log, "\n");
+    }
+    if (const LONG idleCount = InterlockedCompareExchange(&idled, 0, 0)) {
+        std::fprintf(log, "watchdog idled=%ld (broken state tables with no newer one: update would fault, machine parked on empty states)", idleCount);
+        for (LONG i = 0; i < idleCount && i < 8; ++i) std::fprintf(log, " [sm %08X table %08X]", idledNotes[i].sm, idledNotes[i].tableId);
+        std::fprintf(log, "\n");
+    }
     std::fprintf(log, "watchdog death_proxy registered=%ld sent=%ld unregistered=%ld lost=%ld faults=%ld full=%ld pending=%ld teardown=%ld no_dispatch=%ld\n",
                  InterlockedCompareExchange(&proxiesRegistered, 0, 0), InterlockedCompareExchange(&proxiesSent, 0, 0),
                  InterlockedCompareExchange(&proxiesUnregistered, 0, 0), InterlockedCompareExchange(&proxiesLost, 0, 0),

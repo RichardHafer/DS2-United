@@ -1,0 +1,7 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  new_area_01.wav            quiet  (subtitle: Stay sharp.)
+  new_area_02.wav            a remark about the room
+  new_area_03.wav            a breath, looking around
+
+pack.ini section [new_area] lists them; more files are fine, add them there too.

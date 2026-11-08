@@ -1,26 +1,25 @@
-// Guard for a message listener that dereferences a null entity.
+// Dead Space 2 United by Hafer.
+// Guard for damage processing with a dead damage record.
 //
-// Dump 17912 (2026-09-15 13:32): the engine's per-frame broadcast (static
-// message at 0x0204D4A0, sent from 0x007701C0) reached a subscriber whose
-// handler 0x00DD1B80 takes the message for another kind, falls into its
-// "no entity" branch (0x00DD1BB3: xor edx,edx / push edx / push edx) and
-// calls 0x00DC5260(this, entity = null, 0). That function skips the entity
-// only when bit 0 of this+4 is set; here it was clear and the read of
-// [entity+0x60] faulted. A subscriber that still receives frame ticks in a
-// state where it has nothing to listen for is a listener that outlived its
-// object; which one is not known yet. Until it is, the call is fenced: a
-// null entity returns 0 without touching it, and the log counts the fences.
+// Dump 17912 (2026-09-15 13:32): IDamageable::HandleEvents (0x00DD1B80)
+// resolves the damage message's handle ([msg+8], table [0x0201C0F4], index
+// handle >> 23) and, when the entry no longer carries that handle, passes null
+// to IDamageable::ProcessDamage (0x00DC5260, thiscall(const DamageData&, bool)).
+// That function skips the record only when bit 0 of this+4 is set; here it was
+// clear and the read of [damage+0x60] faulted. So the damage record was freed
+// before its message arrived (names from the Xbox build, 11.10.). The call is
+// fenced: a null record returns without touching it, and the log counts it.
 namespace listener_guard {
 safetyhook::InlineHook hook;
 bool installed = false;
 volatile LONG fenced = 0;
 
-int __fastcall OnListener(void* self, void*, void* entity, int flag) {
-    if (!entity) {
+int __fastcall OnListener(void* self, void*, void* damage, int reflected) {
+    if (!damage) {
         InterlockedIncrement(&fenced);
         return 0;
     }
-    return hook.thiscall<int>(self, entity, flag);
+    return hook.thiscall<int>(self, damage, reflected);
 }
 
 bool Install(FILE* log) {
@@ -31,7 +30,7 @@ bool Install(FILE* log) {
                             reinterpret_cast<void*>(OnListener), hook))
         return false;
     installed = true;
-    std::fprintf(log, "listener_guard installed at %08X; null entity returns 0\n", static_cast<unsigned>(base + 0x9C5260));
+    std::fprintf(log, "listener_guard installed at %08X; a null damage record returns\n", static_cast<unsigned>(base + 0x9C5260));
     return true;
 }
 

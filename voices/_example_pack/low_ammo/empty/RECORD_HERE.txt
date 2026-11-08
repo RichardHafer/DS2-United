@@ -1,0 +1,5 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  low_ammo_empty_01.wav      call out  (subtitle: I'm out!)
+
+pack.ini section [low_ammo_empty] lists them; more files are fine, add them there too.

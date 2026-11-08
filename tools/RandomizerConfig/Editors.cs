@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     // One input control bound to one option.
     abstract class Editor

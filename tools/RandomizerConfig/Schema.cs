@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     // Keys, defaults and ranges come from the plugin source (src/observer.cpp and
     // src/runtime_*.inc, ConfigInt/GetPrivateProfileInt/Setting calls).
@@ -15,7 +15,7 @@ namespace DS2RandomizerConfig
 
     static class Schema
     {
-        public const string General = "General";
+        public const string General = "Randomizer";
         public const string Enemies = "Enemies & Families";
         public const string More = "More Enemies";
         public const string Loot = "Loot";
@@ -23,12 +23,22 @@ namespace DS2RandomizerConfig
         public const string Loading = "Loading & Performance";
         public const string Watchdog = "Watchdog & Advanced";
         public const string Diagnostics = "Diagnostics";
+        public const string Expert = "Expert";
 
-        public static readonly string[] Groups = { General, Enemies, More, Loot, Schematics, Loading, Watchdog, Diagnostics };
+        public static readonly string[] Groups = { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus,
+            General, Enemies, More, Loot, Schematics, Loading, Watchdog, Diagnostics, Expert };
+
+        // the side bar draws a divider after these entries: game modes, randomizer, technical
+        public static readonly int[] GroupBreaks = { 3, 8, 11 };
 
         public static readonly Dictionary<string, string> GroupIntro = new Dictionary<string, string>
         {
-            { General, "The settings most players change. Restart the game after saving: the plugin reads this file only at startup. Back up your saves." },
+            { Curated.Coop, "Online co-op between several copies of the game. Most switches have to match on every machine; the host decides levels, checkpoints and enemies." },
+            { Curated.Bots, "Companion bots: up to three extra Isaacs the game itself runs. They follow you, fight, loot, shop and heal. Their personalities are the [Bot1] to [Bot3] sections on the Expert page." },
+            { Curated.Survival, "Survival waves on the multiplayer maps and in the campaign arenas, and the clock modes Mercenaries, Objective and Hold the Zone. The waves themselves ([Wave1] to [Wave10]) are on the Expert page." },
+            { Curated.Versus, "Humans against necromorph players on the multiplayer maps, on the game's own multiplayer systems. Experimental, like the multiplayer map visit everything here builds on." },
+            { Expert, "Every other key in DS2United.ini, grouped by section, with the note from its template. Most of these are tuning values, experiments and diagnostics: change one only when you know what the line does. A key marked \"not in file\" uses the plugin's built-in value until you add it." },
+            { General, "The enemy randomizer's main switches: it replaces the campaign's enemies by seed. Restart the game after saving: the plugin reads this file only at startup. Back up your saves." },
             { Enemies, "Which enemies may be replaced, what may replace them, and how often each kind is picked." },
             { More, "More enemies per spawn point, and hordes. These cost performance; the defaults are tested." },
             { Loot, "Ammo and credits in pickups." },
@@ -114,8 +124,8 @@ namespace DS2RandomizerConfig
 
             // ---- General
             add(B(General, Main, "Enabled", 0, "Randomizer on",
-                "Master switch. Off turns the whole mod off without uninstalling it; only the frame cap and the larger pathfinding memory stay active.").Raw()
-                .Warn(WhenOff(M("Enabled"), "The mod is off. Nothing gets randomized.")));
+                "Master switch for the campaign. Off leaves the campaign's enemies, loot, schematics and bench as the game has them, without uninstalling anything. The frame cap and the larger pathfinding memory stay active.").Raw()
+                .Warn(m => m.On(M("Enabled")) ? null : MasterOff(m)));
             add(I(General, Main, "Seed", 1, 0, 4294967295L, "Seed",
                 "Decides which enemy replaces which. The same seed always gives the same game. The schematic and bench randomizers use it too unless they have their own seed.")
                 .Keep()
@@ -139,6 +149,14 @@ namespace DS2RandomizerConfig
                 "Corpses that an Infector turns into enemies may be replaced too. Same rules as scripted spawns.")
                 .Note("On in the release for the same reason as scripted spawns.")
                 .Warn(WhenOff(M("InfectedArrivals"), "Off makes it tamer: infected corpses always become their original enemy.")));
+            add(B(Enemies, Main, "Twitchers", 1, "Severed enemies",
+                "Twitchers (fast, dodging slashers) and the Severed pregnant can show up in the campaign. The two chances below say how often."));
+            add(I(Enemies, Main, "TwitcherChance", 15, 0, 100, "Twitcher chance (%)",
+                "Share of campaign slashers that become a twitcher when they are not replaced otherwise.")
+                .Warn(m => m.Int(M("TwitcherChance")) > 0 && !m.On(M("Twitchers")) ? "Does nothing while Severed enemies is off." : null));
+            add(I(Enemies, Main, "SeveredPregnantChance", 15, 0, 100, "Severed pregnant chance (%)",
+                "Share of campaign pregnants that become the Severed pregnant when they are not replaced otherwise.")
+                .Warn(m => m.Int(M("SeveredPregnantChance")) > 0 && !m.On(M("Twitchers")) ? "Does nothing while Severed enemies is off." : null));
             add(B(Enemies, Main, "DirectDonors", 0, "Direct donors",
                 "Takes the pool's pack boy template that never attacks out of play. Its hand-made stand-in is withdrawn in this build, so this only removes the broken template. Needs the cross-level enemy pool.")
                 .Warn(m => m.On(M("DirectDonors")) && !m.On(M("GlobalTemplates")) ? "Does nothing while the cross-level enemy pool (GlobalTemplates) is off." : null));
@@ -149,8 +167,15 @@ namespace DS2RandomizerConfig
                 .Warn(m => m.On(M("CrossFamilyVents")) && (!m.On(M("CrossFamily")) || !m.On(M("VentVariants")))
                     ? "Does nothing while Mix enemy kinds (CrossFamily) or Vent spawns: same kind (VentVariants) is off." : null));
             add(B(Enemies, Main, "VentRebinding", 0, "Vent rebinding",
-                "Lets a replacement use the vent the level placed, as long as it is a vent enemy itself. Many more vent spawns can be replaced this way. Needs Vent spawns: same kind.")
-                .Warn(m => m.On(M("VentRebinding")) && !m.On(M("VentVariants")) ? "Does nothing while Vent spawns: same kind (VentVariants) is off." : null));
+                "Lets a replacement use the vent the level placed, as long as it is a vent enemy itself. In the campaign, together with Vent spawns: same kind, many more vent spawns can be replaced this way. Survival needs it on its own for every enemy that comes out of a vent.")
+                .Warn(m =>
+                {
+                    bool survivalVents = m.On("Survival.Enabled") && m.On("Survival.VentSpawns");
+                    if (!m.On(M("VentRebinding")))
+                        return survivalVents ? "Off: no survival enemy comes out of a vent, all of them arrive on foot. Turn it on." : null;
+                    return !m.On(M("VentVariants")) && !survivalVents
+                        ? "Does nothing in the campaign while Vent spawns: same kind (VentVariants) is off; turn that on for campaign vents. Survival uses it either way." : null;
+                }));
             add(B(Enemies, Main, "VentMessageContract", 0, "Relaxed vent matching",
                 "Lets two vent spawns match even when only their spawn-done messages differ. Only works together with Vent rebinding.")
                 .Warn(WhenOn(M("VentMessageContract"), "Experimental and off in the release.")));
@@ -209,9 +234,18 @@ namespace DS2RandomizerConfig
             add(I(More, Main, "MoreEnemiesVentDelayMs", 2000, 0, 30000, "Gap between vent repeats (ms)",
                 "A vent holds one enemy at a time; two in the same frame block each other. 2000 is what the game uses for its own retries.")
                 .Warn(m => m.Int(M("MoreEnemiesVentDelayMs")) == 0 && m.On(M("MoreEnemiesVents")) ? "0 sends repeats into the same vent at once; they can block each other." : null));
+            add(I(More, Main, "MoreEnemiesVentGapMs", 4000, 0, 30000, "Quiet vent before a repeat (ms)",
+                "A vent repeat also waits until nothing has come out of that vent for this long. Two slashers in one wall vent at the same time crash the game.")
+                .Warn(m => m.Int(M("MoreEnemiesVentGapMs")) < 2000 && m.On(M("MoreEnemiesVents")) ? "Below 2000 two enemies can meet in one vent, which can crash the game." : null));
+            add(B(More, Main, "VentQueueGuard", 1, "Vent jam guard",
+                "A vent repeat waits until the enemy before it has left the vent (one held in stasis in the vent mouth can take long) and gives up after 90 s. A dead enemy stuck first in a vent's queue is taken out so the others can come.")
+                .Warn(WhenOff(M("VentQueueGuard"), "Off: stasis on an enemy climbing out of a vent can jam that vent for good.")));
             add(B(More, Main, "MoreEnemiesHideCompletion", 1, "Hide copies from level scripts",
                 "Hides the copies' spawn-completion message from level logic, so a level that counts spawns only counts the original. If it cannot be hidden, that spawn is not multiplied.")
                 .Warn(WhenOff(M("MoreEnemiesHideCompletion"), "Off: level scripts that count spawns also count the copies. Keep it on.")));
+            add(B(More, Main, "MoreEnemiesSkipScripted", 1, "Leave story scenes alone",
+                "Enemies a story scene uses or waits for are never multiplied, for example the slashers Ellie kills when you meet her. Copies of them would be in no scene and roam where the level never has one.")
+                .Warn(WhenOff(M("MoreEnemiesSkipScripted"), "Off: copies of story scene enemies roam the level, and scenes can wait for them.")));
             add(B(More, Main, "MoreEnemiesCrossFamily", 1, "Multiply replaced enemies",
                 "When an enemy was replaced by another kind: on uses the smaller of the two kinds' counts, off does not multiply such a replacement at all. Swarmer spawn points are never multiplied."));
             add(I(More, Main, "SwarmHorde", 6, 1, 12, "Swarmer horde size",
@@ -285,9 +319,15 @@ namespace DS2RandomizerConfig
 
             // ---- Loading & Performance
             add(B(Loading, Main, "GlobalTemplates", 0, "Cross-level enemy pool",
-                "Loads the shared enemy pool, so an enemy can appear in a level that does not ship it. Needs the randomizer folder next to deadspace2.exe.")
+                "Loads the shared enemy pool, so an enemy can appear in a level that does not ship it. Survival takes all its enemies from it. Needs the randomizer folder next to deadspace2.exe.")
                 .Note("Needed for cross-level enemies. Loading screens are held until the pool is in, on purpose.")
-                .Warn(WhenOff(M("GlobalTemplates"), "Off: only enemies the current level already has can be used, so far fewer replacements.")));
+                .Warn(m =>
+                {
+                    if (m.On(M("GlobalTemplates"))) return null;
+                    const string campaign = "Off: only enemies the current level already has can be used, so far fewer replacements.";
+                    return m.On("Survival.Enabled") || m.On("Menu.Enabled")
+                        ? campaign + " Survival needs it too: without it every wave mode, the Versus AI slashers and the campaign arenas have no enemies. Turn it on." : campaign;
+                }));
             add(B(Loading, Main, "GlobalStreamProbe", 0, "Load the pool every level",
                 "Requests the enemy pool at the start of every level. The cross-level enemy pool switches this on by itself.")
                 .Warn(m => !m.On(M("GlobalStreamProbe")) && !m.On(M("GlobalTemplates")) ? "Off together with the cross-level pool: the pool is never loaded." : null));
@@ -318,7 +358,14 @@ namespace DS2RandomizerConfig
                 }));
             add(I(Loading, Main, "NavPowerPoolKiB", 4608, 0, 65536, "Pathfinding memory (KiB)",
                 "Memory for enemy pathfinding. Retail has 576 KiB, enough for about 160 enemies; one more and the game stops with \"ran out of available heap memory\". 0 = retail, 4608 = eight times retail.")
-                .Warn(m => m.Int(M("NavPowerPoolKiB")) < 4608 && m.On(M("MoreEnemies")) ? "Below the default with More enemies on: the game may stop when many enemies are around." : null));
+                .Warn(m =>
+                {
+                    long kib = m.Int(M("NavPowerPoolKiB"));
+                    if (kib < 4608 && m.On(M("MoreEnemies"))) return "Below the default with More enemies on: the game may stop when many enemies are around.";
+                    if (kib <= 576 && m.On("Survival.Enabled") && m.Int("Survival.MaxAlive") > 10)
+                        return "At the retail size survival keeps at most 10 enemies alive, whatever Enemies alive at once (Survival page) says. Set it to 4608.";
+                    return null;
+                }));
 
             // ---- Watchdog & Advanced
             const string softLock = "Off: a stuck replacement that a door or quarantine waits for can soft-lock the game.";
@@ -420,7 +467,26 @@ namespace DS2RandomizerConfig
                 .Validate(Validators.Guid)
                 .Warn(m => m.Get(M("PlanDump")).Length > 0 ? "Test aid. Leave it empty for normal play." : null));
 
+            Curated.Add(list);
             return list;
+        }
+
+        // Rows the window leaves out on purpose; saving keeps them as they are.
+        public static bool Hidden(string section, string key)
+        {
+            if (!section.Equals("Sources", StringComparison.OrdinalIgnoreCase) && !section.Equals("Targets", StringComparison.OrdinalIgnoreCase) &&
+                !section.Equals("VentFamilies", StringComparison.OrdinalIgnoreCase)) return false;
+            return HiddenFamilies.Any(f => f.Equals(key, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // With the master switch off the campaign stays as it is; survival can still
+        // run on its own, but only with its own switch and the enemy pool on.
+        static string MasterOff(Model m)
+        {
+            const string off = "Off: nothing in the campaign is randomized.";
+            if (!m.On("Survival.Enabled") && !m.On("Menu.Enabled")) return off;
+            return off + " Survival still works only with Survival waves (Survival page) and the cross-level enemy pool (Loading page) on. " +
+                "For survival without campaign changes, the proven setup is the randomizer on with Replacement chance 0 and More enemies off.";
         }
 
         static long Rec(Model m, string id)

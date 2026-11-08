@@ -1,0 +1,6 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  stomp_01.wav           a stomping grunt
+  stomp_02.wav           an angry "die!"
+
+pack.ini section [stomp] lists them; more files are fine, add them there too.

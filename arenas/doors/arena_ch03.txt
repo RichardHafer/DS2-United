@@ -1,0 +1,3 @@
+# church crypt door rules (user): the entrance next to spots 1-4 locked, the rest open
+doormark 3938D073-318028C9-4B4C4157-32345245 state=locked at=(58.50 -20.00 -349.60)
+doormark 39252F74-B6B91849-4B4C4157-32345245 state=inner at=(58.50 -30.00 -449.10)

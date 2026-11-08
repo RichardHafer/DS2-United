@@ -1,8 +1,11 @@
 """Embed exact requirements for the private research stream."""
 import json
 import hashlib
+import sys
 from pathlib import Path
-from stream_framing import validate_framing
+# variant_pack.py runs the tools isolated (python -I), which leaves the tools folder off the path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from stream_framing import validate_framing  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 stream_directory = root / "analysis/runtime_stream"

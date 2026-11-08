@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 #pragma once
 #include "selection.h"
 #include "generated_death_messages.h"

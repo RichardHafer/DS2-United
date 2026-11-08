@@ -1,9 +1,12 @@
+// Dead Space 2 United by Hafer.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 // The plain CRT calls (fopen, sscanf, strncpy) are used on purpose; silences C4996.
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
+#include "ds2coop_config.h"
 #include <array>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -19,15 +22,25 @@
 #include "more_enemies.h"
 #include "generated_enemy_catalog.h"
 #include "generated_corpse_templates.h"
+#include "generated_scene_actors.h"
 #include "native_layout.h"
 #include "stream_registry.h"
 #include "stream_states.h"
+#include "log_rotation.h"
 #include "component_rebinding.h"
 #include "construction_binding.h"
 #include "generated_stream_requirements.h"
 #include "generated_global_targets.h"
 #include "global_stream_lifetime.h"
 #include "global_pool.h"
+#include "survival.h"
+#include "coop_progress.h"
+#include "coop_mpmap.h"
+#include "coop_arena.h"
+#include "coop_difficulty.h"   // the difficulty's names on the survival HUD
+#include "generated_survival_vents.h"
+#include "generated_slasher_skins.h"      // the Versus slashers' skins per pool model
+#include "generated_objective_table.h"   // the Objective mode's messages per MP map
 #include "../third_party/safetyhook/safetyhook.hpp"
 #include "hook_site.h"
 
@@ -143,9 +156,42 @@ unsigned MessageStringAddress(const char* name) {
 
 std::recursive_mutex streamProbeMutex;
 bool GlobalDonorAllowed(uint32_t handle);
+// The survival director (runtime_survival.inc) rides on the frame tick and the
+// state machine tick; set once it is installed.
+void (*survivalFrameTick)() = nullptr;
+void (*survivalMachineTick)() = nullptr;
+// Called at the level's release points before the pool goes: the director ends
+// its run and puts template values back while the pool is still there.
+void (*survivalLevelEnding)(const char*) = nullptr;
+// Pool enemies the director made in the current level, reset with the service.
+volatile LONG survivalLevelSpawns = 0;
+volatile LONG streamReleaseHeldSurvival = 0;
+// [Survival] Enabled in DS2Survival.ini, read before the hooks go in.
+bool survivalWanted = false;
+// Master switch off with survival on: the randomizer runs for survival alone. The
+// campaign keeps its own enemies (chance 0); MoreEnemies, hordes, extra spawns, loot,
+// the bench and schematic randomizers and the watchdog stay off.
+bool survivalOnly = false;
+// The selection lookup moved: survival names that instead of the master switch.
+bool lookupMismatch = false;
+// A co-op client (DS2Coop_NetRole() == 2): the host's enemies reach it as
+// ghosts and its own NPC spawns are suppressed, so it repeats nothing.
+volatile LONG coopClientSkips = 0;
+bool CoopClient() {
+    using RoleFn = int(__cdecl*)();
+    static RoleFn role = nullptr;
+    static bool looked = false;
+    if (!looked) {
+        looked = true;
+        if (HMODULE coop = ds2coop::PartnerModule("DS2United.asi")) role = reinterpret_cast<RoleFn>(GetProcAddress(coop, "DS2Coop_NetRole"));
+    }
+    return role && role() == 2;
+}
 #include "runtime_spawner_tools.inc"
 #include "runtime_placement.inc"
 #include "runtime_selection.inc"
+#include "runtime_vent_gate.inc"
+#include "runtime_objective_watch.inc"
 #include "runtime_more_enemies.inc"
 #include "runtime_stream_probe.inc"
 #include "runtime_pool_ownership.inc"
@@ -156,12 +202,70 @@ bool GlobalDonorAllowed(uint32_t handle);
 #include "runtime_material_probe.inc"
 #include "runtime_divider_probe.inc"
 #include "runtime_listener_guard.inc"
+#include "runtime_swarm_guard.inc"
 #include "runtime_guid_redirect.inc"
 #include "runtime_loot.inc"
+#include "runtime_exit_guard.inc"
+#include "runtime_perfdiag.inc"
 #include "runtime_frame_cap.inc"
 #include "runtime_texture_probe.inc"
+#include "runtime_sound_probe.inc"
 #include "runtime_stream_watch.inc"
 #include "runtime_zone_unload.inc"
+#include "runtime_survival.inc"
+
+// Some templates have a DSNavRoutingComponent without nav routing settings (21
+// walkers in the catalog, among them the ch09 elevator ride's slasher_miner): with
+// none the component builds no mover and the enemy never paths, it stood in
+// survival until a player came within a few metres (13.10.). The component reads
+// the settings GUID from its attributes once, on its first post-spawn message
+// (NavRoutingComponent::HandleEvents 0x0136B6B0: attributes +0x00, the resolved
+// SafePtr +0x70, flag +0x84 bit 5), so a GUID written into the template right
+// after the spawn reaches this copy and every later one. The GUID is the one a
+// navigating enemy of the same family came with (the slashers' own as a start).
+namespace navrepair {
+constexpr uint32_t kNavTypeRva = 0x1CA8062, kNavAttributes = 0x0C, kNavSettings = 0x70, kNavFlags = 0x84, kNavResolved = 0x20;
+const Guid kSlasherRouting = {0x33CA6342u, 0x04D85EE8u, 0x4B4C4546u, 0x30315245u};
+std::map<std::string, Guid> learned;
+SRWLOCK lock = SRWLOCK_INIT;
+volatile LONG learnedCount = 0, repaired = 0, repairedLate = 0, unknownFamily = 0, writeFailed = 0, lines = 0;
+uint32_t Component(uint32_t entity) {
+    unsigned char type = 0, index = 0;
+    uint32_t types = 0, list = 0, component = 0, owner = 0;
+    if (!entity || !Read(base + kNavTypeRva, &type, 1) || !type || !Read(entity + 0x44, &types, 4) || !types || !Read(entity + 0x48, &list, 4) || !list) return 0;
+    if (!Read(types + type + 0xC, &index, 1) || !Read(list + index * 4u, &component, 4) || !component) return 0;
+    return Read(component + 0x10, &owner, 4) && owner == entity ? component : 0;
+}
+// Game thread, from OnCreated.
+void Check(uint32_t actor, const std::string& family) {
+    const uint32_t component = Component(actor);
+    uint32_t attributes = 0;
+    Guid routing{};
+    if (!component || !Read(component + kNavAttributes, &attributes, 4) || !attributes || !Read(attributes, routing.data(), 16)) return;
+    AcquireSRWLockExclusive(&lock);
+    if (routing != Guid{}) {
+        if (!family.empty() && learned.emplace(family, routing).second) InterlockedIncrement(&learnedCount);
+        ReleaseSRWLockExclusive(&lock);
+        return;
+    }
+    const auto known = learned.find(family);
+    const Guid use = known != learned.end() ? known->second : family == "Zombie" ? kSlasherRouting : Guid{};
+    ReleaseSRWLockExclusive(&lock);
+    if (use == Guid{}) {
+        if (InterlockedIncrement(&unknownFamily) <= 10) survival_rt::Event("navrepair actor=%08X family=%s: no nav routing settings and none known for the family yet", actor,
+                                                                    family.c_str());
+        return;
+    }
+    uint32_t flags = 0;
+    Read(component + kNavFlags, &flags, 4);
+    const bool late = (flags & kNavResolved) != 0;
+    if (!WriteBytes(attributes, use.data(), 16)) { InterlockedIncrement(&writeFailed); return; }
+    InterlockedIncrement(late ? &repairedLate : &repaired);
+    if (InterlockedIncrement(&lines) <= 30)
+        survival_rt::Event("navrepair actor=%08X family=%s: its template had no nav routing settings; %08X-%08X-%08X-%08X written into %08X%s", actor, family.c_str(),
+                     use[0], use[1], use[2], use[3], attributes, late ? " (this copy already looked: the next copies path)" : "");
+}
+}  // namespace navrepair
 
 void OnCreated(SafetyHookContext& ctx) {
     SelectionFrame saved{};
@@ -179,6 +283,13 @@ void OnCreated(SafetyHookContext& ctx) {
         if (!saved.applied) saved.bindResult = 102;
     }
     InterlockedIncrement(ctx.eax ? &created : &failed);
+    // What a forced spawn's caller needs to know beyond the actor.
+    if (extraSpawnActive) {
+        lastCreatedStatus = saved.status;
+        lastCreatedArmed = saved.binding.packet != 0;
+        lastCreatedApplied = saved.applied;
+        lastCreatedBind = saved.bindResult;
+    }
     if (saved.status < static_cast<unsigned>(ds2::SelectionStatus::Count))
         InterlockedIncrement(&statusCounts[saved.status]);
     const bool replaced = saved.status == static_cast<unsigned>(ds2::SelectionStatus::PacketReplaced) && ctx.eax;
@@ -211,7 +322,9 @@ void OnCreated(SafetyHookContext& ctx) {
             const unsigned vent = watchdogVentSeconds * 1000u;
             leash = vent < family ? vent : family;
         }
-        ds2_watchdog_runtime::Track(ctx.eax, saved.guid, allowKill, leash, reader);
+        // The survival director watches its own enemies (a wave fight is long,
+        // the leash would cut it short).
+        if (!survivalSpawnActive) ds2_watchdog_runtime::Track(ctx.eax, saved.guid, allowKill, leash, reader);
         // A scripted room waits for the messages the authored enemy would have
         // sent: its death above all, and in fewer places the end of its spawn,
         // a health change, or noticing the player. The replacement carries the
@@ -234,7 +347,12 @@ void OnCreated(SafetyHookContext& ctx) {
             MarkHordeReplacement(ctx.edi, donor->family, sourceRecord->deathMessage.hash);
         // The multiplier counts what stands there, not what was authored.
         if (haveDonor) NoteReplacement(ctx.edi, donor->family);
-        if (haveSource && haveDonor) {
+        // A survival spawn has no catalog source (an MP slasher or a prop), so it
+        // is treated as a source without messages: the donor's own, named for a
+        // campaign room, are cleared and nothing on the MP map hears them.
+        static const ds2::EnemyRecord kNoSource{};
+        const ds2::EnemyRecord& sourceOrNone = haveSource ? *sourceRecord : kNoSource;
+        if (haveDonor && (haveSource || survivalSpawnActive)) {
             // Components, not the authored attribute header behind them: that
             // header is shared by every spawn of the same donor and is read at
             // construction anyway, so patching it changed nothing and would have
@@ -265,11 +383,11 @@ void OnCreated(SafetyHookContext& ctx) {
                 const ds2::ScriptMessage& carried;
             } work[] = {
                 {ds2::kDeathFields, std::size(ds2::kDeathFields),
-                 sourceRecord->deathMessage, donor->deathMessage},
+                 sourceOrNone.deathMessage, donor->deathMessage},
                 {ds2::kHealthModifiedFields, std::size(ds2::kHealthModifiedFields),
-                 sourceRecord->healthModifiedMessage, donor->healthModifiedMessage},
+                 sourceOrNone.healthModifiedMessage, donor->healthModifiedMessage},
                 {ds2::kSpawnDoneFields, std::size(ds2::kSpawnDoneFields),
-                 sourceRecord->spawnDoneMessage, donor->spawnDoneMessage},
+                 sourceOrNone.spawnDoneMessage, donor->spawnDoneMessage},
                 // MSG_AWARE (kAwareFields) is deliberately not here any more.
                 // The three above are messages the actor sends; MSG_AWARE is one
                 // it listens for: the AwarenessComponent (descriptor 0x020A4D98)
@@ -319,6 +437,15 @@ void OnCreated(SafetyHookContext& ctx) {
         InterlockedIncrement(saved.applied ? &bindingApplied : &bindingMissed);
     }
     RecordRecentSpawner(ctx.edi, ctx.ebp, ctx.eax, saved.status, saved.guid);
+    NoteSpawnerSpawn(ctx.edi);
+    ventq::NoteArrival(ctx.edi, ctx.ebp, ctx.eax);
+    if (ctx.eax) {
+        // the family of what was spawned: the donor when one was chosen, else the authored target
+        Guid spawned = saved.guid;
+        if (spawned == Guid{}) Read(ctx.ebp + 0x0C, spawned.data(), 16);
+        const auto record = std::lower_bound(pool.begin(), pool.end(), spawned, [](const auto& r, const Guid& g) { return r.guid < g; });
+        navrepair::Check(ctx.eax, record != pool.end() && record->guid == spawned ? record->family : std::string());
+    }
     if (!observeDetails || !detailLimit) return;
     // A ring, not a list that fills up. The crash that matters is usually late
     // in a session, and with a fixed list the spawn lines had stopped long
@@ -386,30 +513,54 @@ std::map<Guid, std::string> LoadCatalog(const std::string& path) {
     return result;
 }
 
+// The host's seed on a co-op client, see DS2Randomizer_AdoptSeed.
+namespace seed_adopt {
+uint32_t iniSeed = 0;
+volatile LONG ready = 0, active = 0, changes = 0;
+volatile LONG current = 0, adoptions = 0, reverts = 0, logged = -1, lastMs = 0;
+}
+
 DWORD WINAPI Worker(void* module) {
     char path[MAX_PATH]{};
     GetModuleFileNameA(static_cast<HMODULE>(module), path, MAX_PATH);
     std::string directory(path);
     directory.resize(directory.find_last_of("\\/") + 1);
-    const std::string ini = directory + "DS2Randomizer.ini";
+    const std::string ini = ds2coop::ConfigFile(directory, "DS2Randomizer.ini");
     FILE* log = nullptr;
     // Keep the last runs. Comparing two players means comparing two runs, and
     // starting the game once used to destroy the log that was being compared.
     // The most recent finished run is DS2Randomizer.1.log, the one before it
     // .2.log, and so on up to .5.log; the oldest falls off the end.
-    const std::string logPath = directory + "DS2Randomizer.log";
-    constexpr unsigned kKeptLogs = 5;
-    auto kept = [&](unsigned index) {
-        return directory + "DS2Randomizer." + std::to_string(index) + ".log";
-    };
-    std::remove(kept(kKeptLogs).c_str());
-    for (unsigned index = kKeptLogs - 1; index >= 1; --index)
-        std::rename(kept(index).c_str(), kept(index + 1).c_str());
-    std::rename(logPath.c_str(), kept(1).c_str());
-    // A leftover from the one-file scheme this replaces slots in behind it.
-    const std::string previousPath = directory + "DS2Randomizer.previous.log";
-    std::rename(previousPath.c_str(), kept(2).c_str());
+    // A second copy of the game on this PC (DS2COOP / DS2COOP_PORT) writes its own
+    // log and leaves the rotation alone: the first copy holds DS2Randomizer.log,
+    // and a failed open used to switch the whole randomizer off in the second.
+    char copyPort[64]{};
+    if (!GetEnvironmentVariableA("DS2COOP_PORT", copyPort, sizeof(copyPort)) &&
+        GetEnvironmentVariableA("DS2COOP", copyPort, sizeof(copyPort)))
+        copyPort[std::strcspn(copyPort, ",")] = 0;
+    std::string logPath = directory + "DS2Randomizer.log";
+    if (copyPort[0]) {
+        // A co-op copy's log was overwritten at every start; it keeps three runs now.
+        log_rotation::Rotate(directory + "DS2Randomizer.coop" + copyPort);
+        logPath = directory + "DS2Randomizer.coop" + copyPort + ".log";
+    } else {
+        constexpr unsigned kKeptLogs = 5;
+        auto kept = [&](unsigned index) {
+            return directory + "DS2Randomizer." + std::to_string(index) + ".log";
+        };
+        std::remove(kept(kKeptLogs).c_str());
+        for (unsigned index = kKeptLogs - 1; index >= 1; --index)
+            std::rename(kept(index).c_str(), kept(index + 1).c_str());
+        std::rename(logPath.c_str(), kept(1).c_str());
+        // A leftover from the one-file scheme this replaces slots in behind it.
+        const std::string previousPath = directory + "DS2Randomizer.previous.log";
+        std::rename(previousPath.c_str(), kept(2).c_str());
+    }
     log = _fsopen(logPath.c_str(), "w", _SH_DENYWR);
+    if (!log) {
+        logPath = directory + "DS2Randomizer.pid" + std::to_string(GetCurrentProcessId()) + ".log";
+        log = _fsopen(logPath.c_str(), "w", _SH_DENYWR);
+    }
     if (!log) return 0;
     base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     // First, before the catalog and the pool cost seconds: the NavPower pool
@@ -426,6 +577,7 @@ DWORD WINAPI Worker(void* module) {
     LoadVentDonorBlocklist(log);
     ds2_watchdog_runtime::reportBadVentDonor = RememberBadVentDonor;
     spawnerRecentPath = directory + "DS2SpawnerRecent.tsv";
+    survivalWanted = GetPrivateProfileIntA("Survival", "Enabled", 0, ds2coop::ConfigFile(directory, "DS2Survival.ini").c_str()) != 0;
     LoadEnemyPool(ini);
     if (ventBlocklistApplied)
         std::fprintf(log, "vent_blocklist applied=%u of %zu remembered\n",
@@ -449,6 +601,13 @@ DWORD WINAPI Worker(void* module) {
                      forced, trimmed, poolFamilyUnpackaged, poolPassiveDonors);
     }
     LoadMoreEnemiesSettings(ini);
+    if (survivalOnly) {
+        moreEnemies.enabled = false;
+        extraSpawnsEnabled = false;
+        DisableHordes();
+        std::fprintf(log, "master off (Enabled=0) with [Survival] Enabled=1: survival only. The campaign keeps its own enemies (chance 0); "
+                          "MoreEnemies, hordes, extra spawns, loot, the bench and schematic randomizers and the watchdog stay off\n");
+    }
     bool streamProbe = globalTemplates || ConfigInt(ini, "DS2Randomizer", "GlobalStreamProbe", 0, 0, 1) != 0;
     // Experimental: hold a reference on the pool's shared character streams so a
     // room change cannot free the state tables of NPCs built from the pool.
@@ -482,10 +641,17 @@ DWORD WINAPI Worker(void* module) {
     for (const char* family : {"Infector", "Stalker", "SwarmEnemy"})
         std::fprintf(log, "experimental_class=%s enabled=%d\n", family,
             ConfigInt(ini, "ExperimentalClasses", family, 0, 0, 1));
-    std::fprintf(log, "direct_donors=%d pack_boy_stand_in=%s withdrawn_donors=%u corpse_templates=%zu\n", directDonors,
-                 directDonors && !withdrawnDonors ? "offered" : "withheld", withdrawnDonors,
+    std::fprintf(log, "direct_donors=%d pack_boy_stand_in=%s withdrawn_donors=%u (offered to the survival director) corpse_templates=%zu\n", directDonors,
+                 directDonors && !withdrawnDonors ? "offered" : "withheld in the campaign", withdrawnDonors,
                  std::size(ds2::kCorpseTemplates));
     std::fprintf(log, "variants enabled=%d offered=%u\n", variantsEnabled ? 1 : 0, variantsLoaded);
+    std::fprintf(log, "twitchers enabled=%d severed rows=%u (oracle %u, for the %u enhanced sources) skipped=%u campaign_chance twitcher=%u pregnant=%u "
+                      "campaign_plans=%u (no candidate %u)%s%s\n",
+                 twitchersEnabled ? 1 : 0, twitcherRowsLoaded, oracleRowsLoaded, enhancedSources, ds2::retargetRowsSkipped, settings.twitcherChance,
+                 settings.pregnantChance, twitcherPlans,
+                 twitcherPlansEmpty,
+                 ds2::retargetSkipReason.empty() ? "" : " first skip: ", ds2::retargetSkipReason.c_str());
+    if (twitchersRefused[0]) std::fprintf(log, "twitchers REFUSED: %s\n", twitchersRefused);
     if (!poolStageFailed.empty()) std::fprintf(log, "global_templates off at %s\n", poolStageFailed.c_str());
     if (!planDumpLine.empty()) std::fprintf(log, "%s\n", planDumpLine.c_str());
     for (const auto& record : pool)
@@ -498,11 +664,6 @@ DWORD WINAPI Worker(void* module) {
     for (const auto& plan : plans) ++planCounts[static_cast<unsigned>(plan.status)];
     for (unsigned i = 0; i < static_cast<unsigned>(ds2::SelectionStatus::Count); ++i)
         if (planCounts[i]) std::fprintf(log, "plan reason=%s records=%u\n", ds2::statusName(i), planCounts[i]);
-    if (!observeDetails && !settings.enabled && !streamProbe && !spawnerToolsEnabled &&
-        !moreEnemies.enabled) {
-        std::fprintf(log, "inactive: enable DS2Randomizer.Enabled or ObserveSpawns in %s\n", ini.c_str());
-        std::fclose(log); return 0;
-    }
     // Enabled=0 is the master switch. Until 2026-09-17 it only stopped the
     // enemy replacement: the pool still loaded, the loading screen was still
     // taken over, and hordes, loot and the watchdog still ran. With it off
@@ -510,14 +671,21 @@ DWORD WINAPI Worker(void* module) {
     // limiter. ObserveSpawns=1 does not override it (on 2026-09-17 it did,
     // and the switch looked dead).
     if (!settings.enabled) {
-        std::fprintf(log, "master off (Enabled=0): only the frame cap is installed (ObserveSpawns=%d ignored)\n", observeDetails ? 1 : 0);
+        std::fprintf(log, "master off (Enabled=0) and survival off: only the frame cap is installed (ObserveSpawns=%d ignored)\n", observeDetails ? 1 : 0);
+        survival_rt::NotReady("survival is off ([Survival] Enabled=0)", "turn on Survival in DS2UnitedConfig.exe, or set [Survival] Enabled=1");
         std::fflush(log);
         for (unsigned attempt = 0; attempt < 300 && !Signature(); ++attempt) Sleep(1000);
-        if (Signature()) frame_cap::Install(log, ini);
+        if (Signature()) {
+            frame_cap::Install(log, ini);
+            perfdiag::Install(log, ini);
+            exit_guard::Install(log, ini, directory, frame_cap::installed);
+        }
         std::fflush(log);
         for (;;) {
             Sleep(1000);
-            if (frame_cap::installed) frame_cap::WriteDiagnostics(log);
+            exit_guard::Poll(log);
+            if (frame_cap::installed) { frame_cap::WriteDiagnostics(log); perfdiag::WriteDiagnostics(log); }
+            if (exit_guard::installed) exit_guard::WriteDiagnostics(log);
             std::fflush(log);
         }
     }
@@ -545,6 +713,7 @@ DWORD WINAPI Worker(void* module) {
     if (!matched) {
         std::fprintf(log, "signature unavailable after %u checks; no hook installed\n",
                      kSignatureAttempts);
+        survival_rt::NotReady("the randomizer never found the game code it needs (another game build)", "use the supported Steam build of the game");
         std::fclose(log); return 0;
     }
     // A head start for plugins that verify retail bytes at their install
@@ -562,12 +731,14 @@ DWORD WINAPI Worker(void* module) {
     if (settings.enabled && (!Read(base + 0x376440, lookupActual, sizeof(lookupActual)) ||
         std::memcmp(lookupActual, lookupBytes, sizeof(lookupBytes)) != 0)) {
         settings.enabled = false;
+        lookupMismatch = true;
         std::fprintf(log, "lookup signature mismatch; mutation disabled\n");
     }
     HMODULE pinned = nullptr;
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                            reinterpret_cast<LPCSTR>(&OnCreated), &pinned)) {
         std::fprintf(log, "module pin failed; no hook installed\n");
+        survival_rt::NotReady("the randomizer could not pin itself in memory", "restart the game; DS2Randomizer.log has the details");
         std::fclose(log); return 0;
     }
     if (spawnerToolsEnabled) {
@@ -576,7 +747,9 @@ DWORD WINAPI Worker(void* module) {
     }
     observer = safetyhook::create_mid(reinterpret_cast<void*>(base + 0xACB2D0), OnCreated);
     if (!observer) {
-        std::fprintf(log, "observation hook failed\n"); std::fclose(log); return 0;
+        std::fprintf(log, "observation hook failed\n");
+        survival_rt::NotReady("the randomizer could not hook the spawn function", "another plugin may hook it; see DS2Randomizer.log");
+        std::fclose(log); return 0;
     }
     if (streamProbe && !InstallStreamProbe(log)) {
         std::fprintf(log, "stream_probe unavailable; no global load will be requested\n");
@@ -588,9 +761,13 @@ DWORD WINAPI Worker(void* module) {
     if (streamProbe && observeDetails) InstallMaterialProbe(log);
     if (observeDetails) divider_probe::Install(log);
     listener_guard::Install(log);
+    swarm_guard::Install(log);
+    swarm_guard::InstallCollisionGuard(log);
     guid_redirect::Install(log);
-    loot::Install(log, ini);
+    if (!survivalOnly) loot::Install(log, ini);
     frame_cap::Install(log, ini);
+    perfdiag::Install(log, ini);
+    exit_guard::Install(log, ini, directory, frame_cap::installed);
     placement::Install(log, ini);
     if (settings.enabled) {
         if (settings.ventRebinding && !InstallBindingHooks(log)) {
@@ -622,11 +799,14 @@ DWORD WINAPI Worker(void* module) {
         std::fprintf(log, "extra_spawns off: the selection hook is not installed (see the lookup or selection hook line above)\n");
     }
     // The repeat hook serves MoreEnemies and the swarm horde alike.
-    if ((moreEnemies.enabled || HordesActive() || extraSpawnsEnabled) && !InstallMoreEnemies(log)) {
+    if ((moreEnemies.enabled || HordesActive() || extraSpawnsEnabled || survivalWanted) && !InstallMoreEnemies(log)) {
         moreEnemies.enabled = false;
         DisableHordes();
         std::fprintf(log, "more_enemies disabled; authored spawns are untouched\n");
     }
+    // Survival waves on a multiplayer map: needs the selection hook, the pool
+    // and the FuncSpawn registry above, so it goes in after them.
+    survival_rt::Install(log, directory);
     std::fprintf(log, "signature verified; post-create observer installed at %08X\n",
                  static_cast<unsigned>(base + 0xACB2D0));
     std::fflush(log);
@@ -644,26 +824,47 @@ DWORD WINAPI Worker(void* module) {
     std::fprintf(log, "stream_registry_diagnostics=%d read_only=1 report_limit=60\n", registryDiagnostics);
     // Disabled unless [SchematicRandomizer] Enabled=1. Validates its own six
     // retail signatures and refuses to hook if any of them moved.
-    ds2_schematic_runtime::Install(base, ini.c_str(), log);
-    ds2_bench_runtime::Install(base, ini.c_str(), log);
+    if (!survivalOnly) {
+        ds2_schematic_runtime::Install(base, ini.c_str(), log);
+        ds2_bench_runtime::Install(base, ini.c_str(), log);
+    }
     ds2_service_guard::Install(base, ini.c_str(), log);
     ds2_watchdog_runtime::Configure(ini.c_str(), log);
+    if (survivalOnly && ds2_watchdog_runtime::enabled) {
+        ds2_watchdog_runtime::enabled = false;
+        std::fprintf(log, "watchdog off: survival only (the master switch is off)\n");
+    }
     ds2_watchdog_runtime::InstallKill(base, log);
     // Diagnostic only, off unless asked for: one line per script message.
     message_trace::enabled = ConfigInt(ini, "DS2Randomizer", "MessageTrace", 0, 0, 1) != 0;
     if (message_trace::enabled) message_trace::Install(log);
     texture_probe::enabled = ConfigInt(ini, "DS2Randomizer", "TextureProbe", 0, 0, 1) != 0;
     if (texture_probe::enabled) { texture_probe::Install(log); texture_probe::InstallSkinProbe(log); }
+    // Diagnostic: which enemies ask for sounds and which are found.
+    sound_probe::enabled = ConfigInt(ini, "DS2Randomizer", "SoundProbe", 0, 0, 1) != 0;
+    if (sound_probe::enabled) sound_probe::Install(log);
     // The loading screen stays up for MinimumLoadingSeconds and, while the
     // pool is requested but not ready, up to MaximumLoadingSeconds.
     loading_hold::Install(log, ini.c_str(), streamProbe);
     // Only the pool's own references can hold a zone switch up.
     if (streamProbe) zone_unload::Install(log, ini);
     std::fflush(log);
+    seed_adopt::iniSeed = settings.seed;
+    InterlockedExchange(&seed_adopt::ready, 1);
     LONG moreEnemiesFlushed = 0;
     for (;;) {
         PollSpawnerTools(log);
         ds2_schematic_runtime::WriteDiagnostics(log);
+        if (const LONG changes = InterlockedCompareExchange(&seed_adopt::changes, 0, 0); changes != seed_adopt::logged) {
+            seed_adopt::logged = changes;
+            const LONG adopted = InterlockedCompareExchange(&seed_adopt::current, 0, 0);
+            if (InterlockedCompareExchange(&seed_adopt::active, 0, 0))
+                std::fprintf(log, "seed: the host's seed %lu is used (INI seed %u), enemy plans and blueprints rebuilt in %ld ms; the bench keeps the INI seed; adoptions=%ld\n",
+                             static_cast<unsigned long>(adopted), seed_adopt::iniSeed, InterlockedCompareExchange(&seed_adopt::lastMs, 0, 0),
+                             InterlockedCompareExchange(&seed_adopt::adoptions, 0, 0));
+            else if (InterlockedCompareExchange(&seed_adopt::reverts, 0, 0))
+                std::fprintf(log, "seed: back to the INI seed %u; reverts=%ld\n", seed_adopt::iniSeed, InterlockedCompareExchange(&seed_adopt::reverts, 0, 0));
+        }
         WriteMoreEnemiesDiagnostics(log, moreEnemiesFlushed);
         ds2_bench_runtime::WriteDiagnostics(log);
         ds2_service_guard::WriteDiagnostics(log);
@@ -675,6 +876,7 @@ DWORD WINAPI Worker(void* module) {
         loading_hold::WriteDiagnostics(log);
         zone_unload::WriteDiagnostics(log);
         if (streamWatch) PollStreamWatch(log);
+        text_packs::FollowUp(log);
         const LONG prerequisite = InterlockedCompareExchange(&streamProbePrerequisite, 0, 0);
         if (prerequisite >= 0 && prerequisite != lastPrerequisite &&
             static_cast<unsigned>(prerequisite / 16) < std::size(ds2::kStreamRequirements)) {
@@ -694,10 +896,14 @@ DWORD WINAPI Worker(void* module) {
         if (streamProbe && observeDetails) FlushMaterialProbe(log);
         if (divider_probe::installed) divider_probe::Flush(log);
         if (listener_guard::installed) listener_guard::WriteDiagnostics(log);
+        if (swarm_guard::installed || swarm_guard::collisionInstalled) swarm_guard::WriteDiagnostics(log);
         if (guid_redirect::installed) guid_redirect::WriteDiagnostics(log);
         if (loot::installed) loot::WriteDiagnostics(log);
-        if (frame_cap::installed) frame_cap::WriteDiagnostics(log);
+        if (frame_cap::installed) { frame_cap::WriteDiagnostics(log); perfdiag::WriteDiagnostics(log); }
+        exit_guard::Poll(log);
+        if (exit_guard::installed) exit_guard::WriteDiagnostics(log);
         if (placement::installed) placement::WriteDiagnostics(log);
+        survival_rt::WriteDiagnostics(log);
         static LONG lastFileSlotWaits = 0;
         const LONG slotWaits = InterlockedCompareExchange(&fileSlotWaits, 0, 0);
         if (slotWaits != lastFileSlotWaits) { std::fprintf(log, "pool_request file_slot_waits=%ld\n", slotWaits); lastFileSlotWaits = slotWaits; }
@@ -740,12 +946,17 @@ DWORD WINAPI Worker(void* module) {
         const LONG resumes = InterlockedCompareExchange(&streamResumes, 0, 0);
         const LONG epochs = InterlockedCompareExchange(&streamServiceEpoch, 0, 0);
         if (lastLifecycleTotal != releases + resumes + epochs) {
-            std::fprintf(log, "stream_lifecycle releases=%ld unlocked=%ld unlock_failures=%ld resumes=%ld service_retire_epoch=%ld held=%ld late=%ld swept=%ld\n",
+            std::fprintf(log, "stream_lifecycle releases=%ld unlocked=%ld unlock_failures=%ld resumes=%ld service_retire_epoch=%ld held=%ld late=%ld swept=%ld "
+                         "held_for_survival=%ld survival_level_spawns=%ld spawn_record_unloads=%ld (prerequisites %ld, of them with a newer twin %ld; still held by another stream %ld) spawn_record_unload_faults=%ld\n",
                 releases, InterlockedCompareExchange(&streamReleaseUnlocks, 0, 0),
                 InterlockedCompareExchange(&streamReleaseFailures, 0, 0), resumes, epochs,
                 InterlockedCompareExchange(&streamReleaseHeld, 0, 0),
                 InterlockedCompareExchange(&streamReleaseLate, 0, 0),
-                InterlockedCompareExchange(&streamReleaseSwept, 0, 0));
+                InterlockedCompareExchange(&streamReleaseSwept, 0, 0),
+                InterlockedCompareExchange(&streamReleaseHeldSurvival, 0, 0), InterlockedCompareExchange(&survivalLevelSpawns, 0, 0),
+                InterlockedCompareExchange(&spawnRecordUnloads, 0, 0), InterlockedCompareExchange(&prerequisiteRecordUnloads, 0, 0),
+                InterlockedCompareExchange(&prerequisiteRecordsKept, 0, 0), InterlockedCompareExchange(&prerequisiteRecordsShared, 0, 0),
+                InterlockedCompareExchange(&spawnRecordUnloadFaults, 0, 0));
             lastLifecycleTotal = releases + resumes + epochs;
         }
         {
@@ -892,13 +1103,142 @@ DWORD WINAPI Worker(void* module) {
         if (variant_runtime::attachHook) variant_runtime::FlushAttach(log);
         if (variant_runtime::emxHook || variant_runtime::emxPlainHook) variant_runtime::FlushEmx(log);
         if (texture_probe::enabled) texture_probe::Flush(log);
+        sound_probe::Summary(log);
         std::fflush(log);
         Sleep(1000);
     }
 }
 }
 
+// For the co-op plugin's survival shop: 0 off, 1 arming, 2 wave, 3 intermission,
+// 4 dead; *wave gets the current wave. Any thread.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_State(int* wave) {
+    if (wave) *wave = static_cast<int>(InterlockedCompareExchange(&survival_rt::waveMirror, 0, 0));
+    return static_cast<int>(InterlockedCompareExchange(&survival_rt::stateMirror, 0, 0));
+}
+
+// A co-op client plays the host's seed (0 = back to the INI seed). Game thread only:
+// the spawn hooks read the plans there too. Enemy picks and blueprints built from
+// now on follow it; the bench keeps the INI seed, its trees are read at start.
+// Returns 0 when nothing changed, else 1 enemy plans rebuilt | 2 blueprints reseeded | 4 seed set.
+extern "C" __declspec(dllexport) int __cdecl DS2Randomizer_SetSessionSeed(unsigned seed, int active) {
+    if (!InterlockedCompareExchange(&seed_adopt::ready, 0, 0)) return -1;
+    const uint32_t wanted = active ? seed : seed_adopt::iniSeed;
+    InterlockedExchange(&seed_adopt::active, active != 0);
+    const bool changed = wanted != settings.seed;
+    int result = changed ? 4 : 0;
+    const DWORD started = GetTickCount();
+    settings.seed = wanted;
+    if (changed && settings.enabled && !pool.empty()) {
+        std::vector<ds2::SelectionPlan> fresh, freshAllowed;
+        fresh.reserve(pool.size());
+        freshAllowed.reserve(pool.size());
+        for (const auto& source : pool) {
+            fresh.push_back(ds2::buildPlan(settings, source, pool, maxDonorLookups));
+            freshAllowed.push_back(ds2::buildAllowedSpawnerPlan(settings, source, pool, maxDonorLookups));
+        }
+        plans.swap(fresh);
+        allowedSpawnerPlans.swap(freshAllowed);
+        result |= 1;
+    }
+    if (changed && ds2_schematic_runtime::Reseed(wanted, nullptr)) result |= 2;
+    InterlockedExchange(&seed_adopt::current, static_cast<LONG>(seed));
+    InterlockedIncrement(active ? &seed_adopt::adoptions : &seed_adopt::reverts);
+    InterlockedExchange(&seed_adopt::lastMs, static_cast<LONG>(GetTickCount() - started));
+    InterlockedIncrement(&seed_adopt::changes);
+    return result;
+}
+
+extern "C" __declspec(dllexport) int __cdecl DS2Randomizer_AdoptSeed(unsigned seed) {
+    return DS2Randomizer_SetSessionSeed(seed, seed != 0);
+}
+
+// For the co-op plugin's arena stream sets: where the living enemies and the spawners they
+// came out of are (x y z each), so their rooms stay loaded. Any thread.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_KeepPoints(float* xyz, int max) { return survival_rt::KeepPoints(xyz, max); }
+
+// For the co-op menu, before a launch: can the director play `map` in game `mode`?
+// 1 yes, 2 yes with a warning, 0 no, -1 still starting; why and fix are filled for
+// everything but 1. Any thread (the settings are fixed once readiness is set).
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_Ready(const char* map, int mode, char* why, int whySize, char* fix, int fixSize) {
+    auto say = [&](int result, const char* w, const char* f) {
+        if (why && whySize > 0) std::snprintf(why, static_cast<size_t>(whySize), "%s", w);
+        if (fix && fixSize > 0) std::snprintf(fix, static_cast<size_t>(fixSize), "%s", f);
+        return result;
+    };
+    const LONG state = InterlockedCompareExchange(&survival_rt::readiness, 0, 0);
+    const bool mp = map && coop_mpmap::IsMpMap(map);
+    if (mode == 4 && mp) {
+        char w[240];
+        if (state != 1) {
+            std::snprintf(w, sizeof(w), "versus without AI slashers: %s", state ? survival_rt::notReadyWhy : "the randomizer is still starting");
+            return say(2, w, state ? survival_rt::notReadyFix : "wait a few seconds and pick the map again");
+        }
+        if (!survival_rt::cfg.versus.enabled)
+            return say(2, "versus without AI slashers ([VersusSlashers] Enabled=0)", "turn on Versus slashers in DS2UnitedConfig.exe for AI enemies");
+        return say(1, "", "");
+    }
+    if (state == 0) return say(-1, "the randomizer is still starting", "wait a few seconds and pick the map again");
+    if (state != 1) return say(0, survival_rt::notReadyWhy, survival_rt::notReadyFix);
+    if (map && map[0] && !survival_rt::MapAllowed(map)) {
+        char w[160];
+        std::snprintf(w, sizeof(w), "survival plays on %s only ([Survival] Map=%s)", survival_rt::cfg.map.c_str(), survival_rt::cfg.map.c_str());
+        return say(0, w, "set Map to any in DS2UnitedConfig.exe (Survival page), or [Survival] Map=any");
+    }
+    return say(1, "", "");
+}
+
+// For the co-op plugin: a message it replayed for a partner. Its replays call the
+// dispatch behind OnDispatchMessage, so the MP maps' vent windows and objective
+// count would never see them. Game thread.
+extern "C" __declspec(dllexport) void __cdecl DS2Survival_NoteMessage(uint32_t hash) {
+    if (!hash) return;
+    vent_gate::Note(hash);
+    objective_watch::Note(hash);
+}
+
+// The co-op debug menu's HOST tab: a host tool for the director (survival_rt::admin,
+// kStartNow 1 .. kRestartRun 7). 1 when queued for the director's tick. Any thread.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_Admin(int command, int value) {
+    return survival_rt::admin::Queue(command, value) ? 1 : 0;
+}
+// The director's line for the panel and the newest tool result ("!" in front: refused).
+// Returns the result's sequence number. Any thread.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_AdminInfo(char* info, int infoSize, char* result, int resultSize) {
+    AcquireSRWLockShared(&survival_rt::admin::lock);
+    if (info && infoSize > 0) std::snprintf(info, static_cast<size_t>(infoSize), "%s", survival_rt::admin::info);
+    if (result && resultSize > 0) std::snprintf(result, static_cast<size_t>(resultSize), "%s", survival_rt::admin::result);
+    ReleaseSRWLockShared(&survival_rt::admin::lock);
+    return static_cast<int>(InterlockedCompareExchange(&survival_rt::admin::resultSeq, 0, 0));
+}
+// The kinds a wave may ask for, for the HOST tab's spawn row: the name of `index`;
+// returns how many there are.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_AdminFamily(int index, char* out, int size) {
+    const int count = static_cast<int>(std::size(survival::kFamilies));
+    if (out && size > 0) std::snprintf(out, static_cast<size_t>(size), "%s", index >= 0 && index < count ? survival::kFamilies[index].family : "");
+    return count;
+}
+
+// The escalation for wave n, for the co-op plugin (bot hits, shop prices, boss
+// stasis): out[0] level, [1] bot damage %, [2] price %, [3] boss stasis resist %,
+// [4] enhanced chance %. Returns how many were written.
+extern "C" __declspec(dllexport) int __cdecl DS2Survival_EscalationFor(int wave, int* out, int count) {
+    if (!out || count <= 0 || wave < 0) return 0;
+    const unsigned n = static_cast<unsigned>(wave);
+    const auto& c = survival_rt::cfg;
+    const int values[] = {static_cast<int>(survival::EscLevel(n, c)), static_cast<int>(survival::BotDamagePercent(n, c)), static_cast<int>(survival::PricePercent(n, c)),
+                          static_cast<int>(survival::BossStasisResist(n, c)), static_cast<int>(survival::EnhancedChance(n, c))};
+    int written = 0;
+    for (; written < count && written < static_cast<int>(std::size(values)); ++written) out[written] = values[written];
+    return written;
+}
+
+// In DS2United.asi (DS2COOP_MODULE) ds2coop_main.cpp's DllMain calls this half.
+#ifdef DS2COOP_MODULE
+extern "C" BOOL WINAPI DS2Coop_RandomizerMain(HINSTANCE module, DWORD reason, LPVOID) {
+#else
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID) {
+#endif
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
         HANDLE thread = CreateThread(nullptr, 0, Worker, module, 0, nullptr);

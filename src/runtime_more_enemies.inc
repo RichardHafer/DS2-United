@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Spawn multiplier runtime adapter.
 //
 // Hook site is FuncSpawn::HandleEvents + 0x24E (RVA 0x00ACB41E), the first
@@ -42,8 +43,10 @@ constexpr unsigned kSpawnAttrCompletionMessage = 0x20;
 constexpr int kMoreEnemiesCountSentinel = -0x40000000;
 
 ds2::MoreEnemiesSettings moreEnemies;
+bool moreEnemiesSkipScene = true;    // [DS2Randomizer] MoreEnemiesSkipScripted
 std::map<std::string, unsigned> moreEnemiesFamilyTotals;
 ds2::MoreEnemiesBudget moreEnemiesBudget;
+volatile LONG moreEnemiesBudgetReset = 0;
 safetyhook::MidHook moreEnemiesHook;
 thread_local bool moreEnemiesInside = false;
 
@@ -81,10 +84,10 @@ void DisableHordes() { InterlockedExchange(&hordesOff, 1); }
 thread_local bool hordeCopy = false;
 struct HordeMark { uintptr_t spawner; DWORD tick; unsigned size; uint32_t deathHash; };
 // `passes` sends of `hash` go through before `pending` sends are swallowed.
-struct HordeSilence { uint32_t hash; LONG pending; LONG passes; DWORD armed; };
-constexpr size_t kHordeSilenceCapacity = 32;
+struct HordeSilence { LONG pending = 0, passes = 0, generation = 0; DWORD armed = 0; };
 constexpr DWORD kHordeSilenceMaxAgeMs = 15 * 60 * 1000;
-HordeSilence hordeSilences[kHordeSilenceCapacity]{};
+std::map<uint32_t, HordeSilence> hordeSilences;
+volatile LONG hordeGeneration = 1;
 std::mutex hordeSilenceLock;
 safetyhook::InlineHook messageHook;
 bool silenceAvailable = false;
@@ -97,36 +100,40 @@ void ArmHordeSilence(uint32_t hash, unsigned copies, unsigned passes = 1) {
     if (!hash || !silenceAvailable) return;
     std::lock_guard<std::mutex> guard(hordeSilenceLock);
     const DWORD now = GetTickCount();
-    HordeSilence* slot = nullptr;
-    for (auto& entry : hordeSilences) if (entry.hash == hash) { slot = &entry; break; }
-    if (!slot) for (auto& entry : hordeSilences) if (!entry.hash || (entry.pending <= 0 && entry.passes <= 0)) { slot = &entry; *slot = HordeSilence{hash, 0, 0, now}; break; }
-    if (!slot) return;
-    slot->pending += static_cast<LONG>(copies);
-    slot->passes += static_cast<LONG>(passes);
-    slot->armed = now;
+    const auto found = hordeSilences.find(hash);
+    if (found == hordeSilences.end()) return;
+    auto& slot = found->second;
+    const LONG generation = InterlockedCompareExchange(&hordeGeneration, 0, 0);
+    if (slot.generation != generation || now - slot.armed > kHordeSilenceMaxAgeMs) slot = {};
+    slot.generation = generation;
+    slot.pending += static_cast<LONG>(copies);
+    slot.passes += static_cast<LONG>(passes);
+    slot.armed = now;
     InterlockedExchangeAdd(&hordeSilenceArmed, static_cast<LONG>(copies));
 }
 void ArmHordeSilenceCopy(uint32_t hash) { ArmHordeSilence(hash, 1, 0); }
 
 // true = swallow this send
 bool ConsumeHordeSilence(uint32_t hash) {
+    // The keys are fixed before the hook is installed.
+    const auto found = hordeSilences.find(hash);
+    if (found == hordeSilences.end()) return false;
     std::lock_guard<std::mutex> guard(hordeSilenceLock);
-    const DWORD now = GetTickCount();
-    for (auto& entry : hordeSilences) {
-        if (entry.hash != hash) continue;
-        if (now - entry.armed > kHordeSilenceMaxAgeMs) { entry = HordeSilence{}; InterlockedIncrement(&hordeSilenceExpired); return false; }
-        if (entry.passes > 0) { --entry.passes; InterlockedIncrement(&hordeSilencePassed); return false; }
-        if (entry.pending > 0) { --entry.pending; return true; }
+    auto& entry = found->second;
+    if (entry.generation != InterlockedCompareExchange(&hordeGeneration, 0, 0)) return false;
+    if (GetTickCount() - entry.armed > kHordeSilenceMaxAgeMs) {
+        entry = {};
+        InterlockedIncrement(&hordeSilenceExpired);
         return false;
     }
+    if (entry.passes > 0) { --entry.passes; InterlockedIncrement(&hordeSilencePassed); return false; }
+    if (entry.pending > 0) { --entry.pending; return true; }
     return false;
 }
 
-// The level's stream service is going away: whatever was armed belongs to
-// enemies that no longer exist.
+// Stream teardown may hold an engine lock.
 void ClearHordeSilence() {
-    std::lock_guard<std::mutex> guard(hordeSilenceLock);
-    for (auto& entry : hordeSilences) entry = HordeSilence{};
+    InterlockedIncrement(&hordeGeneration);
 }
 
 // 0x00756C60: bool __cdecl(message*, flags); message+0 is the hash. Returns
@@ -134,9 +141,13 @@ void ClearHordeSilence() {
 // message gets anyway; a swallowed send reports true, as if delivered.
 bool __cdecl OnDispatchMessage(void* message, int flags) {
     uint32_t hash = 0;
-    if (message && Read(reinterpret_cast<uintptr_t>(message), &hash, 4) && hash && ConsumeHordeSilence(hash)) {
-        InterlockedIncrement(&hordeSendsSilenced);
-        return true;
+    if (message && Read(reinterpret_cast<uintptr_t>(message), &hash, 4) && hash) {
+        vent_gate::Note(hash);   // the MP maps' vents opening and closing
+        objective_watch::Note(hash);   // and their objectives
+        if (ConsumeHordeSilence(hash)) {
+            InterlockedIncrement(&hordeSendsSilenced);
+            return true;
+        }
     }
     return messageHook.call<bool>(message, flags);
 }
@@ -271,8 +282,8 @@ void RecordMoreEnemiesDetail(uintptr_t spawner, uintptr_t attributes, const Guid
 // +0xD0, and when it cannot deliver now it reschedules through the timer at
 // 0x02050E24 with the delay constant at 0x01AAE2C8, 2.0 seconds. Its retry is
 // bound to the authored budget, which a repeat by definition exceeds, so it
-// cannot carry the extras. Its delay is copied though: the repeat waits the
-// same 2 seconds and the vent is free again by then.
+// cannot carry the extras. Its delay is copied, and the repeat also waits
+// until the vent is empty (ventq::Busy below).
 //
 // Each entry is one copy. The dispatch itself is unchanged: the count is parked
 // and restored inside a single call, exactly as the immediate path does it.
@@ -291,7 +302,303 @@ DeferredRepeat deferred[kDeferredCapacity]{};
 size_t deferredCount = 0;
 std::mutex deferredLock;
 unsigned moreEnemiesVentDelayMs = 2000;
+// The last spawn of each spawner, ours or the game's own retry (game thread).
+// A vent repeat waits until the vent has been quiet this long: a slasher still
+// climbing out of a wall vent while the next one came through the same vent
+// crashed twice on 08.10. (0x00E93CCF, the wall-exit state machine not linked
+// yet; both times spawner 31CAF23B, repeats 109 ms apart).
+unsigned moreEnemiesVentGapMs = 4000;
+struct SpawnerLast { uintptr_t spawner; DWORD at; };
+SpawnerLast spawnerLast[64]{};
+unsigned spawnerLastNext = 0;
+volatile LONG ventGapWaits = 0;
+// Age of a stamp taken with a fresh tick against an older captured now: 0, not 49 days.
+DWORD TickAge(DWORD now, DWORD at) { return static_cast<LONG>(now - at) > 0 ? now - at : 0; }
+void NoteSpawnerSpawn(uintptr_t spawner) {
+    if (!spawner) return;
+    for (auto& s : spawnerLast)
+        if (s.spawner == spawner) { s.at = GetTickCount(); return; }
+    spawnerLast[spawnerLastNext++ % std::size(spawnerLast)] = SpawnerLast{spawner, GetTickCount()};
+}
+// The stamps are GetTickCount; survival passes its own clock without the paused time, so the
+// age is taken on the stamps' clock (18.10.: after a few game overs every vent waited the whole
+// paused time, about 24 s, after each spawn).
+bool VentQuiet(uintptr_t spawner, DWORD) {
+    if (!moreEnemiesVentGapMs) return true;
+    const DWORD tick = GetTickCount();
+    for (const auto& s : spawnerLast)
+        if (s.spawner == spawner) return TickAge(tick, s.at) >= moreEnemiesVentGapMs;
+    return true;
+}
 volatile LONG moreEnemiesDeferred = 0, moreEnemiesDeferredMade = 0, moreEnemiesDeferredLost = 0;
+
+// ---------------------------------------------------------------- vent occupancy
+//
+// A VentMarker queues the NPCs that want out: DeadSpaceNPCExitVentSM registers in
+// its exitVentStandby state (RegisterWaitingNPC 0x012E0A80: 8 places at +0x374, a
+// SafePtr to entity+0x10 each, count at +0x3B4; a ninth is refused and the SM
+// ignores that) and deregisters when it leaves that state, i.e. when it starts to
+// climb. So the queue spaces the starts only; it does not keep a second NPC out
+// while the first still climbs. Stasis on a climber keeps it in the vent for many
+// seconds, and the repeats that waited a fixed time went in on top of it (15.10.,
+// a friend's report: the vent jammed and the room never cleared; 08.10. the same
+// overlap crashed at 0x00E93CCF). A repeat now waits until no NPC that came out of
+// that vent is still inside it and its queue is empty. A dead or vanished NPC left
+// first in a queue blocks every other one for good and is taken out.
+namespace ventq {
+constexpr uint32_t kMarkerVtableRva = 0x178C5F0, kStandby = 0x374, kStandbyCount = 0x3B4, kStandbyMax = 8;
+constexpr uint32_t kSimManagerRva = 0x1C1C0A0, kFindBaseRva = 0x376CA0, kDeregisterRva = 0xEE0AF0;
+constexpr uint32_t kVentComponentIndexRva = 0x1CA846A, kVentFlags = 0x44, kHealthCurrent = 0xE8, kTimeMultiplier = 0x84, kEntityGuid = 0x24;
+constexpr DWORD kScanMs = 500, kBadHeadMs = 3000, kLongInsideMs = 20000, kArrivalWatchMs = 180000, kRepeatBusyMs = 90000, kInVentAfterMs = 3000;
+// VentMarker::DeregisterWaitingNPC: push ecx / push ebp / push esi / mov esi,ecx / mov edx,[esi+3B4h] / xor ebp,ebp / push edi / test edx,edx
+const unsigned char kDeregisterBytes[] = {0x51, 0x55, 0x56, 0x8B, 0xF1, 0x8B, 0x96, 0xB4, 0x03, 0x00, 0x00, 0x33, 0xED, 0x57, 0x85, 0xD2};
+// SimManager::FindBase: push esi / mov esi,[esp+8] / mov edx,[esi] / xor eax,eax / push edi / mov edi,ecx / test edx,edx / jnz
+const unsigned char kFindBaseBytes[] = {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B, 0x16, 0x33, 0xC0, 0x57, 0x8B, 0xF9, 0x85, 0xD2, 0x75, 0x13};
+bool guard = true;   // [DS2Randomizer] VentQueueGuard
+bool ready = false, repairReady = false;
+struct SpawnerVent { uintptr_t spawner; uint32_t vent; };
+struct Arrival { uint32_t actor, vtable, vent; Guid id; DWORD at; bool seenInside, left, longNoted; };
+struct Queue { uint32_t vent, head; DWORD headSince, badSince; unsigned peak; bool fullNoted; };
+SpawnerVent spawnerVents[64]{};
+unsigned spawnerVentNext = 0;
+Arrival arrivals[64]{};
+unsigned arrivalNext = 0;
+Queue queues[32]{};
+unsigned queueNext = 0;
+DWORD lastScan = 0;
+volatile LONG arrivalsSeen = 0, ventsFound = 0, ventsMissing = 0, fullSeen = 0, longInside = 0, badHeads = 0, badHeadsFailed = 0,
+              repeatWaits = 0, repeatsDropped = 0, faults = 0;
+
+// a few lines for the log; the worker writes them with the diagnostics
+constexpr unsigned kLines = 48, kLineSize = 256;
+constexpr LONG kLineBudget = 300;
+char lines[kLines][kLineSize];
+unsigned lineHead = 0, lineCount = 0;
+SRWLOCK lineLock = SRWLOCK_INIT;
+volatile LONG linesWritten = 0, linesLost = 0;
+void Note(const char* format, ...) {
+    if (InterlockedIncrement(&linesWritten) > kLineBudget) { InterlockedIncrement(&linesLost); return; }
+    char text[kLineSize];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(text, sizeof(text), format, args);
+    va_end(args);
+    AcquireSRWLockExclusive(&lineLock);
+    if (lineCount == kLines) { lineHead = (lineHead + 1) % kLines; --lineCount; InterlockedIncrement(&linesLost); }
+    std::memcpy(lines[(lineHead + lineCount) % kLines], text, sizeof(text));
+    ++lineCount;
+    ReleaseSRWLockExclusive(&lineLock);
+}
+
+// Base::GetComponent 0x007CF080 by reads alone: [[e+0x48] + 4 * byte [[e+0x44] + index + 0xC]]
+uint32_t Component(uint32_t entity, uint32_t indexRva) {
+    uint8_t index = 0, slot = 0;
+    uint32_t list = 0, table = 0, component = 0;
+    if (!entity || !Read(base + indexRva, &index, 1) || !Read(entity + 0x48, &list, 4) || !list || !Read(entity + 0x44, &table, 4) || !table ||
+        !Read(table + index + 0xC, &slot, 1) || !Read(list + slot * 4u, &component, 4))
+        return 0;
+    return component;
+}
+// DSNPCVentComponent::m_flags bit 0 (SetInVent 0x00FF1F80): 1 inside, 0 out, -1 unknown
+int InVent(uint32_t entity) {
+    const uint32_t c = Component(entity, kVentComponentIndexRva);
+    uint8_t flags = 0;
+    if (!c || !Read(c + kVentFlags, &flags, 1)) return -1;
+    return flags & 1;
+}
+bool HealthOf(uint32_t entity, float& v) {
+    const uint32_t h = ds2_watchdog_runtime::FindHealthComponent(entity);
+    return h && Read(h + kHealthCurrent, &v, 4) && std::isfinite(v);
+}
+float Health(uint32_t entity) {
+    float v = 0.0f;
+    return HealthOf(entity, v) ? v : -1.0f;
+}
+float TimeScale(uint32_t entity) {
+    float t = -1.0f;
+    return Read(entity + kTimeMultiplier, &t, 4) && std::isfinite(t) ? t : -1.0f;
+}
+bool IsMarker(uint32_t vent) {
+    uint32_t vtable = 0;
+    return vent && Read(vent, &vtable, 4) && vtable == base + kMarkerVtableRva;
+}
+unsigned Count(uint32_t vent) {
+    uint32_t n = 0;
+    return IsMarker(vent) && Read(vent + kStandbyCount, &n, 4) && n <= kStandbyMax ? n : 0;
+}
+uint32_t Entry(uint32_t vent, unsigned i) {
+    uint32_t p = 0;
+    return Read(vent + kStandby + i * 8, &p, 4) && p ? p - 0x10 : 0;
+}
+bool Alive(const Arrival& a) {
+    uint32_t vtable = 0;
+    Guid id{};
+    return a.actor && Read(a.actor, &vtable, 4) && vtable == a.vtable && Read(a.actor + kEntityGuid, id.data(), 16) && id == a.id;
+}
+
+__declspec(noinline) uint32_t FindRaw(const uint32_t* guid) {
+    __try {
+        uint32_t sim = 0;
+        if (!Read(base + kSimManagerRva, &sim, 4) || !sim) return 0;
+        using Find = uint32_t(__thiscall*)(uint32_t, const uint32_t*, uint32_t);
+        return reinterpret_cast<Find>(base + kFindBaseRva)(sim, guid, 0);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedIncrement(&faults);
+        return 0;
+    }
+}
+__declspec(noinline) int DeregisterRaw(uint32_t vent, uint32_t entity) {
+    __try {
+        using Fn = bool(__thiscall*)(uint32_t, uint32_t);
+        return reinterpret_cast<Fn>(base + kDeregisterRva)(vent, entity) ? 1 : 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedIncrement(&faults);
+        return -1;
+    }
+}
+
+// The vent an authored vent arrival comes out of: its target's vent GUID
+// (generated catalog), found by SimManager::FindBase. Game thread only.
+uint32_t VentFor(uintptr_t spawner, uint32_t attributes) {
+    for (auto& s : spawnerVents)
+        if (s.spawner == spawner && spawner) {
+            if (IsMarker(s.vent)) return s.vent;
+            s.spawner = 0;
+            break;
+        }
+    Guid target{};
+    if (!attributes || !Read(attributes + kSpawnAttrTargetGuid, target.data(), 16)) return 0;
+    const ds2::VentGuidRow* row = nullptr;
+    for (const auto& r : ds2::kVentGuids)
+        if (r.target == target) { row = &r; break; }
+    if (!row) return 0;
+    const uint32_t vent = FindRaw(row->vent.data());
+    if (!IsMarker(vent)) {
+        if (InterlockedIncrement(&ventsMissing) <= 8)
+            Note("vent_queue: spawner %08X target %08X-%08X has vent %08X-%08X-%08X-%08X, FindBase gave %08X (not a VentMarker)", static_cast<unsigned>(spawner),
+                 target[0], target[1], row->vent[0], row->vent[1], row->vent[2], row->vent[3], vent);
+        return 0;
+    }
+    InterlockedIncrement(&ventsFound);
+    spawnerVents[spawnerVentNext++ % std::size(spawnerVents)] = SpawnerVent{spawner, vent};
+    return vent;
+}
+void Track(uint32_t vent) {
+    for (const auto& q : queues)
+        if (q.vent == vent) return;
+    queues[queueNext++ % std::size(queues)] = Queue{vent};
+}
+// From the post-create observer (game thread): every authored arrival, ours included.
+void NoteArrival(uintptr_t spawner, uint32_t attributes, uint32_t actor) {
+    if (!ready || !actor) return;
+    const uint32_t vent = VentFor(spawner, attributes);
+    if (!vent) return;
+    Arrival a{};
+    a.actor = actor;
+    a.vent = vent;
+    a.at = GetTickCount();
+    if (!Read(actor, &a.vtable, 4) || !Read(actor + kEntityGuid, a.id.data(), 16)) return;
+    arrivals[arrivalNext++ % std::size(arrivals)] = a;
+    InterlockedIncrement(&arrivalsSeen);
+    Track(vent);
+}
+bool StillInside(Arrival& a, DWORD now) {
+    if (!a.actor || a.left) return false;
+    if (TickAge(now, a.at) > kArrivalWatchMs || !Alive(a)) { a.actor = 0; return false; }
+    const int in = InVent(a.actor);
+    if (in == 1) {
+        a.seenInside = true;
+        float hp = 0.0f;
+        return !HealthOf(a.actor, hp) || hp > 0.0f;
+    }
+    // ExitVentSM sets the flag a moment after the spawn; out after that means out for good
+    if (in == 0 && (a.seenInside || TickAge(now, a.at) > kInVentAfterMs)) a.left = true;
+    return !a.left && in != 0;
+}
+// True while the spawner's vent has an NPC of its own inside or a queue. Game thread.
+bool Busy(uintptr_t spawner, uint32_t* ventOut = nullptr) {
+    if (!ready || !guard) return false;
+    uint32_t attributes = 0;
+    if (!Read(spawner + kFuncSpawnAttributes, &attributes, 4)) return false;
+    const uint32_t vent = VentFor(spawner, attributes);
+    if (ventOut) *ventOut = vent;
+    if (!vent) return false;
+    if (Count(vent)) return true;
+    const DWORD now = GetTickCount();
+    for (auto& a : arrivals)
+        if (a.vent == vent && StillInside(a, now)) return true;
+    return false;
+}
+
+// Game thread, twice a second: the queues of the vents seen, and the NPCs still inside.
+void Scan(DWORD now) {
+    if (!ready || now - lastScan < kScanMs) return;
+    lastScan = now;
+    for (auto& a : arrivals) {
+        if (!StillInside(a, now) || a.longNoted || TickAge(now, a.at) < kLongInsideMs) continue;
+        a.longNoted = true;
+        InterlockedIncrement(&longInside);
+        const unsigned n = Count(a.vent);
+        Note("vent_queue: NPC %08X still inside vent %08X %lu s after its arrival: health %.0f, time scale %.2f (below 1 = stasis), queue %u of 8, first %08X",
+             a.actor, a.vent, static_cast<unsigned long>((now - a.at) / 1000), Health(a.actor), TimeScale(a.actor), n, n ? Entry(a.vent, 0) : 0u);
+    }
+    for (auto& q : queues) {
+        if (!q.vent) continue;
+        if (!IsMarker(q.vent)) { q = Queue{}; continue; }
+        const unsigned n = Count(q.vent);
+        if (n > q.peak) q.peak = n;
+        if (!n) { q.head = 0; q.badSince = 0; continue; }
+        if (n >= kStandbyMax && !q.fullNoted) {
+            q.fullNoted = true;
+            InterlockedIncrement(&fullSeen);
+            Note("vent_queue: vent %08X has all 8 places taken; a ninth NPC would wait inside for good", q.vent);
+        }
+        const uint32_t head = Entry(q.vent, 0);
+        if (head != q.head) { q.head = head; q.headSince = now; q.badSince = 0; }
+        uint32_t vtable = 0;
+        const bool gone = !head || !Read(head, &vtable, 4) || !vtable;
+        float hp = 1.0f;
+        const bool dead = !gone && HealthOf(head, hp) && hp <= 0.0f;
+        if (!gone && !dead) { q.badSince = 0; continue; }
+        if (!q.badSince) { q.badSince = now; continue; }
+        if (now - q.badSince < kBadHeadMs || !repairReady || !guard) continue;
+        const int r = DeregisterRaw(q.vent, head);
+        InterlockedIncrement(r == 1 ? &badHeads : &badHeadsFailed);
+        Note("vent_queue: vent %08X kept a %s NPC %08X first for %lu ms while %u wait(s); DeregisterWaitingNPC %s, %u left", q.vent, gone ? "vanished" : "dead", head,
+             static_cast<unsigned long>(now - q.badSince), n - 1, r == 1 ? "took it out" : r == 0 ? "did not find it" : "FAULTED", Count(q.vent));
+        q.badSince = 0;
+    }
+}
+
+void Install(FILE* log) {
+    unsigned char d[sizeof(kDeregisterBytes)]{}, f[sizeof(kFindBaseBytes)]{};
+    const bool findOk = Read(base + kFindBaseRva, f, sizeof(f)) && std::memcmp(f, kFindBaseBytes, sizeof(f)) == 0;
+    const bool deregisterOk = Read(base + kDeregisterRva, d, sizeof(d)) && std::memcmp(d, kDeregisterBytes, sizeof(d)) == 0;
+    ready = findOk;
+    repairReady = findOk && deregisterOk;
+    std::fprintf(log, "vent_queue guard=%d: FindBase %s, DeregisterWaitingNPC %s; vent repeats %s, dead first NPCs %s\n", guard ? 1 : 0,
+                 findOk ? "ok" : "MISMATCH", deregisterOk ? "ok" : "MISMATCH", ready && guard ? "wait for an empty vent" : "keep the old timing only",
+                 repairReady && guard ? "are taken out of the queue" : "stay");
+}
+void WriteDiagnostics(FILE* log) {
+    static LONG last = -1;
+    const LONG sum = arrivalsSeen + ventsMissing * 3 + fullSeen * 5 + longInside * 7 + badHeads * 11 + badHeadsFailed * 13 + repeatWaits / 25 + repeatsDropped * 17 + faults * 19;
+    if (sum != last) {
+        last = sum;
+        std::fprintf(log, "vent_queue arrivals=%ld vents found=%ld missing=%ld | queue full=%ld long_inside=%ld | dead_first taken_out=%ld failed=%ld | "
+                          "repeat waits=%ld dropped=%ld | faults=%ld lines_lost=%ld\n",
+                     arrivalsSeen, ventsFound, ventsMissing, fullSeen, longInside, badHeads, badHeadsFailed, repeatWaits, repeatsDropped, faults, linesLost);
+    }
+    char copy[kLines][kLineSize];
+    unsigned count = 0;
+    AcquireSRWLockExclusive(&lineLock);
+    for (unsigned i = 0; i < lineCount; ++i) std::memcpy(copy[i], lines[(lineHead + i) % kLines], kLineSize);
+    count = lineCount;
+    lineHead = lineCount = 0;
+    ReleaseSRWLockExclusive(&lineLock);
+    for (unsigned i = 0; i < count; ++i) std::fprintf(log, "%s\n", copy[i]);
+}
+}  // namespace ventq
 
 bool QueueRepeat(const DeferredRepeat& entry) {
     std::lock_guard<std::mutex> guard(deferredLock);
@@ -332,31 +639,47 @@ std::mutex knownSpawnersLock;
 volatile LONG knownSpawnersPending = 0;   // constructed, not named yet
 DWORD knownSpawnersLastNaming = 0;
 volatile LONG knownSpawnersNamed = 0, knownSpawnersUnnamed = 0, knownSpawnersMoved = 0, knownSpawnersRetired = 0, knownSpawnersCleared = 0;
+volatile LONG knownSpawnersClearAsked = 0, knownSpawnersFloorAsked = 0;
+// Under knownSpawnersLock: forget the old level's spawners.
+void ClearKnownSpawnersLocked() {
+    for (auto& entry : knownSpawners) entry = KnownSpawner{};
+    knownSpawnerCount = 0;
+    InterlockedExchange(&knownSpawnersPending, 0);
+    InterlockedExchange(&knownSpawnersFloorAsked, 1);
+    InterlockedIncrement(&knownSpawnersCleared);
+}
 void OnFuncSpawnConstructed(SafetyHookContext& ctx) {
     std::lock_guard<std::mutex> guard(knownSpawnersLock);
+    // the new level's first spawner: the old ones go before it is added
+    if (InterlockedExchange(&knownSpawnersClearAsked, 0)) ClearKnownSpawnersLocked();
     knownSpawners[knownSpawnerCount++ % kKnownSpawnerCapacity] = KnownSpawner{static_cast<uint32_t>(ctx.ecx), Guid{}, 0};
     InterlockedIncrement(&knownSpawnersPending);
 }
 // The spawner history (recentSpawners) is kept for the editor; area rules
 // only take entries newer than this sequence.
 uint64_t recentSpawnerFloor = 0;
-// From OnStreamServiceRetired: every spawner of the old level is gone.
+// From OnStreamServiceRetired: every spawner of the old level is gone. That hook
+// runs inside the engine's stream code, so it takes no lock and only asks; the
+// game thread clears before it next touches the list. A checkpoint restart on
+// 08.10. hung in the loading screen right after this hook took two locks here.
 void ClearKnownSpawners() {
-    {
+    InterlockedExchange(&moreEnemiesBudgetReset, 1);
+    InterlockedExchange(&knownSpawnersClearAsked, 1);
+}
+// Game thread only. The history floor moves once the list was cleared, wherever that happened.
+void ApplyKnownSpawnersClear() {
+    if (InterlockedExchange(&knownSpawnersClearAsked, 0)) {
         std::lock_guard<std::mutex> guard(knownSpawnersLock);
-        for (auto& entry : knownSpawners) entry = KnownSpawner{};
-        knownSpawnerCount = 0;
-        InterlockedExchange(&knownSpawnersPending, 0);
+        ClearKnownSpawnersLocked();
     }
-    {
-        const std::lock_guard<std::mutex> guard(spawnerToolsMutex);
-        recentSpawnerFloor = recentSpawnerSequence;
-    }
-    InterlockedIncrement(&knownSpawnersCleared);
+    if (!InterlockedExchange(&knownSpawnersFloorAsked, 0)) return;
+    const std::lock_guard<std::mutex> guard(spawnerToolsMutex);
+    recentSpawnerFloor = recentSpawnerSequence;
 }
 // Game thread, at most every 50 ms: give fresh entries their GUID. An entry
 // that still reads no FuncSpawn identity after 64 tries is dropped.
 void NameKnownSpawners() {
+    ApplyKnownSpawnersClear();
     if (InterlockedCompareExchange(&knownSpawnersPending, 0, 0) <= 0) return;
     const DWORD now = GetTickCount();
     if (now - knownSpawnersLastNaming < 50) return;
@@ -504,19 +827,19 @@ bool ApplyPlacement(uint32_t actor, const ds2::ExtraSpawnRule& rule) {
 
 // Called from the SpawnDone hook, after the spawner and its attributes were
 // verified. Drives the spawner once per extra and places the result.
-void RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, uint32_t completion,
+unsigned RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, uint32_t completion,
                     uint32_t handleEvents, const Guid& target, int authoredCount) {
     Guid guid{};
-    if (!ReadSpawnerIdentity(static_cast<uint32_t>(spawner), attributes, guid)) return;
+    if (!ReadSpawnerIdentity(static_cast<uint32_t>(spawner), attributes, guid)) return 0;
     std::vector<ds2::ExtraSpawnRule> rules;
     {
         std::lock_guard<std::mutex> guard(extraLock);
         const auto it = extraSpawns.find(guid);
-        if (it == extraSpawns.end()) return;
+        if (it == extraSpawns.end()) return 0;
         rules = it->second;
     }
-    if (!Writable(spawner + kFuncSpawnCount, sizeof(int))) return;
-    const bool hideCompletion = completion != 0 && Writable(attributes + kSpawnAttrCompletionMessage, sizeof(uint32_t));
+    if (!Writable(spawner + kFuncSpawnCount, sizeof(int))) return 0;
+    const bool hideCompletion = completion != 0;
     const auto source = std::lower_bound(pool.begin(), pool.end(), target,
         [](const auto& record, const Guid& g) { return record.guid < g; });
     const uint32_t deathHash = source != pool.end() && source->guid == target ? source->deathMessage.hash : 0;
@@ -524,7 +847,9 @@ void RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, ui
     using HandleEventsFn = void(__thiscall*)(void*, void*);
     const auto dispatch = reinterpret_cast<HandleEventsFn>(handleEvents);
     const uint32_t hidden = 0;
-    if (hideCompletion) WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden));
+    if (deathHash && !silenceAvailable) return 0;
+    if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden))) return 0;
+    unsigned madeCopies = 0;
     for (size_t r = 0; r < rules.size(); ++r) {
         const auto& rule = rules[r];
         const Guid salt{static_cast<uint32_t>(r), rule.count, rule.chance, 0x45585452u};
@@ -546,13 +871,15 @@ void RunExtraSpawns(uintptr_t spawner, uint32_t attributes, uint32_t trigger, ui
             const bool made = Read(spawner + kFuncSpawnCount, &after, 4) && after != parked && lastCreatedActor;
             if (!made) { InterlockedIncrement(&extraSpawnsFailed); continue; }
             InterlockedIncrement(&extraSpawnsMade);
-            if (deathHash) ArmHordeSilence(deathHash, 1);
+            ++madeCopies;
             if (rule.arrival == ds2::ExtraArrival::Direct && ApplyPlacement(lastCreatedActor, rule)) InterlockedIncrement(&extraSpawnsPlaced);
         }
     }
     TakeHordeMark(spawner);   // the extras marked the spawner too; not a horde
     if (!WriteBytes(spawner + kFuncSpawnCount, &authoredCount, sizeof(authoredCount))) InterlockedIncrement(&moreEnemiesRestoreFailed);
     if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &completion, sizeof(completion))) InterlockedIncrement(&moreEnemiesRestoreFailed);
+    if (madeCopies && deathHash) ArmHordeSilence(deathHash, madeCopies);
+    return madeCopies;
 }
 
 // Vent spawners with an authored maximum (19.09.2026).
@@ -595,9 +922,12 @@ bool RetireVentSpawner(uintptr_t spawner, uint32_t attributes, int max) {
         return false;
     const uint32_t hidden = 0;
     const int before = max - 1;
-    if (!WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden)) ||
-        !WriteBytes(spawner + kFuncSpawnCount, &before, sizeof(before)))
+    if (!WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden))) return false;
+    if (!WriteBytes(spawner + kFuncSpawnCount, &before, sizeof(before))) {
+        if (!WriteBytes(attributes + kSpawnAttrCompletionMessage, &completion, sizeof(completion)))
+            InterlockedIncrement(&moreEnemiesRestoreFailed);
         return false;
+    }
     const bool wasInside = moreEnemiesInside;
     moreEnemiesInside = true;
     reinterpret_cast<SpawnDoneFn>(base + kFuncSpawnSpawnDoneRva)(reinterpret_cast<void*>(spawner), nullptr);
@@ -642,6 +972,7 @@ void PayOwedRetirement(uintptr_t spawner) {
 // FuncSpawn. The plugin's own repeats park the count themselves and are skipped.
 void OnBeforeSpawnDone(SafetyHookContext& ctx) {
     if (moreEnemiesInside || !moreEnemiesVentDelayMs) return;
+    if (CoopClient()) { InterlockedIncrement(&coopClientSkips); return; }
     if (!moreEnemies.enabled && !HordesActive()) return;
     // Only an arrival that OnAuthoredSpawnComplete will repeat is parked. With
     // MoreEnemies off and no horde or extra spawn for it, that hook returns
@@ -685,9 +1016,9 @@ bool DriveForcedSpawn(uintptr_t spawner, const ds2::ExtraSpawnRule& rule, size_t
         !Writable(spawner + kFuncSpawnCount, sizeof(int))) return false;
     int authored = 0;
     if (!Read(spawner + kFuncSpawnCount, &authored, 4)) return false;
-    const bool hideCompletion = completion != 0 && Writable(attributes + kSpawnAttrCompletionMessage, sizeof(uint32_t));
+    const bool hideCompletion = completion != 0;
     const uint32_t hidden = 0;
-    if (hideCompletion) WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden));
+    if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden))) return false;
     uint32_t message[4]{trigger, 0, 0, 0};
     using HandleEventsFn = void(__thiscall*)(void*, void*);
     int parked = kMoreEnemiesCountSentinel;
@@ -712,10 +1043,47 @@ bool DriveForcedSpawn(uintptr_t spawner, const ds2::ExtraSpawnRule& rule, size_t
     return made;
 }
 
+// Engines whose forced enemies did not stay where they were put (the survival
+// director's placement check): the ch04 arena's newest prop spawner was an
+// elevator's null spawner, and four of six zombies stood in the elevator behind
+// a locked door (09.10.). Skipped by the picker until the run ends.
+std::vector<uintptr_t> avoidedEngines;
+// Engines that refuse before the lookup (ch04 arena 10.10.: the gate keeper's
+// spawner refused 120 forced spawns in a row and wave 2 stalled) rest for 30 s
+// after three refusals in a row.
+struct EngineRest { uintptr_t spawner; unsigned refusals; DWORD until; };
+std::vector<EngineRest> engineRests;
+bool EngineResting(uintptr_t spawner) {
+    const DWORD now = GetTickCount();
+    for (const auto& r : engineRests)
+        if (r.spawner == spawner && r.until && static_cast<LONG>(r.until - now) > 0) return true;
+    return false;
+}
+// True when this refusal sends the engine to rest.
+bool NoteEngineRefusal(uintptr_t spawner) {
+    for (auto& r : engineRests) {
+        if (r.spawner != spawner) continue;
+        if (++r.refusals < 3) return false;
+        r.refusals = 0;
+        r.until = GetTickCount() + 30000;
+        return true;
+    }
+    engineRests.push_back(EngineRest{spawner, 1, 0});
+    return false;
+}
+void NoteEngineMade(uintptr_t spawner) {
+    for (auto& r : engineRests) if (r.spawner == spawner) r.refusals = 0;
+}
+bool EngineAvoided(uintptr_t spawner) {
+    return std::find(avoidedEngines.begin(), avoidedEngines.end(), spawner) != avoidedEngines.end() || EngineResting(spawner);
+}
+
 // A live spawner whose own target still resolves: HandleEvents looks the
 // target up before OnLookup may swap the packet, so a spawner from a room
-// whose streams are gone would create nothing. Newest first.
-uintptr_t SpawnerForAreaRule() {
+// whose streams are gone would create nothing. Newest first. `prefer` (a
+// survival arena: the spawner stands inside it) outranks every target class.
+uintptr_t SpawnerForAreaRule(bool (*prefer)(uintptr_t) = nullptr) {
+    ApplyKnownSpawnersClear();
     uint32_t manager = 0;
     if (!Read(base + 0x1C1C0A0, &manager, 4) || !manager) return 0;
     // Each candidate comes with the GUID recorded for it, so a pointer whose
@@ -762,7 +1130,7 @@ uintptr_t SpawnerForAreaRule() {
         const uintptr_t spawner = candidates[i];
         uint32_t vtable = 0, attributes = 0;
         Guid target{};
-        if (!KnownSpawnerUsable(candidates[i], recorded[i])) continue;
+        if (!KnownSpawnerUsable(candidates[i], recorded[i]) || EngineAvoided(spawner)) continue;
         if (!Read(spawner, &vtable, 4) || vtable != base + kFuncSpawnVtableRva ||
             !Read(spawner + kFuncSpawnAttributes, &attributes, 4) || !attributes ||
             !Read(attributes + kSpawnAttrTargetGuid, target.data(), 16) || target == Guid{}) continue;
@@ -774,8 +1142,9 @@ uintptr_t SpawnerForAreaRule() {
         int score = 3;   // not an enemy the catalog knows: a prop or the like
         if (found != pool.end() && found->guid == target)
             score = ds2::ventContext(found->context) ? 0 : (ds2::directContext(found->context) ? 2 : 1);
+        if (prefer && prefer(spawner)) score += 10;
         if (score > bestScore) { bestScore = score; best = spawner; }
-        if (score == 3) break;
+        if (score == (prefer ? 13 : 3)) break;
     }
     return best;
 }
@@ -869,9 +1238,11 @@ void ExtraAreaTick() {
 // plugin's only periodic call on the game thread, so the stream graph recheck,
 // the placement key and the area rules ride along with it.
 void DrainDeferredRepeats() {
+    if (survivalMachineTick) survivalMachineTick();
     RecheckStreamGraph();
     placement::Poll();
     ExtraAreaTick();
+    ventq::Scan(GetTickCount());
     if ((!moreEnemies.enabled && !HordesActive()) || moreEnemiesInside) return;
     if (InterlockedCompareExchange(&moreEnemiesDeferred, 0, 0) ==
         InterlockedCompareExchange(&moreEnemiesDeferredMade, 0, 0) +
@@ -881,9 +1252,30 @@ void DrainDeferredRepeats() {
         std::lock_guard<std::mutex> guard(deferredLock);
         if (!deferredCount) return;
         const DWORD now = GetTickCount();
+        // this runs on every state machine update; a waiting queue is looked at ten times a second
+        static DWORD lastPick = 0;
+        if (now - lastPick < 100) return;
+        lastPick = now;
         size_t pick = kDeferredCapacity;
-        for (size_t i = 0; i < deferredCount; ++i)
-            if (static_cast<LONG>(now - deferred[i].due) >= 0) { pick = i; break; }
+        for (size_t i = 0; i < deferredCount; ++i) {
+            if (static_cast<LONG>(now - deferred[i].due) < 0) continue;
+            if (!VentQuiet(deferred[i].spawner, now)) { InterlockedIncrement(&ventGapWaits); continue; }
+            uint32_t vent = 0;
+            if (ventq::Busy(deferred[i].spawner, &vent)) {
+                InterlockedIncrement(&ventq::repeatWaits);
+                if (now - deferred[i].due < ventq::kRepeatBusyMs) continue;
+                // the vent never emptied: this copy is given up rather than pushed in
+                InterlockedIncrement(&ventq::repeatsDropped);
+                InterlockedIncrement(&moreEnemiesDeferredLost);
+                if (deferred[i].retire) InterlockedIncrement(&ventRetireLost);
+                ventq::Note("vent_queue: a repeat of spawner %08X dropped, vent %08X not empty for %lu s", static_cast<unsigned>(deferred[i].spawner), vent,
+                            static_cast<unsigned long>((now - deferred[i].due) / 1000));
+                deferred[i] = deferred[--deferredCount];
+                return;
+            }
+            pick = i;
+            break;
+        }
         if (pick == kDeferredCapacity) return;
         entry = deferred[pick];
         deferred[pick] = deferred[--deferredCount];
@@ -922,8 +1314,11 @@ void DrainDeferredRepeats() {
         return;
     }
     const uint32_t hidden = 0;
-    if (hideCompletion)
-        WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden));
+    if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden))) {
+        InterlockedIncrement(&moreEnemiesDeferredLost);
+        if (entry.retire) InterlockedIncrement(&ventRetireLost);
+        return;
+    }
 
     uint32_t message[4]{trigger, 0, 0, 0};
     using HandleEventsFn = void(__thiscall*)(void*, void*);
@@ -963,10 +1358,12 @@ void DrainDeferredRepeats() {
 
 // Every authored arrival that actually produced an entity passes here.
 void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
+    if (CoopClient()) { InterlockedIncrement(&coopClientSkips); return; }   // nothing was parked for it either
     if (moreEnemiesInside) {
         if (moreEnemies.enabled) CountMoreEnemies(ds2::MoreEnemiesStatus::Reentrant);
         return;
     }
+    if (InterlockedExchange(&moreEnemiesBudgetReset, 0)) moreEnemiesBudget = {};
     const HordeMark hordeMark = TakeHordeMark(ctx.edi);
     const unsigned hordeSize = hordeMark.size;
     std::string replacementFamily;
@@ -1028,7 +1425,7 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
                                 authoredCount, authoredMax, nullptr);
         return;
     }
-    if (extras) RunExtraSpawns(spawner, attributes, trigger, completion, handleEvents, target, authoredCount);
+    const unsigned customCopies = extras ? RunExtraSpawns(spawner, attributes, trigger, completion, handleEvents, target, authoredCount) : 0;
     if (!moreEnemies.enabled && !horde) return;
 
     const auto found = std::lower_bound(pool.begin(), pool.end(), target,
@@ -1045,7 +1442,11 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     // Neither the budget nor the per-trigger cap applies to a horde: six
     // swarmers are the point.
     ds2::MoreEnemiesDecision decision{ds2::MoreEnemiesStatus::Multiplied, 0};
-    if (horde) decision.extras = hordeSize - 1;
+    // 12.10.: the saferoom scene's one slasher came out four times; the three
+    // copies were in no scene and roamed a room the level never puts one in.
+    if (moreEnemiesSkipScene && IsSceneActor(target))
+        decision = ds2::MoreEnemiesDecision{ds2::MoreEnemiesStatus::SceneActor, 0};
+    else if (horde) decision.extras = hordeSize - 1;
     else if (moreEnemies.enabled)
         decision = ds2::decideMoreEnemies(moreEnemies, moreEnemiesFamilyTotals,
                                           found->family, found->context,
@@ -1054,6 +1455,8 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     const char* family = horde ? "SwarmHorde" : found->family.c_str();
     // the message this slot's death is counted by, whoever ends up dying first
     const uint32_t deathHash = horde ? hordeMark.deathHash : found->deathMessage.hash;
+    if (deathHash && !silenceAvailable) return;
+    const unsigned originalPass = customCopies && deathHash == found->deathMessage.hash ? 0u : 1u;
     if (decision.status != ds2::MoreEnemiesStatus::Multiplied || !decision.extras) {
         CountMoreEnemies(decision.status);
         RecordMoreEnemiesDetail(spawner, attributes, target, decision.status, 0, 0,
@@ -1083,8 +1486,10 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     }
 
     const uint32_t hidden = 0;
-    if (hideCompletion)
-        WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden));
+    if (hideCompletion && !WriteBytes(attributes + kSpawnAttrCompletionMessage, &hidden, sizeof(hidden))) {
+        CountMoreEnemies(ds2::MoreEnemiesStatus::CompletionNotWritable);
+        return;
+    }
 
     // The engine's own retry builds exactly this message: id, a zero byte and a
     // zero dword. Sixteen bytes so a longer read can never reach past it.
@@ -1105,7 +1510,7 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
             ++queued;
         }
         // one death of this slot counts; each copy registers itself when made
-        if (queued && deathHash) ArmHordeSilence(deathHash, 0);
+        if (queued && deathHash && originalPass) ArmHordeSilence(deathHash, 0);
         // all copies queued, the flagged last one among them: the queue owns
         // the retirement now. Otherwise the guard retires on the way out and
         // the queued copies find no spawner (queue full: 32 entries).
@@ -1139,7 +1544,7 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
     // every repeat marked the spawner again; those marks are spent
     TakeHordeMark(spawner);
     if (horde) InterlockedExchangeAdd(&swarmHordeExtras, static_cast<LONG>(made));
-    if (made && deathHash) ArmHordeSilence(deathHash, made);
+    if (made && deathHash) ArmHordeSilence(deathHash, made, originalPass);
 
     if (!WriteBytes(spawner + kFuncSpawnCount, &authoredCount, sizeof(authoredCount)))
         InterlockedIncrement(&moreEnemiesRestoreFailed);
@@ -1157,9 +1562,13 @@ void OnAuthoredSpawnComplete(SafetyHookContext& ctx) {
 
 void LoadMoreEnemiesSettings(const std::string& ini) {
     moreEnemies.enabled = ConfigInt(ini, "DS2Randomizer", "MoreEnemies", 0, 0, 1) != 0;
+    moreEnemiesSkipScene = ConfigInt(ini, "DS2Randomizer", "MoreEnemiesSkipScripted", 1, 0, 1) != 0;
     moreEnemies.vents = ConfigInt(ini, "DS2Randomizer", "MoreEnemiesVents", 0, 0, 1) != 0;
     moreEnemiesVentDelayMs = static_cast<unsigned>(
         ConfigInt(ini, "DS2Randomizer", "MoreEnemiesVentDelayMs", 2000, 0, 30000));
+    moreEnemiesVentGapMs = static_cast<unsigned>(
+        ConfigInt(ini, "DS2Randomizer", "MoreEnemiesVentGapMs", 4000, 0, 30000));
+    ventq::guard = ConfigInt(ini, "DS2Randomizer", "VentQueueGuard", 1, 0, 1) != 0;
     moreEnemies.suppressCompletion =
         ConfigInt(ini, "DS2Randomizer", "MoreEnemiesHideCompletion", 1, 0, 1) != 0;
     moreEnemies.crossFamily =
@@ -1181,6 +1590,7 @@ void LoadMoreEnemiesSettings(const std::string& ini) {
     if (swarmHorde > 1) hordeSizes["SwarmEnemy"] = swarmHorde;
     if (packHorde > 1) hordeSizes["PackEnemy"] = packHorde;
     for (const auto& record : pool) {
+        if (record.deathMessage.hash) hordeSilences.try_emplace(record.deathMessage.hash);
         if (moreEnemiesFamilyTotals.count(record.family)) continue;
         const int total = ConfigInt(ini, "MoreEnemies", record.family.c_str(),
                                     static_cast<int>(moreEnemies.defaultTotal), 1,
@@ -1231,7 +1641,7 @@ bool InstallMoreEnemies(FILE* log) {
     if (spawnDoneVerified && moreEnemiesVentDelayMs)
         beforeSpawnDoneHook = safetyhook::create_mid(
             reinterpret_cast<void*>(base + kBeforeSpawnDoneRva), OnBeforeSpawnDone);
-    if (extraSpawnsEnabled) {
+    if (extraSpawnsEnabled || survivalWanted) {
         // push ebp / mov ebp,esp / and esp,-16 / push ecx / mov eax,[ebp+8] / push ebx / push esi / push edi / push eax / mov esi,ecx / call
         static const unsigned char kCtor[] = {0x55,0x8B,0xEC,0x83,0xE4,0xF0,0x51,0x8B,0x45,0x08,0x53,0x56,0x57,0x50,0x8B,0xF1,0xE8};
         unsigned char ctorBytes[sizeof(kCtor)]{};
@@ -1245,7 +1655,9 @@ bool InstallMoreEnemies(FILE* log) {
                  static_cast<unsigned>(base + kBeforeSpawnDoneRva),
                  static_cast<unsigned>(base + kFuncSpawnSpawnDoneRva),
                  spawnDoneVerified ? "matches" : "MISMATCH");
-    if (HordesActive() || moreEnemies.enabled) {
+    // survival reads the MP maps' vent windows off the same dispatch
+    if (survivalWanted) { vent_gate::Watch(); objective_watch::Watch(); }
+    if (HordesActive() || moreEnemies.enabled || extraSpawnsEnabled || survivalWanted) {
         // push ecx / mov edx,[esp+8] / mov ecx,[edx] / push esi / mov esi,ecx / push edi / mov edi,[0x0204CD8C]
         static const unsigned char kDispatch[] = {0x51,0x8B,0x54,0x24,0x08,0x8B,0x0A,0x56,0x8B,0xF1,0x57,0x8B,0x3D,0x8C,0xCD,0x04,0x02};
         // Other plugins wrap the same dispatch; the shared lock in hook_site.h
@@ -1253,7 +1665,7 @@ bool InstallMoreEnemies(FILE* log) {
         silenceAvailable = hook_site::Install(log, "death message dispatch", base + 0x356C60, kDispatch, sizeof(kDispatch),
                                               reinterpret_cast<void*>(OnDispatchMessage), messageHook);
         if (!silenceAvailable) {
-            std::fprintf(log, "death message dispatch not hooked; hordes off, every repeat's death counts\n");
+            std::fprintf(log, "death message dispatch not hooked; hordes and death-counted repeats off, and survival's objective count and vent windows are blind\n");
             DisableHordes();
         }
     }
@@ -1262,8 +1674,38 @@ bool InstallMoreEnemies(FILE* log) {
     return true;
 }
 
+// The game-thread work runs inside the watchdog's state machine hook: an access violation in
+// the survival tick, the stream graph, placement, the vent queue or a repeat would take the
+// game's update down with it. Caught, counted and logged; the per-call flags are put back.
+volatile LONG gameThreadFaults = 0;
+DWORD gameThreadFaultCode = 0;
+int GameThreadFilter(DWORD code) {
+    gameThreadFaultCode = code;
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+__declspec(noinline) bool DrainGuarded() {
+    __try {
+        DrainDeferredRepeats();
+        return true;
+    } __except (GameThreadFilter(GetExceptionCode())) {
+        return false;
+    }
+}
+void DrainDeferredRepeatsSafe() {
+    if (DrainGuarded()) return;
+    moreEnemiesInside = false;
+    hordeCopy = false;
+    const LONG n = InterlockedIncrement(&gameThreadFaults);
+    if (n <= 5)
+        ventq::Note("game thread work FAULT %08X (survival tick, stream graph, placement, vents, repeats): caught, the game goes on (%ld so far)",
+                    static_cast<unsigned>(gameThreadFaultCode), n);
+}
+
 void WriteMoreEnemiesConfig(FILE* log) {
-    ds2_watchdog_runtime::gameThreadWork = DrainDeferredRepeats;
+    ds2_watchdog_runtime::gameThreadWork = DrainDeferredRepeatsSafe;
+    ventq::Install(log);
+    std::fprintf(log, "more_enemies skip_scripted=%d scene_actors=%u (a spawn a scene names as its actor is not multiplied)\n",
+                 moreEnemiesSkipScene ? 1 : 0, static_cast<unsigned>(std::size(ds2::kSceneActors)));
     std::fprintf(log, "more_enemies enabled=%d vents=%d hide_completion=%d cross_family=%d "
                       "max_per_trigger=%u per_second=%u default=%u swarm_horde=%u pack_horde=%u hordes_active=%d\n",
                  moreEnemies.enabled, moreEnemies.vents, moreEnemies.suppressCompletion, moreEnemies.crossFamily,
@@ -1279,6 +1721,7 @@ void WriteMoreEnemiesConfig(FILE* log) {
 
 void WriteMoreEnemiesDiagnostics(FILE* log, LONG& flushed) {
     static LONG lastTotal = -1;
+    ventq::WriteDiagnostics(log);
     LoadExtraSpawns(log);
     static LONG lastExtras = -1;
     const LONG extrasNow = InterlockedCompareExchange(&extraSpawnsMade, 0, 0) + InterlockedCompareExchange(&extraSpawnsFailed, 0, 0) +
@@ -1340,10 +1783,10 @@ void WriteMoreEnemiesDiagnostics(FILE* log, LONG& flushed) {
                      InterlockedCompareExchange(&ventRetiredSynthetic, 0, 0), InterlockedCompareExchange(&ventRetireLost, 0, 0),
                      InterlockedCompareExchange(&ventRetireFailed, 0, 0));
     if (queuedTotal)
-        std::fprintf(log, "more_enemies deferred queued=%ld made=%ld lost=%ld delay_ms=%u\n",
+        std::fprintf(log, "more_enemies deferred queued=%ld made=%ld lost=%ld delay_ms=%u vent_gap_ms=%u gap_waits=%ld\n",
                      queuedTotal, InterlockedCompareExchange(&moreEnemiesDeferredMade, 0, 0),
                      InterlockedCompareExchange(&moreEnemiesDeferredLost, 0, 0),
-                     moreEnemiesVentDelayMs);
+                     moreEnemiesVentDelayMs, moreEnemiesVentGapMs, InterlockedCompareExchange(&ventGapWaits, 0, 0));
     for (unsigned i = 0; i < static_cast<unsigned>(ds2::MoreEnemiesStatus::Count); ++i) {
         const LONG count = InterlockedCompareExchange(&moreEnemiesStatusCounts[i], 0, 0);
         if (count) std::fprintf(log, "more_enemies reason=%s count=%ld\n",

@@ -13,6 +13,7 @@ p.add_argument("--tool-dir",required=True)
 p.add_argument("--output",type=Path,required=True)
 p.add_argument("--dictionary",type=Path,required=True)
 p.add_argument("--limit",type=int,default=0)
+p.add_argument("--only",default="",help="scan only this folder below root; archive names stay relative to root")
 args=p.parse_args()
 sys.path.insert(0,args.tool_dir)
 import ds2str
@@ -35,7 +36,7 @@ states=[]
 classes=Counter()
 count=0
 with (args.output/'entities.jsonl').open('w',encoding='utf-8') as entities_out, (args.output/'assets.jsonl').open('w',encoding='utf-8') as assets_out:
-    paths=sorted(args.root.rglob('*.str'))
+    paths=sorted((args.root/args.only if args.only else args.root).rglob('*.str'))
     if args.limit: paths=paths[:args.limit]
     for ordinal,path in enumerate(paths,1):
         state={'archive':str(path.relative_to(args.root)),'groups':0,'entities':0,'errors':[]}
@@ -62,9 +63,11 @@ with (args.output/'entities.jsonl').open('w',encoding='utf-8') as entities_out, 
                             if im is None:
                                 entity['images'].append({'image_id':image_id,'unresolved':True})
                                 continue
-                            entity['images'].append({'image_id':image_id,'type_id':im['type_id'],
+                            row={'image_id':image_id,'type_id':im['type_id'],
                                 'class':name(im['type_id']),
-                                'fields':[decode_field(f,data,base) for f in im['fields']]})
+                                'fields':[decode_field(f,data,base) for f in im['fields']]}
+                            if im.get('baked'): row['baked']=True
+                            entity['images'].append(row)
                         entity['class']=entity['images'][0].get('class','unresolved')
                         classes[entity['class']]+=1
                         entities_out.write(json.dumps(entity)+'\n')

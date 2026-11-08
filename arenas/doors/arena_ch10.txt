@@ -1,0 +1,5 @@
+# marked in the running arena (door key), copied 16.10.2026
+doormark 5A9A7D82-AE0A9AD0-52444F52-45554749 state=held at=(182.27 -15.00 86.68)
+doormark 5A897DE3-D01AB7ED-52444F52-45554749 state=held at=(199.25 -11.00 87.00)
+doormark 5A897DE3-A220376D-52444F52-45554749 state=held at=(182.25 -11.00 103.50)
+doormark 5A897DE3-7A760D6D-52444F52-45554749 state=held at=(198.75 -7.00 103.50)

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     sealed class IniLine
     {
@@ -26,6 +26,70 @@ namespace DS2RandomizerConfig
         public string Problem;       // why the file cannot be written back safely, or null
         public List<IniLine> Lines = new List<IniLine>();
         bool WideBigEndian;
+
+        // First header per section and first key per name inside it, rebuilt
+        // after lines were inserted or removed. Call Touch() after editing Lines directly.
+        Dictionary<string, int> headers;
+        Dictionary<string, Dictionary<string, int>> keys;
+
+        public void Touch() { headers = null; keys = null; }
+
+        public void MakeWide()
+        {
+            Wide = new UnicodeEncoding(false, false);
+            WideBigEndian = false;
+            HasBom = false;
+        }
+
+        void BuildIndex()
+        {
+            headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            keys = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, int> current = null;
+            for (int i = 0; i < Lines.Count; i++)
+            {
+                string text = Lines[i].Text;
+                string name = SectionName(text);
+                if (name != null)
+                {
+                    // a repeated section is not read, Windows stops at the first one
+                    if (headers.ContainsKey(name)) { current = null; continue; }
+                    headers[name] = i;
+                    current = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    keys[name] = current;
+                    continue;
+                }
+                if (current == null) continue;
+                string key = KeyName(text);
+                if (key != null && !current.ContainsKey(key)) current[key] = i;
+            }
+        }
+
+        // Sections in file order, each once.
+        public List<string> SectionNames()
+        {
+            if (headers == null) BuildIndex();
+            var list = new List<KeyValuePair<int, string>>();
+            foreach (var pair in headers) list.Add(new KeyValuePair<int, string>(pair.Value, pair.Key));
+            list.Sort((a, b) => a.Key.CompareTo(b.Key));
+            var names = new List<string>();
+            foreach (var pair in list) names.Add(SectionName(Lines[pair.Key].Text));
+            return names;
+        }
+
+        // Keys of a section in file order, as Windows reads them.
+        public List<string> KeyNames(string section)
+        {
+            if (headers == null) BuildIndex();
+            var names = new List<string>();
+            Dictionary<string, int> map;
+            if (!keys.TryGetValue(section, out map)) return names;
+            var list = new List<KeyValuePair<int, string>>();
+            foreach (var pair in map) list.Add(new KeyValuePair<int, string>(pair.Value, pair.Key));
+            list.Sort((a, b) => a.Key.CompareTo(b.Key));
+            foreach (var pair in list) names.Add(KeyName(Lines[pair.Key].Text));
+            return names;
+        }
 
         public string EncodingName
         {
@@ -151,12 +215,9 @@ namespace DS2RandomizerConfig
         // Windows uses the first matching section and the first matching key.
         public int FindSection(string section)
         {
-            for (int i = 0; i < Lines.Count; i++)
-            {
-                string name = SectionName(Lines[i].Text);
-                if (name != null && string.Equals(name, section, StringComparison.OrdinalIgnoreCase)) return i;
-            }
-            return -1;
+            if (headers == null) BuildIndex();
+            int i;
+            return headers.TryGetValue(section, out i) ? i : -1;
         }
 
         public int SectionEnd(int header)
@@ -166,17 +227,26 @@ namespace DS2RandomizerConfig
             return Lines.Count;
         }
 
+        // Just after the last key (or the header) of a section: blank lines and
+        // comments before the next header usually introduce that one.
+        public int ContentEnd(int header)
+        {
+            int i = SectionEnd(header) - 1;
+            while (i > header)
+            {
+                string t = Lines[i].Text.Trim();
+                if (t.Length > 0 && t[0] != ';') break;
+                i--;
+            }
+            return i + 1;
+        }
+
         public int FindKey(string section, string key)
         {
-            int header = FindSection(section);
-            if (header < 0) return -1;
-            int end = SectionEnd(header);
-            for (int i = header + 1; i < end; i++)
-            {
-                string name = KeyName(Lines[i].Text);
-                if (name != null && string.Equals(name, key, StringComparison.OrdinalIgnoreCase)) return i;
-            }
-            return -1;
+            if (headers == null) BuildIndex();
+            Dictionary<string, int> map;
+            int i;
+            return keys.TryGetValue(section, out map) && map.TryGetValue(key, out i) ? i : -1;
         }
 
         // The trimmed value, or null when the key is absent.
@@ -196,6 +266,13 @@ namespace DS2RandomizerConfig
         // (with a one-line comment) at the end of its section.
         public void SetValue(string section, string key, string value, bool numeric, string comment)
         {
+            SetValue(section, key, value, numeric, string.IsNullOrEmpty(comment) ? null : new[] { "; " + comment }, null);
+        }
+
+        // As above with comment lines taken over as they are. A missing section
+        // goes after the nearest section that precedes it in sectionOrder.
+        public void SetValue(string section, string key, string value, bool numeric, IList<string> comment, IList<string> sectionOrder)
+        {
             int index = FindKey(section, key);
             if (index >= 0)
             {
@@ -209,7 +286,14 @@ namespace DS2RandomizerConfig
             var added = new List<IniLine>();
             int header = FindSection(section);
             int insertAt;
-            if (header >= 0)
+            int anchor = header < 0 ? Predecessor(section, sectionOrder) : -1;
+            if (header < 0 && anchor >= 0)
+            {
+                insertAt = ContentEnd(anchor);
+                added.Add(new IniLine("", nl));
+                added.Add(new IniLine("[" + section + "]", nl));
+            }
+            else if (header >= 0)
             {
                 insertAt = header + 1;
                 int end = SectionEnd(header);
@@ -232,8 +316,12 @@ namespace DS2RandomizerConfig
                     added.Add(new IniLine("", nl));
                 added.Add(new IniLine("[" + section + "]", nl));
             }
-            if (!string.IsNullOrEmpty(comment)) added.Add(new IniLine("; " + comment, nl));
+            if (comment != null)
+                foreach (var c in comment) added.Add(new IniLine(c.TrimStart().StartsWith(";") ? c : "; " + c, nl));
             added.Add(new IniLine(key + "=" + value, nl));
+            // a section put between two others keeps a blank line before the next one
+            if (anchor >= 0 && insertAt < Lines.Count && Lines[insertAt].Text.Trim().Length > 0)
+                added.Add(new IniLine("", nl));
             if (insertAt > 0 && Lines[insertAt - 1].Eol.Length == 0)
             {
                 // the previous line ended the file without a terminator; keep it that way
@@ -241,6 +329,21 @@ namespace DS2RandomizerConfig
                 added[added.Count - 1].Eol = "";
             }
             Lines.InsertRange(insertAt, added);
+            Touch();
+        }
+
+        int Predecessor(string section, IList<string> order)
+        {
+            if (order == null) return -1;
+            int at = -1;
+            for (int i = 0; i < order.Count; i++)
+                if (string.Equals(order[i], section, StringComparison.OrdinalIgnoreCase)) { at = i; break; }
+            for (int i = at - 1; i >= 0; i--)
+            {
+                int h = FindSection(order[i]);
+                if (h >= 0) return h;
+            }
+            return -1;
         }
 
         // Turns "Key=value" into "; Key=value", so the default applies again.
@@ -249,6 +352,7 @@ namespace DS2RandomizerConfig
             int index = FindKey(section, key);
             if (index < 0) return false;
             Lines[index].Text = "; " + Lines[index].Text.TrimStart();
+            Touch();
             return true;
         }
     }

@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Zone switches held up by the pool's character packages.
 //
 // The pool root depends on the stock character packages (char_str\npc\*),
@@ -199,6 +200,60 @@ void OnStatusTest(SafetyHookContext& ctx) {
     }
 }
 
+// The checkpoint quick restart (GameMainLoop::UpdateQuickRestart 0x00410200, state 1) waits
+// until set 0 has nothing left to unload (0x007578E0: +0x99C, +0xC8, +0x240 all zero), but
+// nothing runs ProcessPendingLoads any more while it waits. A package caught in the unload
+// list when the restart began stayed there, and so did the loading screen (16.10., ch03
+// church, slasherclergy, host). From the frame tick: once the status test has been silent for
+// a second, pool-held packages are taken off the unload lists the way the set drops a record
+// that reads unloaded (0x007580D6: shift the rest down, count - 1).
+volatile LONG sweeps = 0, swept = 0, sweepFaults = 0;
+LONG sweepCalls = -1;
+DWORD callsQuietSince = 0, lastSweep = 0;
+struct SweepEvent { uint32_t set, handle, count; int row; };
+SweepEvent sweepEvents[16]{};
+volatile LONG sweepEventCount = 0;
+LONG sweepEventsWritten = 0;
+bool TakeOff(uint32_t set, uint32_t index) {
+    __try {
+        auto* list = reinterpret_cast<uint32_t*>(set + kUnloadList);
+        auto* count = reinterpret_cast<uint32_t*>(set + kUnloadCount);
+        for (uint32_t i = index; i + 1 < *count; ++i) list[i] = list[i + 1];
+        --*count;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedIncrement(&sweepFaults);
+        return false;
+    }
+}
+void FrameSweep() {
+    if (!installed) return;
+    const DWORD now = GetTickCount();
+    const LONG seen = InterlockedCompareExchange(&calls, 0, 0);
+    if (seen != sweepCalls) { sweepCalls = seen; callsQuietSince = now; return; }
+    if (now - callsQuietSince < 1000 || now - lastSweep < 250) return;
+    lastSweep = now;
+    uint32_t setManager = 0, sets = 0, setCount = 0, manager = 0;
+    if (!Read(base + 0x1C1C0BC, &setManager, 4) || !setManager || !Read(setManager + 0x10, &sets, 4) || !sets ||
+        !Read(setManager + 0x14, &setCount, 4) || setCount > 16) return;
+    if (!Read(base + 0x1C1C098, &manager, 4) || !manager || !PoolRootPresent(manager)) return;
+    InterlockedIncrement(&sweeps);
+    for (uint32_t s = 0; s < setCount; ++s) {
+        uint32_t set = 0, count = 0;
+        if (!Read(sets + 4 * s, &set, 4) || !set || !Read(set + kUnloadCount, &count, 4) || !count || count > kUnloadCapacity) continue;
+        for (uint32_t i = count; i-- > 0;) {
+            uint32_t handle = 0, flags = 0, refs = 0;
+            int row = -1;
+            if (!Read(set + kUnloadList + 4 * i, &handle, 4)) break;
+            const uint32_t stream = StreamFor(manager, handle);
+            if (!stream || Classify(stream, flags, refs, row) != Verdict::Candidate || !TakeOff(set, i)) continue;
+            InterlockedIncrement(&swept);
+            const LONG slot = InterlockedIncrement(&sweepEventCount) - 1;
+            if (slot >= 0 && slot < static_cast<LONG>(std::size(sweepEvents))) sweepEvents[slot] = SweepEvent{set, handle, count, row};
+        }
+    }
+}
+
 bool Install(FILE* log, const std::string& ini) {
     const bool enabled = ConfigInt(ini, "DS2Randomizer", "ZoneUnloadHeal", 1, 0, 1) != 0;
     delayMs = static_cast<DWORD>(ConfigInt(ini, "DS2Randomizer", "ZoneUnloadHealDelayMs", 250, 0, 5000));
@@ -266,6 +321,20 @@ void WriteDiagnostics(FILE* log) {
         std::fprintf(log, "zone_unload healed tick=%lu set=%08X set_index=%u handle=%08X package=%s identity=%08X flags=%08X refs=%u stuck_ms=%u unload_list=%u\n",
                      e.tick, e.set, e.setIndex, e.handle, e.row >= 0 ? ds2::kStreamRequirements[e.row].name : "?",
                      e.identity, e.flags, e.refs, e.stuckMs, e.unloadCount);
+    }
+    // Written by the frame tick before the count moves on; a slot is only read once the count is past it.
+    const LONG sweepCount = std::min<LONG>(InterlockedCompareExchange(&sweepEventCount, 0, 0), static_cast<LONG>(std::size(sweepEvents)));
+    while (sweepEventsWritten < sweepCount) {
+        const auto& e = sweepEvents[sweepEventsWritten++];
+        std::fprintf(log, "zone_unload swept set=%08X handle=%08X package=%s unload_list=%u (the set was not processing its unloads)\n",
+                     e.set, e.handle, e.row >= 0 ? ds2::kStreamRequirements[e.row].name : "?", e.count);
+    }
+    static LONG lastSwept = 0, lastSweepFaults = 0;
+    const LONG sweptNow = InterlockedCompareExchange(&swept, 0, 0), faultsNow = InterlockedCompareExchange(&sweepFaults, 0, 0);
+    if (sweptNow != lastSwept || faultsNow != lastSweepFaults) {
+        std::fprintf(log, "zone_unload sweeps=%ld swept=%ld faults=%ld\n", InterlockedCompareExchange(&sweeps, 0, 0), sweptNow, faultsNow);
+        lastSwept = sweptNow;
+        lastSweepFaults = faultsNow;
     }
     static LONG last = -1;
     const LONG now = InterlockedCompareExchange(&calls, 0, 0);

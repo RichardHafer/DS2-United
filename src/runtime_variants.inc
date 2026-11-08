@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Speed and size for the stat variants, applied at runtime.
 //
 // Neither is authored. The animation playback factor lives in the CCT AnimView,
@@ -30,7 +31,7 @@ struct Entry {
     Guid guid{};
     float speed = 1.0f;
 };
-constexpr unsigned kEntries = 64;
+constexpr unsigned kEntries = 128;   // variants and escalated enemies alive at once
 Entry entries[kEntries];
 unsigned nextEntry = 0;
 
@@ -59,10 +60,50 @@ void OnVariantCreated(uint32_t actor, const ds2::EnemyRecord& record) {
     slot.actor = actor; slot.vtable = vtable; slot.guid = guid; slot.speed = speed;
 }
 
+// The survival escalation's speed: the same write and the same folding, with
+// only the SetAnimSpeed hook (skins and sounds stay off without VariantRuntime).
+bool speedOnly = false;
+void OnSetAnimSpeed(SafetyHookContext& ctx);
+bool ApplyEscalationSpeed(uint32_t actor, float factor) {
+    if ((!enabled && !speedOnly) || !actor || !(factor > 0.0f)) return false;
+    uint32_t inner = 0, vtable = 0;
+    Guid guid{};
+    float current = 1.0f;
+    if (!Read(actor + kViewInner, &inner, 4) || !inner || !Read(actor, &vtable, 4) || !Read(actor + 0x24, guid.data(), 16) || !Read(inner + kSpeed, &current, 4)) {
+        InterlockedIncrement(&viewMissing);
+        return false;
+    }
+    // a variant already has an entry: its factor and the wave's multiply
+    for (auto& entry : entries)
+        if (entry.actor == actor && entry.vtable == vtable && entry.guid == guid) {
+            entry.speed *= factor;
+            return WriteFloat(inner + kSpeed, (std::isfinite(current) && current > 0.0f ? current : 1.0f) * factor);
+        }
+    if (!WriteFloat(inner + kSpeed, (std::isfinite(current) && current > 0.0f ? current : 1.0f) * factor)) return false;
+    auto& slot = entries[nextEntry++ % kEntries];
+    slot.actor = actor; slot.vtable = vtable; slot.guid = guid; slot.speed = factor;
+    InterlockedIncrement(&speedApplied);
+    return true;
+}
+bool InstallSpeedOnly(FILE* log) {
+    if (speedHook) { speedOnly = true; return true; }
+    // push esi / mov esi,ecx / mov eax,[esi+194h] / test eax,eax / je
+    const unsigned char expected[] = {0x56,0x8B,0xF1,0x8B,0x86,0x94,0x01,0x00,0x00,0x85,0xC0,0x74};
+    unsigned char actual[sizeof(expected)]{};
+    if (!Read(base + 0x351F40, actual, sizeof(actual)) || std::memcmp(actual, expected, sizeof(expected))) {
+        std::fprintf(log, "variant_runtime set_anim_speed signature mismatch; the escalation's speed is off\n");
+        return false;
+    }
+    speedHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x351F40), OnSetAnimSpeed);
+    speedOnly = static_cast<bool>(speedHook);
+    std::fprintf(log, "variant_runtime set_anim_speed %s for the escalation's speed at %08X\n", speedOnly ? "installed" : "FAILED", static_cast<unsigned>(base + 0x351F40));
+    return speedOnly;
+}
+
 // 0x00751F40, Animated::SetAnimSpeed(float): ecx is the actor, the value is
 // the first stack argument. A variant's factor is folded into it.
 void OnSetAnimSpeed(SafetyHookContext& ctx) {
-    if (!enabled) return;
+    if (!enabled && !speedOnly) return;
     for (const auto& entry : entries) {
         if (!entry.actor || entry.actor != ctx.ecx || entry.speed == 1.0f) continue;
         uint32_t vtable = 0;

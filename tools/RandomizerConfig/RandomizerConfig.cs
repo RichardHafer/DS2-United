@@ -6,22 +6,28 @@ using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-[assembly: System.Reflection.AssemblyTitle("DS2 Randomizer Config")]
-[assembly: System.Reflection.AssemblyProduct("Dead Space 2 Randomizer")]
+[assembly: System.Reflection.AssemblyTitle("Dead Space 2 United Config")]
+[assembly: System.Reflection.AssemblyProduct("Dead Space 2 United")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     static class Program
     {
-        public const string IniName = "DS2Randomizer.ini";
+        public const string IniName = Merger.FileName;
+        public const string Caption = "Dead Space 2 United";
+
+        [DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int processId);
 
         [STAThread]
         static int Main(string[] args)
         {
             if (args.Length >= 1 && args[0] == "--selftest") return SelfTest.Run(args);
+            if (args.Length >= 1 && args[0] == "--migrate") return MigrateCommand(args);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length >= 3 && args[0] == "--render")
@@ -34,18 +40,49 @@ namespace DS2RandomizerConfig
                 return Render(args[1], args[2], w, h);
             }
             Look.Init(0f);
-            string path = args.Length >= 1 && File.Exists(args[0]) ? Path.GetFullPath(args[0]) : Locate();
+            string startNote = null;
+            string path = Open(args, ref startNote);
             if (path == null) return 1;
-            Application.Run(new MainForm(path));
+            Application.Run(new MainForm(path, startNote));
             return 0;
         }
 
-        // Layout check without showing a window: one PNG per section, nothing saved.
+        // --migrate <folder>: writes DS2United.ini there from the old files and prints what happened.
+        static int MigrateCommand(string[] args)
+        {
+            AttachConsole(-1);
+            if (args.Length < 2 || !Directory.Exists(args[1]))
+            {
+                Console.WriteLine("usage: DS2UnitedConfig.exe --migrate <folder with DS2Randomizer.ini, DS2Coop.ini, ...>");
+                return 2;
+            }
+            string folder = Path.GetFullPath(args[1]);
+            try
+            {
+                var before = Merger.LegacyFilesIn(folder).ToDictionary(n => n, n => File.ReadAllBytes(Path.Combine(folder, n)));
+                var r = Merger.Migrate(folder);
+                Console.WriteLine("wrote " + r.Path + " (" + r.Keys + " keys, " + r.Doc.Lines.Count + " lines, " + r.Doc.EncodingName + ")");
+                foreach (var s in r.Sources) Console.WriteLine("  source  " + s);
+                foreach (var s in r.Merged) Console.WriteLine("  merged  " + s);
+                foreach (var s in r.Duplicates) Console.WriteLine("  dup     " + s);
+                foreach (var s in r.Notes) Console.WriteLine("  note    " + s);
+                bool untouched = before.All(p => IniFile.SameBytes(p.Value, File.ReadAllBytes(Merger.SourcePathAfter(folder, p.Key))));
+                Console.WriteLine("  old files " + (untouched ? "unchanged" : "CHANGED"));
+                return untouched ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("not migrated: " + ex.Message);
+                return 1;
+            }
+        }
+
+        // Layout check without showing a window: one PNG per page, nothing saved.
         static int Render(string ini, string outDir, int width, int height)
         {
             var clock = Stopwatch.StartNew();
             Directory.CreateDirectory(outDir);
-            using (var form = new MainForm(Path.GetFullPath(ini)))
+            using (var form = new MainForm(Path.GetFullPath(ini), null))
             {
                 long built = clock.ElapsedMilliseconds;
                 // fully transparent and far off-screen, so nobody sees it
@@ -61,34 +98,89 @@ namespace DS2RandomizerConfig
                 long shown = clock.ElapsedMilliseconds;
                 form.TimeRefresh(outDir, built, shown);
                 form.RenderTabs(outDir);
-                form.RenderSearch(outDir, "vent");
+                form.RenderSearch(outDir, "vent", "20_search.png");
+                form.RenderSearch(outDir, "stasis mine", "21_search_expert.png");
                 form.RenderEdited(outDir);
+                form.RenderExpertEdited(outDir);
                 form.DiscardChanges();
                 form.Hide();
             }
             return 0;
         }
 
-        static string Locate()
+        static string Open(string[] args, ref string startNote)
+        {
+            if (args.Length >= 1 && File.Exists(args[0]))
+            {
+                string full = Path.GetFullPath(args[0]);
+                if (!Merger.IsLegacyName(Path.GetFileName(full))) return full;
+                return ForFolder(Path.GetDirectoryName(full), ref startNote);
+            }
+            if (args.Length >= 1 && Directory.Exists(args[0])) return ForFolder(Path.GetFullPath(args[0]), ref startNote);
+            return Locate(ref startNote);
+        }
+
+        static string ForFolder(string folder, ref string startNote)
+        {
+            string merged = Merger.MergedIn(folder);
+            if (merged != null) return merged;
+            if (Merger.LegacyFilesIn(folder).Count > 0) return Offer(folder, ref startNote);
+            return null;
+        }
+
+        static string Locate(ref string startNote)
         {
             string dir = AppDomain.CurrentDomain.BaseDirectory;
-            foreach (var candidate in new[] { Path.Combine(dir, "plugins", IniName), Path.Combine(dir, IniName) })
-                if (File.Exists(candidate)) return candidate;
-            MessageBox.Show("Could not find plugins\\" + IniName + " next to this program.\n\n" +
+            var folders = new[] { Path.Combine(dir, "plugins"), dir };
+            foreach (var folder in folders)
+                if (Merger.MergedIn(folder) != null) return Merger.MergedIn(folder);
+            foreach (var folder in folders)
+                if (Merger.LegacyFilesIn(folder).Count > 0) return Offer(folder, ref startNote);
+            MessageBox.Show("Could not find plugins\\" + IniName + " next to this program, nor an older DS2Coop.ini or DS2Randomizer.ini.\n\n" +
                 "Put this program into the Dead Space 2 folder (next to deadspace2.exe), or pick the file now.",
-                "DS2 Randomizer Config", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Caption, MessageBoxButtons.OK, MessageBoxIcon.Information);
             using (var dialog = new OpenFileDialog())
             {
                 dialog.Title = "Find " + IniName;
-                dialog.Filter = IniName + "|" + IniName + "|INI files (*.ini)|*.ini";
+                dialog.Filter = "Dead Space 2 United settings|" + IniName + ";" + Merger.OldName + ";" + string.Join(";", Merger.Legacy) + "|INI files (*.ini)|*.ini";
                 dialog.FileName = IniName;
-                return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : null;
+                if (dialog.ShowDialog() != DialogResult.OK) return null;
+                if (!Merger.IsLegacyName(Path.GetFileName(dialog.FileName))) return dialog.FileName;
+                return ForFolder(Path.GetDirectoryName(dialog.FileName), ref startNote);
+            }
+        }
+
+        // Asks before DS2United.ini is made from the old files of a folder.
+        static string Offer(string folder, ref string startNote)
+        {
+            var files = Merger.LegacyFilesIn(folder);
+            string text = "Dead Space 2 United keeps every setting in one file, " + IniName + ". This folder does not have it yet:\n" + folder + "\n\n" +
+                "Create it now from the settings you already have?\n\n" +
+                string.Join("\n", files.Select(f => "      " + f).ToArray()) + "\n\n" +
+                "Every section, value and comment is copied over. The old files stay where they are and are not changed, " +
+                "but once " + IniName + " exists the plugins read only " + IniName + ", so the old files are no longer used.\n\n" +
+                "Yes creates " + IniName + " and opens it. No closes this program and changes nothing.";
+            if (MessageBox.Show(text, Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) != DialogResult.Yes)
+                return null;
+            try
+            {
+                var r = Merger.Migrate(folder);
+                startNote = "Created " + IniName + " from " + string.Join(", ", files.ToArray()) + " (" + r.Keys + " keys). The old files are no longer read.";
+                if (r.Duplicates.Count > 0)
+                    MessageBox.Show("Some keys were in two files. The first value is kept and the second line is commented out:\n\n" +
+                        string.Join("\n", r.Duplicates.ToArray()), Caption, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return r.Path;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(IniName + " was not created, nothing was changed:\n\n" + ex.Message, Caption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
             }
         }
 
         public static Stream Resource(string name)
         {
-            return typeof(Program).Assembly.GetManifestResourceStream("DS2RandomizerConfig." + name);
+            return typeof(Program).Assembly.GetManifestResourceStream("DS2CoopConfig." + name);
         }
     }
 
@@ -115,13 +207,18 @@ namespace DS2RandomizerConfig
 
     sealed class MainForm : Form
     {
+        static readonly string[] Logs = { "DS2Randomizer.log", "DS2United.log", "DS2Bots.log", "DS2Versus.log" };
+
         readonly string iniPath;
         readonly Model model;
         byte[] loadedBytes;
         readonly List<IView> views = new List<IView>();
         readonly Dictionary<string, Editor> editors = new Dictionary<string, Editor>();
-        readonly Dictionary<string, Page> pages = new Dictionary<string, Page>();
+        readonly Dictionary<string, Control> pages = new Dictionary<string, Control>();
+        readonly Dictionary<string, Page> flows = new Dictionary<string, Page>();
         readonly Dictionary<string, Label> intros = new Dictionary<string, Label>();
+        readonly HashSet<string> taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        readonly ExpertGrid grid;
         readonly Panel content;
         readonly NavList nav;
         readonly TextBox search;
@@ -135,22 +232,22 @@ namespace DS2RandomizerConfig
         {
             var rows = views.ToArray();
             SuspendLayout();
-            foreach (var flow in pages.Values) flow.SuspendLayout();
+            foreach (var flow in flows.Values) flow.SuspendLayout();
             foreach (var view in rows) view.Root.SuspendLayout();
             try { action(); }
             finally
             {
                 foreach (var view in rows) view.Root.ResumeLayout(false);
                 foreach (var view in views) view.Root.PerformLayout();
-                foreach (var flow in pages.Values) flow.ResumeLayout(true);
+                foreach (var flow in flows.Values) flow.ResumeLayout(true);
                 ResumeLayout(true);
             }
         }
 
-        public MainForm(string path)
+        public MainForm(string path, string startNote)
         {
             iniPath = path;
-            Text = "Dead Space 2 Randomizer - Settings";
+            Text = Program.Caption;
             // the layout is scaled by hand through Look.S, so WinForms must not scale it again
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = CurrentAutoScaleDimensions;
@@ -170,6 +267,7 @@ namespace DS2RandomizerConfig
             catch (Exception) { }
 
             model = new Model(Schema.Build(), Model.LoadRecommended());
+            foreach (var o in model.Options) taken.Add(o.Id);
 
             Image logo = null;
             try
@@ -195,7 +293,7 @@ namespace DS2RandomizerConfig
                 search.Text = "";
                 e.SuppressKeyPress = true;
             };
-            nav = new NavList(Schema.Groups);
+            nav = new NavList(Schema.Groups, Schema.GroupBreaks);
             nav.SelectedChanged += delegate { ShowPage(nav.SelectedIndex); };
             var hint = Look.MakeLabel("The game reads this file only at startup. Restart it after saving.", Look.Small, Look.Muted);
             sidebar.Controls.Add(search);
@@ -210,9 +308,17 @@ namespace DS2RandomizerConfig
                 search.Bounds = new Rectangle(pad + Look.S(30), pad + (well - search.Height) / 2, inner - Look.S(38), search.Height);
                 int top = pad + well + Look.S(12);
                 int h = Look.Measure(hint.Text, hint.Font, inner);
-                int list = nav.Count * nav.ItemHeight + Look.S(4);
-                // the hint gives way when the window is too short for the whole list
-                hint.Visible = top + list + Look.S(8) + h + pad <= sidebar.Height;
+                int room = sidebar.Height - top - pad;
+                // entries shrink a little before the hint gives way, and further when the window is very short
+                int entry = Look.S(38);
+                while (entry > Look.S(32) && nav.HeightFor(entry) + Look.S(8) + h > room) entry--;
+                hint.Visible = nav.HeightFor(entry) + Look.S(8) + h <= room;
+                if (!hint.Visible)
+                {
+                    entry = Look.S(38);
+                    while (entry > Look.S(24) && nav.HeightFor(entry) > room) entry--;
+                }
+                nav.ItemHeight = entry;
                 hint.Bounds = new Rectangle(pad, sidebar.Height - pad - h, inner, h);
                 nav.Bounds = new Rectangle(0, top, sidebar.Width - 1, Math.Max(0, (hint.Visible ? hint.Top - Look.S(8) : sidebar.Height) - top));
                 sidebar.Invalidate();
@@ -225,18 +331,21 @@ namespace DS2RandomizerConfig
             var reload = MakeButton("Reload", false, delegate { Reload(true); }, "Read the file again and drop unsaved changes");
             var resetAll = MakeButton("Reset all to recommended", false, delegate { ResetAll(); }, "Every option back to the release settings (seeds are kept)");
             var folder = MakeButton("Open plugins folder", false, delegate { OpenFolder(); }, null);
-            var log = MakeButton("Open log", false, delegate { OpenLog(); }, "plugins\\DS2Randomizer.log");
+            Button log = null;
+            log = MakeButton("Open log", false, delegate { OpenLog(log); }, "The plugins' logs in the plugins folder");
+            var about = MakeButton("About", false, delegate { ShowAbout(); }, "Version, credits and links  F1");
             status = new StatusLine { BackColor = Look.Panel, Font = Look.Base };
-            bar.Controls.AddRange(new Control[] { folder, log, status, resetAll, reload, save });
+            bar.Controls.AddRange(new Control[] { folder, log, about, status, resetAll, reload, save });
             bar.Resize += delegate
             {
                 int pad = Look.S(16), gap = Look.S(8), y = (bar.Height - buttonHeight) / 2;
                 folder.Location = new Point(pad, y);
                 log.Location = new Point(folder.Right + gap, y);
+                about.Location = new Point(log.Right + gap, y);
                 save.Location = new Point(bar.Width - pad - save.Width, y);
                 reload.Location = new Point(save.Left - gap - reload.Width, y);
                 resetAll.Location = new Point(reload.Left - gap - resetAll.Width, y);
-                int x0 = log.Right + Look.S(24), x1 = resetAll.Left - Look.S(24);
+                int x0 = about.Right + Look.S(24), x1 = resetAll.Left - Look.S(24);
                 status.Visible = x1 - x0 > Look.S(80);
                 status.Bounds = new Rectangle(x0, Look.S(6), Math.Max(0, x1 - x0), bar.Height - Look.S(12));
             };
@@ -244,6 +353,7 @@ namespace DS2RandomizerConfig
             content = new Panel { Dock = DockStyle.Fill, BackColor = Look.Back };
             foreach (var group in Schema.Groups)
             {
+                if (group == Schema.Expert) continue;
                 var flow = new Page();
                 var heading = new Label { AutoSize = true, Text = group, Font = Look.PageTitle, ForeColor = Look.Text, UseMnemonic = false, Margin = new Padding(0, 0, 0, Look.S(6)) };
                 var intro = new Label { AutoSize = true, Text = Schema.GroupIntro[group], ForeColor = Look.Secondary, UseMnemonic = false, Margin = new Padding(0, 0, 0, Look.S(18)) };
@@ -252,7 +362,13 @@ namespace DS2RandomizerConfig
                 intros[group] = intro;
                 content.Controls.Add(flow);
                 pages[group] = flow;
+                flows[group] = flow;
             }
+            grid = new ExpertGrid(model, Schema.Expert, Schema.GroupIntro[Schema.Expert]) { Dock = DockStyle.Fill, Visible = false };
+            grid.Edited = OnGridEdit;
+            grid.ResetClicked = ResetOne;
+            content.Controls.Add(grid);
+            pages[Schema.Expert] = grid;
             pages[Schema.Groups[0]].Visible = true;
 
             Batch(() =>
@@ -265,6 +381,7 @@ namespace DS2RandomizerConfig
             });
 
             Reload(false);
+            if (startNote != null) status.Set(startNote, Tone.Good);
             // widths follow the window once it settles, not on every resize step
             resizeTimer = new Timer { Interval = 150 };
             resizeTimer.Tick += delegate { resizeTimer.Stop(); UpdateWidths(); };
@@ -305,6 +422,66 @@ namespace DS2RandomizerConfig
         {
             if (e.Control && e.KeyCode == Keys.S) { e.SuppressKeyPress = true; Save(); }
             else if (e.Control && e.KeyCode == Keys.F) { e.SuppressKeyPress = true; search.Focus(); search.SelectAll(); }
+            else if (e.KeyCode == Keys.F1) { e.SuppressKeyPress = true; ShowAbout(); }
+        }
+
+        const string Author = "Hafer (RichardHafer)";
+        const string RepoUrl = "https://github.com/RichardHafer/DS2-United";
+        const string DiscordUrl = "https://discord.com/invite/sWMRkYJ5JV";
+
+        // Version, author, links, credits and the licence.
+        void ShowAbout()
+        {
+            using (var dialog = new Form { Text = "About", StartPosition = FormStartPosition.CenterParent, BackColor = Look.Back,
+                ForeColor = Look.Text, Font = Look.Base, ShowIcon = false, ShowInTaskbar = false, MinimizeBox = false,
+                MaximizeBox = false, FormBorderStyle = FormBorderStyle.FixedDialog, ClientSize = new Size(Look.S(560), Look.S(400)) })
+            {
+                dialog.Controls.Add(new Panel { Dock = DockStyle.Top, Height = Look.S(3), BackColor = Look.Accent });
+                int y = Look.S(20), left = Look.S(24), width = Look.S(512);
+                Action<string, Font, Color> line = delegate(string text, Font font, Color color)
+                {
+                    var label = Look.MakeLabel(text, font, color);
+                    label.AutoSize = false;
+                    int h = TextRenderer.MeasureText(text, font, new Size(width, 0), TextFormatFlags.WordBreak).Height + Look.S(4);
+                    label.SetBounds(left, y, width, h);
+                    dialog.Controls.Add(label);
+                    y += h;
+                };
+                Action<string, string> link = delegate(string text, string url)
+                {
+                    var label = new LinkLabel { Text = text, Font = Look.Base, BackColor = Color.Transparent, LinkColor = Look.Changed,
+                        ActiveLinkColor = Look.Accent, VisitedLinkColor = Look.Changed, UseMnemonic = false, AutoSize = false };
+                    label.SetBounds(left, y, width, Look.S(24));
+                    label.LinkClicked += delegate { try { Process.Start(url); } catch (Exception) { } };
+                    dialog.Controls.Add(label);
+                    y += Look.S(26);
+                };
+                string version = typeof(Program).Assembly.GetName().Version.ToString(3);
+                line("DEAD SPACE 2", Look.Small, Look.Accent);
+                line("United", Look.PageTitle, Look.Text);
+                line("Version " + version + ": story co-op, survival modes, bots, the enemy randomizer and more enemies.", Look.Base, Look.Secondary);
+                y += Look.S(8);
+                line("Created by " + Author, Look.Heading, Look.Text);
+                y += Look.S(6);
+                link("github.com/RichardHafer/DS2-United", RepoUrl);
+                link("Dead Space Modding on Discord", DiscordUrl);
+                y += Look.S(10);
+                line("Thanks to", Look.Small, Look.Muted);
+                line("The Dead Space Modding community for research, tests and feedback", Look.Base, Look.Secondary);
+                line("safetyhook and Zydis for hooking", Look.Base, Look.Secondary);
+                line("Ultimate ASI Loader by ThirteenAG for loading the plugin", Look.Base, Look.Secondary);
+                y += Look.S(10);
+                line("MIT licence. Copyright (c) 2026 " + Author + ".", Look.Small, Look.Muted);
+                line("Not affiliated with EA or Visceral Games. Dead Space is a trademark of EA.", Look.Small, Look.Muted);
+                var close = Look.MakeButton("Close", true, Look.S(32));
+                close.DialogResult = DialogResult.OK;
+                close.SetBounds(dialog.ClientSize.Width - Look.S(24) - Look.S(96), y + Look.S(14), Look.S(96), Look.S(32));
+                dialog.Controls.Add(close);
+                dialog.AcceptButton = close;
+                dialog.CancelButton = close;
+                dialog.ClientSize = new Size(dialog.ClientSize.Width, close.Bottom + Look.S(18));
+                dialog.ShowDialog(this);
+            }
         }
 
         void BuildViews()
@@ -318,8 +495,10 @@ namespace DS2RandomizerConfig
             };
             var tablesDone = new HashSet<string>();
             var roots = new Dictionary<string, Control>();
+            var headed = new HashSet<string>();
             foreach (var o in model.Options)
             {
+                if (o.Generated) continue;
                 IView view;
                 if (o.Table != null)
                 {
@@ -329,16 +508,17 @@ namespace DS2RandomizerConfig
                 }
                 else
                 {
+                    if (o.Heading != null) views.Add(new HeadingView(o.Group, o.Heading, headed.Add(o.Group)));
                     view = new OptionView(o, create(o), ResetOne);
                     roots[o.Id] = view.Root;
                 }
                 views.Add(view);
             }
             // switches first, tables after them within each section
-            foreach (var view in views.Where(v => v is OptionView)) pages[view.Group].Controls.Add(view.Root);
-            foreach (var view in views.Where(v => v is TableView)) pages[view.Group].Controls.Add(view.Root);
+            foreach (var view in views.Where(v => !(v is TableView))) flows[view.Group].Controls.Add(view.Root);
+            foreach (var view in views.Where(v => v is TableView)) flows[view.Group].Controls.Add(view.Root);
             // the Watchdog section ends with the advanced switches, after its tables
-            var flow = pages[Schema.Watchdog];
+            var flow = flows[Schema.Watchdog];
             var advanced = new Label
             {
                 AutoSize = true, Text = "Advanced: leave as is", Font = Look.Heading, ForeColor = Look.Warning,
@@ -353,7 +533,7 @@ namespace DS2RandomizerConfig
                 if (roots.TryGetValue("DS2Randomizer." + key, out root)) flow.Controls.SetChildIndex(root, flow.Controls.Count - 1);
             }
             // FlowLayoutPanel ignores the bottom padding when it scrolls
-            foreach (var page in pages.Values)
+            foreach (var page in flows.Values)
                 page.Controls.Add(new Panel { Size = new Size(1, Look.S(14)), Margin = Padding.Empty, BackColor = Look.Back });
         }
 
@@ -380,13 +560,18 @@ namespace DS2RandomizerConfig
             int width = Math.Max(Look.S(520), Math.Min(Look.S(1160), hostWidth - scroll - 2 * Look.S(28)));
             // wide windows keep a readable column in the middle
             int side = Math.Max(Look.S(28), (hostWidth - scroll - width) / 2);
-            foreach (var pair in pages)
+            foreach (var pair in flows)
             {
                 pair.Value.Padding = new Padding(side, Look.S(24), side, Look.S(24));
                 intros[pair.Key].MaximumSize = new Size(width, 0);
             }
             foreach (var view in views) view.SetWidth(width);
+            grid.SetColumn(side, width);
+            gridSide = side;
+            gridWidth = width;
         }
+
+        int gridSide, gridWidth;
 
         void OnEdited(Editor e)
         {
@@ -406,6 +591,17 @@ namespace DS2RandomizerConfig
             RefreshAll();
         }
 
+        void OnGridEdit(Option o, string value, string error)
+        {
+            if (error != null) model.Invalid[o.Id] = error;
+            else
+            {
+                model.Invalid.Remove(o.Id);
+                model.Set(o, value);
+            }
+            RefreshAll();
+        }
+
         void ShowFollowers(Option source)
         {
             refreshing = true;
@@ -414,9 +610,16 @@ namespace DS2RandomizerConfig
             refreshing = false;
         }
 
+        int MatchesIn(string group)
+        {
+            if (group == Schema.Expert) return grid.MatchCount;
+            return views.Count(v => v.Group == group && !(v is HeadingView) && !hidden.Contains(v));
+        }
+
         void RefreshAll()
         {
             foreach (var view in views) view.Refresh(model);
+            grid.RefreshWarnings();
             int changes = model.ChangeCount;
             string text = changes == 0 ? "No unsaved changes" : changes + " unsaved change" + (changes == 1 ? "" : "s");
             var tone = changes == 0 ? Tone.Neutral : Tone.Pending;
@@ -425,14 +628,11 @@ namespace DS2RandomizerConfig
                 text += ". " + model.Invalid.Count + " invalid value" + (model.Invalid.Count == 1 ? "" : "s") + ": fix before saving.";
                 tone = Tone.Error;
             }
-            for (int i = 0; i < Schema.Groups.Length; i++)
-            {
-                string group = Schema.Groups[i];
-                nav.Changed[i] = model.Options.Any(o => o.Group == group && model.IsChanged(o));
-            }
+            var changedGroups = new HashSet<string>(model.Options.Where(o => model.IsChanged(o) || model.Invalid.ContainsKey(o.Id)).Select(o => o.Group));
+            for (int i = 0; i < Schema.Groups.Length; i++) nav.Changed[i] = changedGroups.Contains(Schema.Groups[i]);
             if (search.Text.Trim().Length > 0)
             {
-                nav.Matches = Schema.Groups.Select(g => views.Count(v => v.Group == g && !hidden.Contains(v))).ToArray();
+                nav.Matches = Schema.Groups.Select(MatchesIn).ToArray();
                 if (nav.Matches.All(n => n == 0)) text += "   Search: nothing found.";
             }
             else nav.Matches = null;
@@ -445,8 +645,13 @@ namespace DS2RandomizerConfig
             Batch(() =>
             {
                 refreshing = true;
-                foreach (var o in model.Options) editors[o.Id].Show(model.Current[o.Id]);
+                foreach (var o in model.Options)
+                {
+                    Editor editor;
+                    if (editors.TryGetValue(o.Id, out editor)) editor.Show(model.Current[o.Id]);
+                }
                 refreshing = false;
+                grid.ClearTyped();
                 RefreshAll();
             });
         }
@@ -457,44 +662,66 @@ namespace DS2RandomizerConfig
             hidden.Clear();
             foreach (var view in views) if (!view.Matches(filter)) hidden.Add(view);
             // hiding the pages first keeps each toggle from repainting them
-            foreach (var flow in pages.Values)
+            foreach (var flow in flows.Values)
             {
                 flow.Visible = false;
                 flow.AutoScrollPosition = Point.Empty;
             }
+            grid.Visible = false;
+            grid.SetFilter(filter);
             Batch(() =>
             {
                 foreach (var view in views) view.Root.Visible = !hidden.Contains(view);
                 RefreshAll();
             });
-            if (filter.Length > 0 && !views.Any(v => v.Group == Schema.Groups[nav.SelectedIndex] && !hidden.Contains(v)))
+            if (filter.Length > 0 && MatchesIn(Schema.Groups[nav.SelectedIndex]) == 0)
             {
-                var first = views.FirstOrDefault(v => !hidden.Contains(v));
-                if (first != null) nav.SelectedIndex = Array.IndexOf(Schema.Groups, first.Group);
+                int first = Array.FindIndex(Schema.Groups, g => MatchesIn(g) > 0);
+                if (first >= 0) nav.SelectedIndex = first;
             }
             ShowPage(nav.SelectedIndex);
         }
 
         void ResetOne(Option o)
         {
+            string rec = model.Recommended[o.Id];
+            if (rec == null) return;
             model.Invalid.Remove(o.Id);
-            model.Set(o, model.Recommended[o.Id]);
-            refreshing = true;
-            editors[o.Id].Show(model.Current[o.Id]);
-            refreshing = false;
+            model.Set(o, rec);
+            Editor editor;
+            if (editors.TryGetValue(o.Id, out editor))
+            {
+                refreshing = true;
+                editor.Show(model.Current[o.Id]);
+                refreshing = false;
+            }
+            else grid.ClearTyped(o);
             ShowFollowers(o);
             RefreshAll();
         }
 
         void ResetAll()
         {
-            if (MessageBox.Show(this, "Set every option to the recommended release value?\n\n" +
-                "The seeds are kept as they are, so a running playthrough is not affected. Nothing is written until you click Save.",
+            int differ = model.ResetAllValues().Count(p => model.Current[p.Key] != p.Value);
+            if (MessageBox.Show(this, "Set every option to the recommended release value? " + differ + " value" + (differ == 1 ? "" : "s") +
+                " would change, the Expert page included.\n\n" +
+                "The seeds are kept as they are, so a running playthrough is not affected, and keys your file does not have stay out of it. " +
+                "Nothing is written until you click Save.",
                 "Reset all", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
-            model.Invalid.Clear();
-            foreach (var o in model.Options)
-                if (!o.KeepOnResetAll) model.Current[o.Id] = model.Recommended[o.Id];
+            model.ResetAll();
             ShowAll();
+        }
+
+        // The Expert entries follow the file: keys added or removed outside change them.
+        void LoadDocument(IniDocument doc)
+        {
+            var generated = ExpertKeys.Build(doc, taken);
+            if (!ExpertKeys.SameSet(model.Generated, generated))
+            {
+                model.SetGenerated(generated);
+                grid.SetOptions(generated);
+            }
+            model.LoadFrom(doc);
         }
 
         void Reload(bool ask)
@@ -507,7 +734,7 @@ namespace DS2RandomizerConfig
             {
                 loadedBytes = File.ReadAllBytes(iniPath);
                 doc = IniDocument.Parse(loadedBytes);
-                model.LoadFrom(doc);
+                LoadDocument(doc);
             }
             catch (Exception ex)
             {
@@ -516,7 +743,7 @@ namespace DS2RandomizerConfig
                 // throw on the first edit or on closing
                 if (model.Current.Count == 0)
                 {
-                    model.LoadFrom(new IniDocument());
+                    LoadDocument(new IniDocument());
                     ShowAll();
                 }
                 return;
@@ -562,7 +789,7 @@ namespace DS2RandomizerConfig
                 string message = changes.Count == 0 ? "Nothing to save" :
                     "Saved " + changes.Count + " change" + (changes.Count == 1 ? "" : "s") + ", backup written: " + Path.GetFileName(backup);
                 var tone = changes.Count == 0 ? Tone.Neutral : Tone.Good;
-                if (Process.GetProcessesByName("deadspace2").Length > 0)
+                if (Process.GetProcessesByName("deadspace2").Length > 0 || Process.GetProcessesByName("deadspace2_4gb").Length > 0)
                 {
                     message += ". Dead Space 2 is running: it reads this file only at startup, so restart the game.";
                     tone = Tone.Warning;
@@ -592,16 +819,24 @@ namespace DS2RandomizerConfig
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Open folder"); }
         }
 
-        void OpenLog()
+        void OpenLog(Control anchor)
         {
-            string log = Path.Combine(Path.GetDirectoryName(iniPath), "DS2Randomizer.log");
-            if (!File.Exists(log))
+            string dir = Path.GetDirectoryName(iniPath);
+            var menu = new ContextMenuStrip();
+            foreach (var name in Logs)
             {
-                MessageBox.Show(this, "There is no log yet:\n" + log + "\n\nIt is written when the game runs with the mod.", "Open log");
-                return;
+                string log = Path.Combine(dir, name);
+                bool exists = File.Exists(log);
+                var item = menu.Items.Add(exists ? name : name + "  (not written yet)");
+                item.Enabled = exists;
+                item.Click += delegate
+                {
+                    try { Process.Start("notepad.exe", "\"" + log + "\""); }
+                    catch (Exception ex) { MessageBox.Show(this, ex.Message, "Open log"); }
+                };
             }
-            try { Process.Start("notepad.exe", "\"" + log + "\""); }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Open log"); }
+            menu.Closed += delegate { BeginInvoke((Action)menu.Dispose); };
+            menu.Show(anchor, new Point(0, -menu.PreferredSize.Height));
         }
 
         public void DiscardChanges() { Reload(false); }
@@ -624,48 +859,91 @@ namespace DS2RandomizerConfig
             using (var bmp = Snapshot()) bmp.Save(Path.Combine(outDir, name));
         }
 
+        static string FileName(int index)
+        {
+            return (index + 1).ToString("D2", CultureInfo.InvariantCulture) + "_" + Schema.Groups[index].Replace(" & ", "_").Replace(" ", "_").Replace("-", "");
+        }
+
         // Typed input as a player would leave it: one out of range, one risky.
         public void RenderEdited(string outDir)
         {
-            nav.SelectedIndex = 0;
-            pages[Schema.General].AutoScrollPosition = Point.Empty;
+            nav.SelectedIndex = Array.IndexOf(Schema.Groups, Schema.General);
+            flows[Schema.General].AutoScrollPosition = Point.Empty;
             Application.DoEvents();
             editors["DS2Randomizer.Chance"].Control.Text = "150";
             editors["DS2Randomizer.Seed"].Control.Text = "70";
             editors["DS2Randomizer.CrossFamily"].Show("0");
             OnEdited(editors["DS2Randomizer.CrossFamily"]);
             Application.DoEvents();
-            Shot(outDir, "9_edited.png");
+            Shot(outDir, "22_edited.png");
             editors["DS2Randomizer.PlanDump"].Control.Text = "not a guid";
             nav.SelectedIndex = Array.IndexOf(Schema.Groups, Schema.Diagnostics);
             Application.DoEvents();
             ScrollTo(Schema.Diagnostics, editors["DS2Randomizer.PlanDump"].Control);
             Application.DoEvents();
-            Shot(outDir, "11_error.png");
+            Shot(outDir, "23_error.png");
             editors["VentFamilies.Lurker"].Show(model.Current["VentFamilies.Lurker"] == "1" ? "0" : "1");
             OnEdited(editors["VentFamilies.Lurker"]);
             nav.SelectedIndex = Array.IndexOf(Schema.Groups, Schema.Enemies);
             Application.DoEvents();
             ScrollTo(Schema.Enemies, editors["VentFamilies.Lurker"].Control);
             Application.DoEvents();
-            Shot(outDir, "12_table_changed.png");
+            Shot(outDir, "24_table_changed.png");
+            // a curated key with a warning and a key code note
+            editors["Survival.Enabled"].Show("1");
+            OnEdited(editors["Survival.Enabled"]);
+            editors["DS2Randomizer.GlobalTemplates"].Show("0");
+            OnEdited(editors["DS2Randomizer.GlobalTemplates"]);
+            nav.SelectedIndex = Array.IndexOf(Schema.Groups, Curated.Survival);
+            flows[Curated.Survival].AutoScrollPosition = Point.Empty;
+            Application.DoEvents();
+            Shot(outDir, "25_survival_warning.png");
             File.AppendAllText(Path.Combine(outDir, "timing.txt"), "invalid=" + string.Join(";", model.Invalid.Select(p => p.Key + ":" + p.Value).ToArray()) +
                 " changes=" + model.ChangeCount + Environment.NewLine);
         }
 
+        // Expert rows after a toggle, a valid number, an invalid number and an added key.
+        public void RenderExpertEdited(string outDir)
+        {
+            var gen = model.Generated.ToList();
+            var toggle = gen.FirstOrDefault(o => o.Kind == Kind.Bool && model.Current[o.Id] != Option.NotSet && o.Section == "Coop");
+            var number = gen.FirstOrDefault(o => o.Kind == Kind.Int && model.Current[o.Id] != Option.NotSet && o.Section == "Coop");
+            var bad = gen.Skip(gen.IndexOf(number) + 1).FirstOrDefault(o => o.Kind == Kind.Int && model.Current[o.Id] != Option.NotSet && o.Section == "Coop");
+            nav.SelectedIndex = Array.IndexOf(Schema.Groups, Schema.Expert);
+            Application.DoEvents();
+            if (toggle != null) grid.Toggle(toggle);
+            if (number != null) grid.Type(number, "12345");
+            if (bad != null) grid.Type(bad, "12x");
+            if (toggle != null) grid.ScrollTo(grid.TopOf(toggle) - Look.S(80));
+            Application.DoEvents();
+            Shot(outDir, "26_expert_edited.png");
+            var absent = gen.FirstOrDefault(o => model.Current[o.Id] == Option.NotSet);
+            if (absent != null)
+            {
+                grid.ScrollTo(grid.TopOf(absent) - Look.S(80));
+                Application.DoEvents();
+                Shot(outDir, "27_expert_not_in_file.png");
+                OnGridEdit(absent, model.Recommended[absent.Id], null);
+                Application.DoEvents();
+                Shot(outDir, "28_expert_added.png");
+            }
+            File.AppendAllText(Path.Combine(outDir, "timing.txt"), "expert invalid=" + string.Join(";", model.Invalid.Select(p => p.Key + ":" + p.Value).ToArray()) +
+                " changes=" + model.ChangeCount + " expert rows=" + gen.Count + " not in file=" + gen.Count(o => model.Current[o.Id] == Option.NotSet) + Environment.NewLine);
+        }
+
         void ScrollTo(string group, Control c)
         {
-            var flow = pages[group];
+            var flow = flows[group];
             int y = c.Top + c.Parent.Top - flow.AutoScrollPosition.Y;
             flow.AutoScrollPosition = new Point(0, Math.Max(0, y - flow.ClientSize.Height / 2));
         }
 
-        public void RenderSearch(string outDir, string text)
+        public void RenderSearch(string outDir, string text, string file)
         {
             search.Text = text;
             ApplyFilter();
             Application.DoEvents();
-            Shot(outDir, "10_search.png");
+            Shot(outDir, file);
             search.Text = "";
             ApplyFilter();
             nav.SelectedIndex = 0;
@@ -705,8 +983,19 @@ namespace DS2RandomizerConfig
             clock.Restart();
             ShowAll();
             long showAll = clock.ElapsedMilliseconds;
+            clock.Restart();
+            lastWidth = -1;
+            grid.SetColumn(0, 0);
+            UpdateWidths();
+            long relayout = clock.ElapsedMilliseconds;
+            clock.Restart();
+            grid.SetColumn(gridSide, gridWidth - 1);
+            grid.SetColumn(gridSide, gridWidth);
+            long gridLayout = clock.ElapsedMilliseconds / 2;
             File.WriteAllText(Path.Combine(outDir, "timing.txt"), "built_ms=" + built + " shown_ms=" + shown +
-                " refresh_ms=" + refresh + " edit_ms=" + edit + " filter_ms=" + filter + " showall_ms=" + showAll + " tabs_ms=" + string.Join(",", pageTimes.ToArray()) + Environment.NewLine);
+                " refresh_ms=" + refresh + " edit_ms=" + edit + " filter_ms=" + filter + " showall_ms=" + showAll + " widths_ms=" + relayout +
+                " expert_layout_ms=" + gridLayout +
+                " options=" + model.Options.Count + " tabs_ms=" + string.Join(",", pageTimes.ToArray()) + Environment.NewLine);
         }
 
         public void RenderTabs(string outDir)
@@ -719,13 +1008,25 @@ namespace DS2RandomizerConfig
                 Application.DoEvents();
                 UpdateWidths();
                 Application.DoEvents();
-                var flow = pages[Schema.Groups[i]];
-                int view = flow.ClientSize.Height, total = flow.DisplayRectangle.Height;
+                string group = Schema.Groups[i];
+                Page flow;
+                bool isFlow = flows.TryGetValue(group, out flow);
+                int view = isFlow ? flow.ClientSize.Height : grid.ClientSize.Height;
+                int total = isFlow ? flow.DisplayRectangle.Height : grid.ContentHeight;
                 for (int part = 0, y = 0; y < total && part < 8; part++, y += view - Look.S(40))
                 {
-                    flow.AutoScrollPosition = new Point(0, y);
+                    if (isFlow) flow.AutoScrollPosition = new Point(0, y);
+                    else grid.ScrollTo(y);
                     Application.DoEvents();
-                    Shot(outDir, (i + 1) + "_" + Schema.Groups[i].Replace(" & ", "_").Replace(" ", "_") + "_" + part + ".png");
+                    Shot(outDir, FileName(i) + "_" + part + ".png");
+                }
+                if (!isFlow)
+                {
+                    // the end of the Expert page as well
+                    grid.ScrollTo(total);
+                    Application.DoEvents();
+                    Shot(outDir, FileName(i) + "_end.png");
+                    grid.ScrollTo(0);
                 }
             }
         }

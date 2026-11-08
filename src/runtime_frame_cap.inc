@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Frame cap. The elevator hangs of 10.09. and 12.09. were not the game's own
 // high FPS trouble but a load race between the level and the pool request
 // (see runtime_zone_unload.inc); a cap only made the pool win it. The cap stays
@@ -7,6 +8,7 @@
 // the wrapper does not return before the frame's share of time is over.
 // Sleep for the coarse part with the timer period at 1 ms, spin for the last
 // two milliseconds. FpsCap=0 switches it off; VSync on top is harmless.
+namespace zone_unload { void FrameSweep(); }   // runtime_zone_unload.inc
 namespace frame_cap {
 safetyhook::InlineHook tickHook;
 bool installed = false;
@@ -42,6 +44,10 @@ void Pace() {
 void __cdecl OnFrameTick() {
     tickHook.call<void>();
     InterlockedIncrement(&frames);
+    perfdiag::FrameTick();
+    exit_guard::FrameTick();
+    zone_unload::FrameSweep();
+    if (survivalFrameTick) survivalFrameTick();
     if (fpsCap) Pace();
 }
 

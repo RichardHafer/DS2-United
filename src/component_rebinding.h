@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 #pragma once
 #include "native_layout.h"
 #include "policy.h"
@@ -38,6 +39,15 @@ RebindResult inspectComponents(uint32_t address, uint32_t spawningDescriptor,
         }
     }
     return matches == 1 ? RebindResult::Ready : matches ? RebindResult::DuplicateSpawning : RebindResult::MissingSpawning;
+}
+
+// The vent GUID a spawning component's header holds now (+0x18).
+template<class Reader>
+bool spawningVent(uint32_t list, uint32_t spawningDescriptor, Reader& read, Guid& vent) {
+    ComponentListCopy copy{};
+    SpawningEntry entry{};
+    if (inspectComponents(list, spawningDescriptor, read, copy, entry) != RebindResult::Ready || entry.header > UINT32_MAX - 0x28) return false;
+    return read(entry.header + 0x18, vent.data(), sizeof(vent));
 }
 
 template<class Reader>

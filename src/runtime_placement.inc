@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Placement readout: where the player stands, which way they look, and the
 // spawners around them, on one key.
 //

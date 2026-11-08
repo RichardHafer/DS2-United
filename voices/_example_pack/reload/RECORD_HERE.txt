@@ -1,0 +1,7 @@
+Record into this folder (WAV, mono 16 bit, 44.1 or 48 kHz, silence cut, about -1 dB peak):
+
+  reload_01.wav          call out  (subtitle: Reloading!)
+  reload_02.wav          call out  (subtitle: Cover me!)
+  reload_03.wav          a mutter
+
+pack.ini section [reload] lists them; more files are fine, add them there too.

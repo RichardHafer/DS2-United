@@ -5,7 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     enum Kind { Bool, Int, OptionalInt, Text }
 
@@ -13,6 +13,10 @@ namespace DS2RandomizerConfig
     // decimal for numbers, "" for an optional seed that follows the main seed.
     sealed class Option
     {
+        // Value of a generated key the file does not have: the plugin's own
+        // default applies, and this window does not know it.
+        public const string NotSet = "\u0001";
+
         public string Group, Section, Key, Title, Description;
         public string Table;          // family table this key belongs to, or null
         public Kind Kind;
@@ -24,20 +28,27 @@ namespace DS2RandomizerConfig
         public string DefaultFrom;    // id whose value applies while the key is absent
         public string NoteText;       // always shown
         public Func<Model, string> WarnFunc;
+        public Func<Model, string> HintFunc;  // shown in place of NoteText when set
         public Func<long, long> AdjustFunc;   // the game's own correction of a value
         public Func<string, string> ValidateFunc;
         public string CommentText;    // comment line when the key has to be added
+        public IList<string> CommentLines;    // template comment lines, used instead of CommentText
+        public string Heading;        // sub-heading shown above this option's card
+        public bool KeyCode;          // a Windows virtual-key code
+        public bool Generated;        // Expert page entry made from the file and the templates
 
         public string Id { get { return Section + "." + Key; } }
 
         public Option Note(string text) { NoteText = text; return this; }
         public Option Warn(Func<Model, string> f) { WarnFunc = f; return this; }
+        public Option Hint(Func<Model, string> f) { HintFunc = f; return this; }
         public Option Raw() { RawRead = true; return this; }
         public Option From(string id) { DefaultFrom = id; return this; }
         public Option Keep() { KeepOnResetAll = true; return this; }
         public Option Adjust(Func<long, long> f) { AdjustFunc = f; return this; }
         public Option Validate(Func<string, string> f) { ValidateFunc = f; return this; }
         public Option Comment(string text) { CommentText = text; return this; }
+        public Option Under(string heading) { Heading = heading; return this; }
 
         public bool IsNumeric { get { return Kind != Kind.Text; } }
 
@@ -56,9 +67,14 @@ namespace DS2RandomizerConfig
 
         public string Display(string value)
         {
+            if (value == null) return "none";
+            if (value == NotSet) return "not in file";
             if (Kind == Kind.Bool) return value == "1" ? "On" : "Off";
             if (Kind == Kind.OptionalInt && value == "") return "same as main seed";
             if (Kind == Kind.Text && value == "") return "(empty)";
+            long code;
+            if (KeyCode && long.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out code))
+                return value + " (" + VirtualKeys.Name(code) + ")";
             return value;
         }
 
@@ -80,6 +96,7 @@ namespace DS2RandomizerConfig
         // Error text for a canonical value, or null.
         public string Check(string value)
         {
+            if (value == NotSet) return null;
             if (Kind == Kind.Text) return ValidateFunc != null ? ValidateFunc(value) : null;
             if (Kind == Kind.OptionalInt && value == "") return null;
             long v;
@@ -100,13 +117,64 @@ namespace DS2RandomizerConfig
         public readonly Dictionary<string, string> Recommended = new Dictionary<string, string>();
         public readonly Dictionary<string, string> RawInFile = new Dictionary<string, string>();
         public readonly Dictionary<string, string> Invalid = new Dictionary<string, string>();
+        readonly IniDocument recommendedDoc;
 
         public Model(List<Option> options, IniDocument recommended)
         {
             Options = options;
+            recommendedDoc = recommended;
             foreach (var o in options) ById[o.Id] = o;
             var rec = Evaluate(recommended);
             foreach (var pair in rec) Recommended[pair.Key] = pair.Value;
+        }
+
+        public IEnumerable<Option> Generated { get { foreach (var o in Options) if (o.Generated) yield return o; } }
+
+        // Replaces the Expert entries. Their recommendation is the template
+        // value, or null when no template has the key. Call LoadFrom afterwards.
+        public void SetGenerated(List<Option> generated)
+        {
+            foreach (var o in Options)
+                if (o.Generated)
+                {
+                    ById.Remove(o.Id);
+                    Recommended.Remove(o.Id);
+                    Invalid.Remove(o.Id);
+                }
+            Options.RemoveAll(o => o.Generated);
+            foreach (var o in generated)
+            {
+                Options.Add(o);
+                ById[o.Id] = o;
+                string raw = recommendedDoc != null ? recommendedDoc.GetRaw(o.Section, o.Key) : null;
+                Recommended[o.Id] = raw == null ? null : o.Effective(raw, o.CodeDefault);
+            }
+        }
+
+        // What "Reset all" sets. Seeds and keys the file does not have stay as they are.
+        public Dictionary<string, string> ResetAllValues()
+        {
+            var values = new Dictionary<string, string>();
+            foreach (var o in Options)
+            {
+                if (o.KeepOnResetAll) continue;
+                string rec = Recommended[o.Id];
+                if (rec == null || Current[o.Id] == Option.NotSet) continue;
+                values[o.Id] = rec;
+            }
+            return values;
+        }
+
+        public int ResetAll()
+        {
+            int n = 0;
+            Invalid.Clear();
+            foreach (var pair in ResetAllValues())
+            {
+                if (Current[pair.Key] != pair.Value) n++;
+                Current[pair.Key] = pair.Value;
+            }
+            return n;
         }
 
         Dictionary<string, string> Evaluate(IniDocument doc)
@@ -135,6 +203,24 @@ namespace DS2RandomizerConfig
 
         public string Get(string id) { return Current[id]; }
         public bool On(string id) { return Current[id] == "1"; }
+
+        // The value of any key, Expert rows included, or null when the plugin
+        // falls back to its own default (key absent, or on no page at all).
+        public string Value(string id)
+        {
+            Option o;
+            string v;
+            if (!ById.TryGetValue(id, out o) || !Current.TryGetValue(o.Id, out v) || v == Option.NotSet) return null;
+            return v;
+        }
+
+        // A switch as GetPrivateProfileInt(...) != 0 reads it.
+        public bool Flag(string id, bool fallback)
+        {
+            string v = Value(id);
+            if (v == null || v.Trim().Length == 0) return fallback;
+            return WinInt.Parse(v) != 0;
+        }
 
         public long Int(string id)
         {
@@ -199,22 +285,28 @@ namespace DS2RandomizerConfig
                         changes.Add("[" + o.Section + "] " + o.Key + " commented out (follows the main seed)");
                     continue;
                 }
+                if (value == Option.NotSet) continue;
                 bool existed = doc.FindKey(o.Section, o.Key) >= 0;
-                doc.SetValue(o.Section, o.Key, value, o.IsNumeric, o.ShortComment);
+                var comment = o.CommentLines ?? (IList<string>)new[] { "; " + o.ShortComment };
+                doc.SetValue(o.Section, o.Key, value, o.IsNumeric, comment, Templates.SectionOrder);
                 changes.Add("[" + o.Section + "] " + o.Key + "=" + value + (existed ? "" : " (added)"));
             }
             return changes;
         }
 
-        public static IniDocument LoadRecommended()
+        // The release values: Recommended.ini for the randomizer and the
+        // repository templates for everything else, merged like DS2United.ini.
+        public static IniDocument LoadRecommended() { return Templates.Doc; }
+
+        public static byte[] Resource(string name)
         {
             var asm = Assembly.GetExecutingAssembly();
-            using (var stream = asm.GetManifestResourceStream("DS2RandomizerConfig.Recommended.ini"))
+            using (var stream = asm.GetManifestResourceStream("DS2CoopConfig." + name))
             {
-                if (stream == null) return new IniDocument();
+                if (stream == null) return null;
                 var ms = new MemoryStream();
                 stream.CopyTo(ms);
-                return IniDocument.Parse(ms.ToArray());
+                return ms.ToArray();
             }
         }
     }
@@ -377,6 +469,67 @@ namespace DS2RandomizerConfig
             if (value.Length == 0) return null;
             if (!Guid4.IsMatch(value)) return "Leave empty or enter a GUID like 30CA2DAB-7FED4260-54544950-32303153.";
             return null;
+        }
+
+        // Any single line the file can hold.
+        public static string Line(string value)
+        {
+            foreach (char c in value)
+                if (c < 0x20 || c > 0xFF) return "Use one line of plain text (Latin-1 characters).";
+            if (value.Trim() != value) return "No leading or trailing spaces.";
+            return null;
+        }
+
+        public static string Decimal(string value)
+        {
+            double d;
+            if (!double.TryParse(value, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out d))
+                return "Enter a number like 2.5 (with a point, not a comma).";
+            return null;
+        }
+    }
+
+    static class VirtualKeys
+    {
+        public static string Name(long code)
+        {
+            if (code == 0) return "none";
+            if (code >= 0x70 && code <= 0x87) return "F" + (code - 0x6F);
+            if (code >= 0x60 && code <= 0x69) return "Numpad " + (code - 0x60);
+            if ((code >= 0x30 && code <= 0x39) || (code >= 0x41 && code <= 0x5A)) return ((char)code).ToString();
+            switch (code)
+            {
+                case 0x08: return "Backspace";
+                case 0x09: return "Tab";
+                case 0x0D: return "Enter";
+                case 0x10: return "Shift";
+                case 0x11: return "Ctrl";
+                case 0x12: return "Alt";
+                case 0x13: return "Pause";
+                case 0x14: return "Caps Lock";
+                case 0x1B: return "Escape";
+                case 0x20: return "Space";
+                case 0x21: return "Page Up";
+                case 0x22: return "Page Down";
+                case 0x23: return "End";
+                case 0x24: return "Home";
+                case 0x25: return "Left";
+                case 0x26: return "Up";
+                case 0x27: return "Right";
+                case 0x28: return "Down";
+                case 0x2D: return "Insert";
+                case 0x2E: return "Delete";
+                case 0x6A: return "Numpad *";
+                case 0x6B: return "Numpad +";
+                case 0x6D: return "Numpad -";
+                case 0x6E: return "Numpad decimal point";
+                case 0x6F: return "Numpad /";
+                case 0x90: return "Num Lock";
+                case 0x91: return "Scroll Lock";
+                case 0xC0: return "`";
+                case 0xDC: return "\\";
+                default: return "key " + code;
+            }
         }
     }
 }

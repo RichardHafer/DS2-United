@@ -47,8 +47,13 @@ def variant_of(spec, name):
     raise SystemExit("no variant named " + name)
 
 
+def package_file(variant):
+    skin = variant["skin"]
+    return (ROOT / skin["package_file"]) if skin.get("package_file") else CHARACTER_STREAMS / skin["package"]
+
+
 def package_textures(variant):
-    stream = ds2str.StreamSet(str(CHARACTER_STREAMS / variant["skin"]["package"]))
+    stream = ds2str.StreamSet(str(package_file(variant)))
     items = skin_assets.load_package(stream)
     pairs = {}
     for it in items:
@@ -75,33 +80,28 @@ def edited_stems(variant):
     return stems
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["export", "check", "apply"])
-    parser.add_argument("variant")
-    args = parser.parse_args()
-    spec = load_spec()
-    variant = variant_of(spec, args.variant)
+def run(command, name, variant, folder, save_files):
+    """export, check or apply for one variant whose DDS files live in `folder`;
+    `save_files(found)` stores the applied {texture stem: Path} map."""
     skin = variant["skin"]
     tag = skin.get("tag", "1")
     pairs = package_textures(variant)
-    folder = ROOT / "variants/skins" / args.variant / "edit"
     # which textures the material copies use: every diffuse plus the extra ones
     materials_use = set()
     manifest_path = ROOT / "analysis/runtime_stream/ds2_randomizer_pool.toc.json"
     copied = None
     if manifest_path.exists():
-        report = json.loads(manifest_path.read_text()).get("variants", {}).get("skins", {}).get(args.variant)
+        report = json.loads(manifest_path.read_text()).get("variants", {}).get("skins", {}).get(name)
         if report:
             copied = {a["source"] for a in report["assets"] if a["type"] == "Material"}
-    stream = ds2str.StreamSet(str(CHARACTER_STREAMS / skin["package"]))
+    stream = ds2str.StreamSet(str(package_file(variant)))
     for it in skin_assets.load_package(stream):
         if it["meta"]["type"] == "Material" and (copied is None or it["meta"]["name"] in copied):
             for m in skin_assets.TEXTURE_PATH.finditer(it["payload"]):
                 materials_use.add(m.group().rsplit(b"/", 1)[1][:-len(b"_tdf.xml")].decode())
     editable = sorted(s for s in materials_use if s in pairs and (s.endswith("_c") or s in edited_stems(variant) or s.endswith("_l")))
 
-    if args.command == "export":
+    if command == "export":
         folder.mkdir(parents=True, exist_ok=True)
         for stem in editable:
             pair = pairs[stem]
@@ -139,15 +139,29 @@ def main():
             print("%-28s ok: replaces %s (%s %dx%d)" % (path.name, target, fmt.decode(), w, h))
         except ValueError as error:
             print("%-28s REJECTED: %s" % (path.name, error))
-    if args.command == "check":
+    if command == "check":
         print("%d file(s) would be applied" % len(found))
         return
-    files = dict(skin.get("files", {}))
-    for target, path in found.items():
-        files[target] = str(path.relative_to(ROOT)).replace("\\", "/")
-    skin["files"] = files
-    (ROOT / "variants/ds2_variants.json").write_text(json.dumps(spec, indent=2), encoding="utf-8", newline="\n")
-    print("spec updated: %d file(s) in %s's skin; now build_variants.py --write, verify_skin_pool.py, embed_stream_requirements.py, build_observer.cmd" % (len(found), args.variant))
+    save_files(found)
+    print("%d file(s) applied to %s's skin; rebuild the variants" % (len(found), name))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("command", choices=["export", "check", "apply"])
+    parser.add_argument("variant")
+    args = parser.parse_args()
+    spec = load_spec()
+    variant = variant_of(spec, args.variant)
+
+    def save(found):
+        files = dict(variant["skin"].get("files", {}))
+        for target, path in found.items():
+            files[target] = str(path.relative_to(ROOT)).replace("\\", "/")
+        variant["skin"]["files"] = files
+        (ROOT / "variants/ds2_variants.json").write_text(json.dumps(spec, indent=2), encoding="utf-8", newline="\n")
+
+    run(args.command, args.variant, variant, ROOT / "variants/skins" / args.variant / "edit", save)
 
 
 if __name__ == "__main__":

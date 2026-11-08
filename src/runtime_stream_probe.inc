@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Native stream ownership and bounded loading diagnostics.
 
 ds2::GlobalStreamLifetime streamLifetime;
@@ -8,6 +9,7 @@ ds2::StreamTransitionGate streamTransition;
 volatile LONG streamServiceEpoch = 0;
 volatile LONG streamReleaseCalls = 0, streamReleaseUnlocks = 0, streamReleaseFailures = 0, streamResumes = 0;
 volatile LONG streamReleaseHeld = 0, streamReleaseLate = 0, streamReleaseSwept = 0;
+volatile LONG spawnRecordUnloads = 0, spawnRecordUnloadFaults = 0;
 volatile LONG streamProbeCalls = 0, streamProbeResult = 0, streamProbeHandle = 0;
 volatile LONG streamProbePrerequisite = -1;
 DWORD streamProbeThread = 0, streamProbeTick = 0, streamResumeTick = 0;
@@ -82,6 +84,18 @@ void ReleaseModelStreams(uint32_t manager) {
 }
 bool streamTargetsSampled = false;
 bool streamGraphDispatched = false;
+// The pool's prerequisites (shared character streams) as last seen dispatched. The
+// pool holds them until its late release; then they are only queued for unloading
+// and the teardown drops their SimManager nodes without deregistering the spawn
+// records, as for the root (13.10. dump 50544: slasherspitter, super_leaper,
+// stalker_crawling, lurker, super_lurker ... 167 stale records, crash in Register on
+// the way to the main menu). OnServiceTeardown unloads their records as well.
+uint32_t prerequisiteHandles[std::size(ds2::kStreamRequirements)]{};
+uint32_t prerequisitesForPool = 0;   // the pool handle they were taken for
+volatile LONG prerequisiteRecordUnloads = 0, prerequisiteRecordsKept = 0;   // kept: a newer twin was already dispatched
+volatile LONG prerequisiteRecordsShared = 0;   // refs > 1 at the teardown, unloaded all the same
+LONG teardownLines = 0;
+FILE* streamProbeLog = nullptr;
 volatile LONG streamGraphMissing = -1;
 volatile LONG streamSelectionAllowed = 0;
 DWORD streamSelectionHoldoff = 0;
@@ -112,9 +126,11 @@ bool CheckStreamGraph(uint32_t manager) {
     if (states.result != ds2::native::StreamStates::Stable) {
         InterlockedExchange(&streamGraphMissing, -2); return false;
     }
+    uint32_t found[std::size(ds2::kStreamRequirements)]{};
     for (unsigned i = 0; i < std::size(ds2::kStreamRequirements); ++i) {
         const auto& requirement = ds2::kStreamRequirements[i];
-        if (!ds2::native::containsDispatchedStream(states, requirement.identity, requirement.name, Read)) {
+        found[i] = ds2::native::findDispatchedStream(states, requirement.identity, requirement.name, Read);
+        if (!found[i]) {
             InterlockedExchange(&streamGraphMissing, static_cast<LONG>(i)); return false;
         }
     }
@@ -124,6 +140,13 @@ bool CheckStreamGraph(uint32_t manager) {
         InterlockedExchange(&streamGraphMissing, -3); return false;
     }
     InterlockedExchange(&streamGraphMissing, -1);
+    // Kept from the first dispatch of this pool: refreshed every second, the next
+    // level's copy of a shared stream (the menu's text_assets_global) could take its
+    // place, and the teardown would unload the records the menu reads (13.10.).
+    if (prerequisitesForPool != streamLifetime.handle) {
+        std::memcpy(prerequisiteHandles, found, sizeof(found));
+        prerequisitesForPool = streamLifetime.handle;
+    }
     return true;
 }
 void PinPrerequisiteStreams(uint32_t manager) {
@@ -159,6 +182,146 @@ void UnpinPrerequisiteStreams(uint32_t manager) {
             InterlockedIncrement(&streamUnpinFailures);
     }
 }
+
+// The language pack (text_assets\text\<language>, the LCH2 table) is loaded and owned
+// by the TextReference that text_assets_global's resource creates (0x01371870 ->
+// TextReference::LoadText 0x013734F0). A pool held past the level keeps
+// text_assets_global, but the level's purge (0x0074B8D0 from 0x0041068C) takes the pack.
+// The surviving TextReference never loads it again and the menu's copy shares that
+// resource by id (0x00790B40), so the menu had no text (13.10., dump 40672). Locked for
+// the hold, the pack outlives the purge and our sweep, and keeps its explicit load.
+namespace text_packs {
+constexpr uint32_t kLocaleManager = 0x1C213C8, kLevelManager = 0x1C1C0A4, kLmState = 0x18;
+constexpr uint32_t kLch2 = 0x3248434C;
+constexpr unsigned kMaxPacks = 8;
+uint32_t locked[kMaxPacks]{};
+unsigned lockedCount = 0;
+uint32_t lockManager = 0;
+volatile LONG locks = 0, lockFailures = 0, notDispatched = 0, foreignLocks = 0, notPacks = 0, unreadable = 0;
+volatile LONG unlocks = 0, unlockFailures = 0, gone = 0;
+volatile LONG followUpAt = 0;   // tick for the check 5 s after LOAD_TEXT_ASSETS, 0 when none
+uint32_t lastLmState = 0xFFFFFFFFu;
+
+bool StreamName(const ds2::native::StreamState& stream, char* out, size_t size) {
+    uint32_t header = 0, fields[2]{};
+    out[0] = 0;
+    if (!stream.descriptor || !Read(stream.descriptor, &header, 4) || !header || !Read(header, fields, sizeof(fields)) || !fields[1]) return false;
+    if (!Read(fields[1], out, size - 1)) return false;
+    out[size - 1] = 0;
+    return true;
+}
+const ds2::native::StreamState* Find(const ds2::native::StreamStates& states, uint32_t handle) {
+    for (const auto& s : states.entries) if (s.handle == handle) return &s;
+    return nullptr;
+}
+
+// Read only, any thread: TextReferences, their packs, text tables and every text_assets stream.
+void Log(FILE* log, const char* when) {
+    if (!log) return;
+    uint32_t lm = 0, refs = 0, refArray = 0, texts = 0, textArray = 0, language = 0, manager = 0;
+    Read(base + kLocaleManager, &lm, 4);
+    if (lm) { Read(lm + 0x24, &refArray, 4); Read(lm + 0x28, &refs, 4); Read(lm + 0x30, &textArray, 4); Read(lm + 0x34, &texts, 4); Read(lm + 0x3C, &language, 4); }
+    Read(base + 0x1C1C098, &manager, 4);
+    const auto states = ds2::native::inspectStreamStates(manager, Read);
+    unsigned lch2 = 0;
+    for (uint32_t i = 0; i < texts && i < 16; ++i) {
+        uint32_t data = 0, header = 0, magic = 0;
+        if (Read(textArray + 4 * i, &data, 4) && data && Read(data + 4, &header, 4) && header && Read(header, &magic, 4) && magic == kLch2) ++lch2;
+    }
+    char line[640];
+    int used = std::snprintf(line, sizeof(line), "text_state when=%s locale=%08X language=%u references=%u text_tables=%u lch2_tables=%u lch2=%s snapshot=%d locked_packs=%u",
+                             when, lm, language, refs, texts, lch2, lch2 ? "present" : "MISSING", static_cast<int>(states.result), lockedCount);
+    for (uint32_t i = 0; i < refs && i < 4 && used > 0 && used < static_cast<int>(sizeof(line)); ++i) {
+        uint32_t ref = 0, pack = 0;
+        if (!Read(refArray + 4 * i, &ref, 4) || !ref) continue;
+        Read(ref + 0x44, &pack, 4);
+        const auto* s = pack ? Find(states, pack) : nullptr;
+        used += std::snprintf(line + used, sizeof(line) - static_cast<size_t>(used), " | ref%u=%08X pack=%08X status=%d refs=%d flags=%X", i, ref, pack,
+                              s ? static_cast<int>(s->status) : -1, s ? static_cast<int>(s->dependencyRefs) : -1, s ? s->flags : 0u);
+    }
+    std::fprintf(log, "%s\n", line);
+    for (const auto& s : states.entries) {
+        char name[96];
+        if (!StreamName(s, name, sizeof(name)) || std::strncmp(name, "text_assets\\", 12)) continue;
+        std::fprintf(log, "text_state when=%s stream handle=%08X status=%u refs=%u flags=%08X name=%s\n", when, s.handle, s.status,
+                     static_cast<unsigned>(s.dependencyRefs), s.flags, name);
+    }
+}
+
+// Game thread, at the level's release point while the pool stays: lock each
+// TextReference's dispatched pack that nobody else has locked.
+void LockForHold(uint32_t manager) {
+    if (lockedCount || !manager) return;
+    uint32_t lm = 0, refs = 0, refArray = 0;
+    if (!Read(base + kLocaleManager, &lm, 4) || !lm || !Read(lm + 0x24, &refArray, 4) || !Read(lm + 0x28, &refs, 4) || !refArray || refs > 16) {
+        InterlockedIncrement(&unreadable); return;
+    }
+    const auto states = ds2::native::inspectStreamStates(manager, Read);
+    if (states.result != ds2::native::StreamStates::Stable) { InterlockedIncrement(&unreadable); return; }
+    using Lock = bool (__thiscall*)(void*, uint32_t);
+    for (uint32_t i = 0; i < refs && lockedCount < kMaxPacks; ++i) {
+        uint32_t ref = 0, pack = 0;
+        if (!Read(refArray + 4 * i, &ref, 4) || !ref || !Read(ref + 0x44, &pack, 4) || !pack) continue;
+        const auto* s = Find(states, pack);
+        char name[96];
+        if (!s || !StreamName(*s, name, sizeof(name)) || std::strncmp(name, "text_assets\\text\\", 17)) { InterlockedIncrement(&notPacks); continue; }
+        if (s->status != 3) { InterlockedIncrement(&notDispatched); continue; }
+        if (s->flags & 0x80) { InterlockedIncrement(&foreignLocks); continue; }
+        if (reinterpret_cast<Lock>(base + 0x34AC80)(reinterpret_cast<void*>(manager), pack)) {
+            locked[lockedCount++] = pack;
+            lockManager = manager;
+            InterlockedIncrement(&locks);
+        } else {
+            InterlockedIncrement(&lockFailures);
+        }
+    }
+}
+
+// Game thread, once the purge and our sweep are through (or the manager goes).
+void Unlock(uint32_t manager) {
+    using Status = int (__thiscall*)(void*, uint32_t);
+    using UnlockFn = bool (__thiscall*)(void*, uint32_t);
+    const bool same = manager && manager == lockManager;
+    while (lockedCount) {
+        const uint32_t pack = locked[--lockedCount];
+        locked[lockedCount] = 0;
+        if (!same || reinterpret_cast<Status>(base + 0xDAA0)(reinterpret_cast<void*>(manager), pack) == -1) { InterlockedIncrement(&gone); continue; }
+        if (reinterpret_cast<UnlockFn>(base + 0x34ACB0)(reinterpret_cast<void*>(manager), pack)) InterlockedIncrement(&unlocks);
+        else InterlockedIncrement(&unlockFailures);
+    }
+    lockManager = 0;
+}
+
+// Game thread, stream update: the level manager entering LOAD_TEXT_ASSETS (1). A held
+// pool keeps text_assets_global dispatched, so the menu's LoadTextAssets reuses that copy
+// and nothing loads; exit_guard (runtime_exit_guard.inc) sends the missing
+// iMsgStreamLoadComplete from the frame tick. This only logs the text state.
+void WatchLevelManager() {
+    uint32_t lm = 0, state = 0xFFFFFFFFu;
+    if (!Read(base + kLevelManager, &lm, 4) || !lm || !Read(lm + kLmState, &state, 4)) return;
+    if (state == lastLmState) return;
+    const uint32_t previous = lastLmState;
+    lastLmState = state;
+    // LOAD_SHARED_TOC (6) without a seen 1: the short text state fell between two updates.
+    if (state != 1 && !(state == 6 && previous != 1)) return;
+    Log(streamProbeLog, state == 1 ? "load_text_assets" : "load_shared_toc_text_state_missed");
+    InterlockedExchange(&followUpAt, static_cast<LONG>(GetTickCount() + 5000) | 1);
+}
+
+// Worker: the check 5 s after LOAD_TEXT_ASSETS.
+void FollowUp(FILE* log) {
+    const LONG at = InterlockedCompareExchange(&followUpAt, 0, 0);
+    if (!at || static_cast<LONG>(GetTickCount() - static_cast<DWORD>(at)) < 0) return;
+    InterlockedExchange(&followUpAt, 0);
+    Log(log, "load_text_assets+5s");
+    std::fprintf(log, "text_packs locks=%ld lock_failures=%ld not_dispatched=%ld foreign_locks=%ld not_packs=%ld unreadable=%ld unlocks=%ld unlock_failures=%ld gone=%ld\n",
+                 InterlockedCompareExchange(&locks, 0, 0), InterlockedCompareExchange(&lockFailures, 0, 0),
+                 InterlockedCompareExchange(&notDispatched, 0, 0), InterlockedCompareExchange(&foreignLocks, 0, 0),
+                 InterlockedCompareExchange(&notPacks, 0, 0), InterlockedCompareExchange(&unreadable, 0, 0),
+                 InterlockedCompareExchange(&unlocks, 0, 0), InterlockedCompareExchange(&unlockFailures, 0, 0),
+                 InterlockedCompareExchange(&gone, 0, 0));
+}
+}  // namespace text_packs
 
 struct StreamTargetProbe {
     LONG ready = 0;
@@ -356,6 +519,7 @@ void OnStreamServiceRetired(SafetyHookContext&) {
     ClearHordeSilence();   // the enemies those counts belonged to are gone
     ResetExtraAreas();     // and the area rules may fire again in the next level
     ClearKnownSpawners();  // the old level's spawners are freed with it
+    InterlockedExchange(&survivalLevelSpawns, 0);
     uint32_t service = 0;
     if (Read(base + 0x1C1C0C8, &service, 4) && !service)
         InterlockedIncrement(&streamServiceEpoch);
@@ -422,13 +586,27 @@ void ReleasePoolRoot(uint32_t manager) {
 
 void OnLevelStreamRelease(SafetyHookContext& ctx) {
     const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
-    if (ctx.ecx != streamLifetime.manager || !streamLifetime.handle || streamTransition.paused) return;
-    if (!releasePoolAtLevelRelease) {
+    if (survivalLevelEnding) survivalLevelEnding("the level's stream release point");
+    if (ctx.ecx != streamLifetime.manager || !streamLifetime.handle || streamTransition.paused) {
+        text_packs::Log(streamProbeLog, "level_end_no_pool");
+        return;
+    }
+    // Survival enemies and their corpses are pool donors owned by the level, with
+    // ragdoll shapes from the pool's character packages. Released here, the pool
+    // frees those shapes before the level's stream sweep deletes the bodies
+    // (eip 0x80000000 at 0x0138CBDA, dump 22464, as in CRASH_39616). The late
+    // point below releases it once the level is down.
+    const bool survivalBodies = InterlockedCompareExchange(&survivalLevelSpawns, 0, 0) > 0;
+    if (!releasePoolAtLevelRelease || survivalBodies) {
+        if (survivalBodies) InterlockedIncrement(&streamReleaseHeldSurvival);
         InterlockedExchange(&streamSelectionAllowed, 0);
         streamSelectionHoldoff = 0;
         InterlockedIncrement(&streamReleaseHeld);
+        text_packs::LockForHold(ctx.ecx);
+        text_packs::Log(streamProbeLog, "level_end_pool_held");
         return;
     }
+    text_packs::Log(streamProbeLog, "level_end_pool_released");
     ReleasePoolRoot(ctx.ecx);
     // The displaced native call releases the root and its dependency references.
 }
@@ -447,12 +625,63 @@ void OnLevelStreamRelease(SafetyHookContext& ctx) {
 // up after the service they ask for is gone
 // (analysis/CRASH_41152_MENU_TEARDOWN.md). Here the level is already down and
 // both the manager and the service are still alive.
-void OnServiceTeardown(SafetyHookContext&) {
-    const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
+// SimManager::Unload (0x00776B10, thiscall(sm, stream handle), ret 4; returns
+// at once when the stream has no node) for a stream the late release below lets
+// go: its spawn records leave SimManager's table while the node still lists
+// them, as on any normal unload. 12.10. dump 43696: released here, the pool was
+// only queued for unloading, DeleteAllEntities (0x00413904) dropped its node
+// without deregistering the records, and the main menu's first spawn walked 184
+// records in freed pool memory.
+void UnloadSpawnRecords(uint32_t handle) {
+    uint32_t sm = 0;
+    if (!handle || !Read(base + 0x1C1C0A0, &sm, 4) || !sm) return;
+    using Unload = void (__thiscall*)(void*, uint32_t);
+    __try {
+        reinterpret_cast<Unload>(base + 0x376B10)(reinterpret_cast<void*>(sm), handle);
+        InterlockedIncrement(&spawnRecordUnloads);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        InterlockedIncrement(&spawnRecordUnloadFaults);
+    }
+}
+
+void LateRelease() {
     if (!streamLifetime.manager || !streamLifetime.handle) return;
     if (!streamProbeLocked || streamTransition.paused) return;
     InterlockedIncrement(&streamReleaseLate);
     const uint32_t manager = streamLifetime.manager;
+    if (!poolHoldForever) {
+        UnloadSpawnRecords(streamLifetime.handle);
+        for (unsigned i = 0; i < pinnedStreamCount; ++i) UnloadSpawnRecords(pinnedStreams[i]);
+        for (const auto& state : modelStreams)
+            if (state.locked) UnloadSpawnRecords(state.handle);
+        // A handle already unloaded has no node any more and returns at once. Every
+        // prerequisite copy the pool kept goes, whoever else still refers to it:
+        // DeleteAllEntities (0x00775EF0, right after this hook) drops every stream's node
+        // without deregistering, so records left here go stale when the copy is freed.
+        // Deregister (0x007767D0) matches (id, handle), so the menu's own copy keeps its
+        // records. Leaving text_assets_global's (refs 2) crashed in dumps 26848 and 40672
+        // (0x007767E6, record 76C7C4C4 of the menu's handle 0x62 behind a freed level copy record).
+        const auto states = ds2::native::inspectStreamStates(manager, Read);
+        for (unsigned i = 0; i < std::size(prerequisiteHandles); ++i) {
+            const uint32_t handle = prerequisiteHandles[i];
+            if (!handle || handle == streamLifetime.handle) continue;
+            const auto& requirement = ds2::kStreamRequirements[i];
+            const uint32_t newest = ds2::native::findDispatchedStream(states, requirement.identity, requirement.name, Read);
+            if (newest && newest != handle) InterlockedIncrement(&prerequisiteRecordsKept);
+            int status = -1, refs = -1;
+            for (const auto& s : states.entries)
+                if (s.handle == handle) { status = static_cast<int>(s.status); refs = s.dependencyRefs; }
+            if (refs > 1) InterlockedIncrement(&prerequisiteRecordsShared);
+            if ((i < 3 || refs > 1) && InterlockedIncrement(&teardownLines) <= 30) {
+                if (streamProbeLog) std::fprintf(streamProbeLog, "stream_teardown prerequisite=%s handle=%08X status=%d refs=%d newest_dispatched=%08X: records unloaded\n",
+                             requirement.name, handle, status, refs, newest);
+            }
+            UnloadSpawnRecords(handle);
+            InterlockedIncrement(&prerequisiteRecordUnloads);
+        }
+    }
+    std::fill(std::begin(prerequisiteHandles), std::end(prerequisiteHandles), 0u);
+    prerequisitesForPool = 0;
     ReleasePoolRoot(manager);
     // Unlocking only clears the skip flag. The level's release point suppressed
     // the native sweep for the pool root, so nothing has actually torn the stream
@@ -472,8 +701,45 @@ void OnServiceTeardown(SafetyHookContext&) {
     InterlockedIncrement(&streamReleaseSwept);
 }
 
+void OnServiceTeardown(SafetyHookContext&) {
+    const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
+    if (survivalLevelEnding) survivalLevelEnding("the streaming service teardown");
+    LateRelease();
+    // After the sweep, so the packs keep their explicit load.
+    if (text_packs::lockedCount) {
+        uint32_t manager = 0;
+        Read(base + 0x1C1C098, &manager, 4);
+        text_packs::Unlock(manager);
+        text_packs::Log(streamProbeLog, "teardown_after_sweep");
+    }
+}
+
+// The stream hooks run inside the game's StreamManager: a fault in our part is caught and
+// counted instead of taking the manager down. The lock is taken outside the guard, so a
+// caught fault cannot leave it held (/EHsc skips destructors on a structured exception).
+volatile LONG streamHookFaults = 0;
+void StreamDestroyBody(SafetyHookContext& ctx);
+void StreamUpdateBody(SafetyHookContext& ctx);
+__declspec(noinline) void StreamHookGuarded(void (*body)(SafetyHookContext&), SafetyHookContext& ctx, const char* what) {
+    __try {
+        body(ctx);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        if (InterlockedIncrement(&streamHookFaults) <= 3 && streamProbeLog) {
+            std::fprintf(streamProbeLog, "stream_probe FAULT in the %s hook: caught, the stream manager goes on\n", what);
+            std::fflush(streamProbeLog);
+        }
+    }
+}
 void OnStreamDestroy(SafetyHookContext& ctx) {
     const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
+    StreamHookGuarded(StreamDestroyBody, ctx, "stream destroy");
+}
+void OnStreamUpdate(SafetyHookContext& ctx) {
+    const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
+    StreamHookGuarded(StreamUpdateBody, ctx, "stream update");
+}
+void StreamDestroyBody(SafetyHookContext& ctx) {
+    text_packs::Unlock(ctx.ecx);
     if (ctx.ecx != streamLifetime.manager) return;
     UnpinPrerequisiteStreams(ctx.ecx);
     ReleaseModelStreams(poolHoldForever ? 0 : ctx.ecx);
@@ -496,11 +762,11 @@ void OnStreamDestroy(SafetyHookContext& ctx) {
     InterlockedExchange(&streamProbeHandle, 0);
 }
 
-void OnStreamUpdate(SafetyHookContext& ctx) {
-    const std::lock_guard<std::recursive_mutex> guard(streamProbeMutex);
+void StreamUpdateBody(SafetyHookContext& ctx) {
     InterlockedIncrement(&streamProbeCalls);
     uint32_t manager = 0;
     if (!Read(base + 0x1C1C098, &manager, 4) || !manager || manager != ctx.ecx) return;
+    text_packs::WatchLevelManager();
     if (streamLifetime.manager && streamLifetime.manager != manager) {
         InterlockedExchange(&streamProbeResult, 12); return;
     }
@@ -629,11 +895,18 @@ void OnStreamUpdate(SafetyHookContext& ctx) {
 // seconds for nothing and 26 spawns went unreplaced. This runs the same check
 // from the per-frame hooks (loading hold, game thread tick), on the probe's
 // own thread only, and only while the verdict is "dispatched, unverified".
+// 16.10. night: it never ran. It asked for usable(), which holds only once the verdict is
+// "ready", so in exactly the "dispatched, unverified" case it was meant for it returned
+// at once; with every arena room loaded the game had no streaming work and no update
+// came either, and the survival director waited for the pool for good (church sanctuary:
+// the brute stream dispatched 4 s after the last update). It checks the manager and the
+// handle instead, and also runs while the pool's root is still loading (Sprawl hub).
 volatile LONG streamRecheckCalls = 0, streamRecheckHits = 0, streamRecheckThreadMismatch = 0;
 DWORD streamRecheckTick = 0;
 
 void RecheckStreamGraph() {
-    if (InterlockedCompareExchange(&streamProbeResult, 0, 0) != 7) return;
+    const LONG result = InterlockedCompareExchange(&streamProbeResult, 0, 0);
+    if (result != 7 && result != 6) return;
     if (!streamProbeThread || streamProbeThread != GetCurrentThreadId()) {
         InterlockedIncrement(&streamRecheckThreadMismatch);
         return;
@@ -645,13 +918,17 @@ void RecheckStreamGraph() {
     streamRecheckTick = now;
     InterlockedIncrement(&streamRecheckCalls);
     uint32_t manager = 0;
-    if (!Read(base + 0x1C1C098, &manager, 4) || !manager || !streamLifetime.usable(manager) ||
+    if (!Read(base + 0x1C1C098, &manager, 4) || !manager || manager != streamLifetime.manager ||
         streamTransition.paused || !streamLifetime.handle) return;
     using State = ds2::GlobalStreamLifetime::State;
     if (streamLifetime.state != State::Loading && streamLifetime.state != State::Ready) return;
     using Status = int (__thiscall*)(void*, uint32_t);
     const int status = reinterpret_cast<Status>(base + 0xDAA0)(reinterpret_cast<void*>(manager), streamLifetime.handle);
-    if (status != 3 || !CheckStreamGraph(manager)) return;
+    if (status != 3) return;
+    if (!CheckStreamGraph(manager)) {
+        if (result == 6) InterlockedExchange(&streamProbeResult, 7);   // the root is in, a package is not yet
+        return;
+    }
     streamGraphDispatched = true;
     PinPrerequisiteStreams(manager);
     SampleModelStreams(manager);
@@ -667,6 +944,7 @@ constexpr uint32_t kStreamUpdateRva = 0x34BBC0, kStreamLoadRva = 0x34BDD0;
 constexpr char kStreamUpdateBytes[] = "\x83\xEC\x08\x53\x8B\xD9\xE8\x45\xCF\x0C\x00";
 
 bool InstallStreamProbe(FILE* log) {
+    streamProbeLog = log;
     if (!VerifyStreamProbeFiles(log)) return false;
     // Held through the check and the install, so a co-op hook is never seen half written.
     hook_site::Lock siteLock(static_cast<uint32_t>(base + kStreamUpdateRva));

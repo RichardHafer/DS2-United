@@ -1,0 +1,23 @@
+# PC functions whose Xbox name is known from earlier work (memory notes, analysis/).
+# xbox_pc_match.py check measures the map against them.
+# pc	xbox name
+0x00A40700	EARS::Modules::UIFrontendManager::LaunchFrontend
+0x00AAB7B0	EARS::Apt::MP20GameSettings::MP20GameSettings
+0x00A4BA90	EARS::Apt::MP20GameSettings::SetInfo
+0x00A7E7D0	EARS::Apt::MP20GameSettings::HandleInput
+0x00A4BA40	EARS::Apt::MP20GameSettings::GetNextIndexLooping
+0x00A4B9F0	EARS::Apt::MP20GameSettings::GetPrevIndexLooping
+0x00A67B50	EARS::Apt::MP20GameSettings::OnInput_Select
+0x0070D700	EARS::Apt::AnimationManager::GetAnimation
+0x0070D6D0	EARS::Apt::AnimationManager::GetUnusedAnimation
+0x0070D970	EARS::Apt::AnimationManager::AptCallback_LoadAnimation
+0x00709180	EARS::Apt::AptResourceHandler::LoadResource
+0x00A879D0	EARS::Apt::Apt3dDirector::PushScreen
+0x00ED9750	EARS::Modules::DamageableProp::HandleEvents
+0x00B93E10	EARS::Modules::TimerUtil::AdjustTime
+0x00BA1F20	EARS::Modules::Checkpoint::SetDeathRestart
+0x00EE0610	EARS::Modules::PlayerUniformManager::ChangeToUniform
+0x00FEBC70	EA::CadaverousRegenerationSM::Undismember
+0x01416850	TNL::GhostConnection::resetGhosting
+0x007D2230	EARS::Framework::Entity::AttachModel
+0x010BD030	EARS::DirectSendDamageEvent

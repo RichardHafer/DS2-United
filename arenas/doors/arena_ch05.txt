@@ -1,0 +1,3 @@
+# sprawl hub door rules (user)
+# user, 16.10.: the door he stood at must stay shut
+doormark 37C1513E-BD1FF60A-484C4143-314E554F state=locked at=(36.38 -225.00 104.00)

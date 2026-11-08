@@ -67,6 +67,14 @@ if %errorlevel% neq 0 exit /b 1
 cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\more_enemies_tests.cpp /Fobuild\more_enemies_tests.obj /Febuild\more_enemies_tests.exe
 if %errorlevel% neq 0 exit /b 1
 build\more_enemies_tests.exe
+if %errorlevel% neq 0 exit /b 1
+cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\coop_dementia_tests.cpp /Fobuild\coop_dementia_tests.obj /Febuild\coop_dementia_tests.exe
+if %errorlevel% neq 0 exit /b 1
+build\coop_dementia_tests.exe
+if %errorlevel% neq 0 exit /b 1
+cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\coop_difficulty_tests.cpp /Fobuild\coop_difficulty_tests.obj /Febuild\coop_difficulty_tests.exe
+if %errorlevel% neq 0 exit /b 1
+build\coop_difficulty_tests.exe
 set result=%errorlevel%
 popd
 exit /b %result%

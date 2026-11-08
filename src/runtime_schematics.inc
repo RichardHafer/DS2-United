@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // Include at file scope. Install once before loading a campaign.
 #include <windows.h>
 #include <mutex>
@@ -30,7 +31,10 @@ std::mutex lock;
 uintptr_t moduleBase = 0;
 bool active = false;
 unsigned seed = 1;
+bool followsSessionSeed = true;
+bool firstIsWeapon = true, secondIsSuit = true;
 std::optional<Policy<kCount>> policy;
+void BuildPolicy(FILE* log);
 safetyhook::MidHook constructorHook;
 std::array<unsigned long long, static_cast<size_t>(Outcome::Count)> counts{};
 std::array<Detail, kDetailCapacity> details{};
@@ -248,10 +252,13 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
     if (constructorHook) return active;
     moduleBase = baseAddress;
     const bool enabled = GetPrivateProfileIntA("SchematicRandomizer", "Enabled", 0, ini) != 0;
-    seed = GetPrivateProfileIntA("SchematicRandomizer", "Seed",
-        GetPrivateProfileIntA("DS2Randomizer", "Seed", 1, ini), ini);
-    std::fprintf(log, "schematics config: enabled=%u seed=%u campaignRewards=%zu completionGated=excluded hacker=excluded\n",
-        enabled ? 1u : 0u, seed, kCount);
+    char explicitSeed[32]{};
+    GetPrivateProfileStringA("SchematicRandomizer", "Seed", "", explicitSeed, sizeof(explicitSeed), ini);
+    followsSessionSeed = !explicitSeed[0];
+    seed = followsSessionSeed ? GetPrivateProfileIntA("DS2Randomizer", "Seed", 1, ini)
+                              : GetPrivateProfileIntA("SchematicRandomizer", "Seed", 1, ini);
+    std::fprintf(log, "schematics config: enabled=%u seed=%u follow_session_seed=%u campaignRewards=%zu completionGated=excluded hacker=excluded\n",
+        enabled ? 1u : 0u, seed, followsSessionSeed ? 1u : 0u, kCount);
     if (!enabled) return true;
     const unsigned char ctor[] = {0x81,0x8E,0x10,0x03,0x00,0x00,0x00,0x00,0x01,0x00,0x8B,0xC6,0x5E,0xC2,0x04,0x00};
     const unsigned char identity[] = {0x8B,0x4B,0x0C,0x8B,0x11,0x89,0x56,0x24,0x8B,0x51,0x04,0x89,0x56,0x28,0x8B,0x51,0x08,0x89,0x56,0x2C,0x8B,0x49,0x0C,0x89,0x4E,0x30};
@@ -266,6 +273,31 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
     verified = CheckSignature(log, "inventory restore", 0x9E9534, restore, sizeof(restore)) && verified;
     verified = CheckSignature(log, "store upload", 0xAC5A3E, upload, sizeof(upload)) && verified;
     if (!verified) return false;
+    firstIsWeapon = GetPrivateProfileIntA("SchematicRandomizer", "FirstIsWeapon", 1, ini) != 0;
+    secondIsSuit = GetPrivateProfileIntA("SchematicRandomizer", "SecondIsSuit", 1, ini) != 0;
+    BuildPolicy(log);
+    InstallStoreGate(ini, log);
+    active = true;
+    constructorHook = safetyhook::create_mid(reinterpret_cast<void*>(moduleBase + kConstructorRva), OnConstructed);
+    if (!constructorHook) active = false;
+    std::fprintf(log, "schematics hook: %s; fixed reward/presentation fields only; shared inventory identity retained\n",
+        active ? "installed" : "FAILED");
+    return active;
+}
+
+// A co-op client takes the host's seed. Blueprints built after this follow it;
+// the ones already in the world keep what they were built with.
+bool Reseed(unsigned newSeed, FILE* log) {
+    std::lock_guard<std::mutex> guard(lock);
+    if (!active || !policy || !followsSessionSeed || newSeed == seed) return false;
+    const unsigned before = seed;
+    seed = newSeed;
+    BuildPolicy(log);
+    if (log) std::fprintf(log, "schematics reseed: %u -> %u (the host's seed)\n", before, seed);
+    return true;
+}
+
+void BuildPolicy(FILE* log) {
     policy.emplace(kCampaignSources, seed, true);
     // The story's first two blueprints: Javelin ammo in the public sector
     // courtyard and the power node in the hallway to the tram. The first
@@ -289,13 +321,11 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
             {{0x39CB3355u, 0x740F0370u, 0x4E415548u, 0x38343147u}},   // Steampunk Suit
         };
         uint64_t pinSeed = static_cast<uint64_t>(seed) ^ UINT64_C(0x50494E53);
-        const bool firstIsWeapon = GetPrivateProfileIntA("SchematicRandomizer", "FirstIsWeapon", 1, ini) != 0;
-        const bool secondIsSuit = GetPrivateProfileIntA("SchematicRandomizer", "SecondIsSuit", 1, ini) != 0;
         const bool pinnedFirst = firstIsWeapon && policy->Pin(kFirstSource, kWeapons, pinSeed);
         const bool pinnedSecond = secondIsSuit && policy->Pin(kSecondSource, kAffordableSuits, pinSeed);
-        std::fprintf(log, "schematics openers: first_is_weapon=%d second_is_suit=%d\n", pinnedFirst ? 1 : 0, pinnedSecond ? 1 : 0);
+        if (log) std::fprintf(log, "schematics openers: first_is_weapon=%d second_is_suit=%d\n", pinnedFirst ? 1 : 0, pinnedSecond ? 1 : 0);
     }
-    for (size_t i = 0; i < kCount; ++i) {
+    for (size_t i = 0; log && i < kCount; ++i) {
         Guid selected{};
         policy->Select(kCampaignSources[i].entity, kCampaignSources[i].kind, kCampaignSources[i].reward, selected);
         size_t target = 0;
@@ -305,13 +335,6 @@ bool Install(uintptr_t baseAddress, const char* ini, FILE* log) {
             kCampaignBlueprints[i].definition[0], kCampaignBlueprints[i].definition[1],
             kCampaignBlueprints[i].definition[2], kCampaignBlueprints[i].definition[3]);
     }
-    InstallStoreGate(ini, log);
-    active = true;
-    constructorHook = safetyhook::create_mid(reinterpret_cast<void*>(moduleBase + kConstructorRva), OnConstructed);
-    if (!constructorHook) active = false;
-    std::fprintf(log, "schematics hook: %s; fixed reward/presentation fields only; shared inventory identity retained\n",
-        active ? "installed" : "FAILED");
-    return active;
 }
 
 // The construction hook takes `lock` on the game thread, so the counters and

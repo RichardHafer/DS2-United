@@ -16,10 +16,12 @@ class RulesTests(unittest.TestCase):
             path = Path(directory) / "rules.tsv"
             write_rules(path, {A: "block"})
             write_rules(path, {B: "allow"})
-            self.assertEqual(read_rules(path), {A: "block", B: "allow"})
-            self.assertEqual(read_rules(path.with_name(path.name + ".previous")), {A: "block"})
+            block = [{"mode": "block", "families": [], "difficulty": ""}]
+            allow = [{"mode": "allow", "families": [], "difficulty": ""}]
+            self.assertEqual(read_rules(path), {A: block, B: allow})
+            self.assertEqual(read_rules(path.with_name(path.name + ".previous")), {A: block})
             write_rules(path, {A: "default"})
-            self.assertEqual(read_rules(path), {B: "allow"})
+            self.assertEqual(read_rules(path), {B: allow})
 
     def test_invalid_existing_file_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:

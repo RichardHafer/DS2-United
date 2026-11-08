@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace DS2RandomizerConfig
+namespace DS2CoopConfig
 {
     interface IView
     {
@@ -145,12 +145,47 @@ namespace DS2RandomizerConfig
             string range = opt.Kind == Kind.Int || opt.Kind == Kind.OptionalInt ? "Range: " + opt.Min + " to " + opt.Max : "";
             if (recText != rec || rangeText != range) { recText = rec; rangeText = range; moved = true; }
             moved |= fileNote.Set(model.FileNote(opt));
+            moved |= note.Set(NoteFor(model));
             string err;
             model.Invalid.TryGetValue(opt.Id, out err);
             moved |= error.Set(err);
             moved |= warning.Set(err == null && opt.WarnFunc != null ? opt.WarnFunc(model) : null);
             if (moved) Arrange();
         }
+
+        string NoteFor(Model model)
+        {
+            if (opt.HintFunc != null) return opt.HintFunc(model) ?? opt.NoteText;
+            if (opt.KeyCode)
+            {
+                long code = model.Int(opt.Id);
+                return code == 0 ? "No key set." : "Key: " + VirtualKeys.Name(code) + ".";
+            }
+            return opt.NoteText;
+        }
+    }
+
+    // A sub-heading between cards; hidden while searching.
+    sealed class HeadingView : IView
+    {
+        readonly Label label;
+        readonly string group;
+
+        public HeadingView(string group, string text, bool first)
+        {
+            this.group = group;
+            label = new Label
+            {
+                AutoSize = true, Text = text, Font = Look.Heading, ForeColor = Look.Text, UseMnemonic = false,
+                Margin = new Padding(0, Look.S(first ? 0 : 16), 0, Look.S(10))
+            };
+        }
+
+        public Control Root { get { return label; } }
+        public string Group { get { return group; } }
+        public void Refresh(Model model) { }
+        public bool Matches(string filter) { return filter.Length == 0; }
+        public void SetWidth(int width) { }
     }
 
     // A [Section] of family=value lines shown as a grid.

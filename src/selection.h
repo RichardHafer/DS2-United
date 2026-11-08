@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 #pragma once
 #include "policy.h"
 #include <string>
@@ -55,6 +56,11 @@ struct EnemyRecord {
     // the log shows next to the family.
     unsigned chance = 100;
     std::string variantName;
+    // Built from another character package (the three Severed twitcher looks, 17.10.).
+    bool retargeted = false;
+    // The enhanced (super) look of its family, or a copy of such a record (the oracle
+    // twitcher is the enhanced slasher's Severed counterpart, 18.10.).
+    bool enhanced = false;
     // Runtime factors of a variant, in percent: animation playback (movement
     // follows it) and visual size. 100 leaves the base enemy as it is.
     unsigned speedPercent = 100, scalePercent = 100;
@@ -64,7 +70,7 @@ enum class SelectionStatus : unsigned {
     DonorUnavailable, PacketReplaced, SourceDisabled, AmbiguousSource,
     UnsupportedClass, UnsupportedArrival, ChanceSkipped, FrameLimit,
     InvalidDonor, DescriptorMismatch, InvalidManager, GlobalPoolUnavailable, SpawnerBlocked,
-    StreamProbeBusy, FamilyNotAllowed, OriginalKept, CorpseTemplate, Count
+    StreamProbeBusy, FamilyNotAllowed, OriginalKept, CorpseTemplate, SceneActor, Count
 };
 inline const char* statusName(unsigned value) {
     static constexpr const char* names[] = {
@@ -73,7 +79,7 @@ inline const char* statusName(unsigned value) {
         "source_disabled", "ambiguous_source", "unsupported_class",
         "unsupported_arrival", "chance_skipped", "frame_limit",
         "invalid_donor", "descriptor_mismatch", "invalid_manager", "global_pool_unavailable", "spawner_blocked",
-        "stream_probe_busy", "family_not_allowed_here", "original_kept", "corpse_template"
+        "stream_probe_busy", "family_not_allowed_here", "original_kept", "corpse_template", "scene_actor"
     };
     return value < static_cast<unsigned>(SelectionStatus::Count) ? names[value] : "invalid_status";
 }
@@ -85,6 +91,7 @@ struct SelectionPlan {
     // many variant models rolled themselves to the front
     std::string chosenFamily;
     unsigned variantWinners = 0, variantCandidates = 0;
+    bool twitcherOnly = false;   // a Severed roll (twitcher or pregnant), not the ordinary chance, made this plan
 };
 struct PoolSettings {
     bool enabled = false, crossFamily = false;
@@ -104,6 +111,10 @@ struct PoolSettings {
     // Test aid: a variant by name that wins every draw it is a candidate in
     // (INI VariantBias). Empty for the normal seeded draw.
     std::string preferredVariant;
+    // Severed enemies (17.10./18.10.): the percentage of slasher (twitcher) and pregnant
+    // sources replaced by a Severed copy of their own family when Chance leaves them alone
+    // (0 = only the ordinary draw).
+    unsigned twitcherChance = 0, pregnantChance = 0;
 };
 inline bool directContext(const std::string& context) {
     return context == "default_NONE_descriptor" || context == "SPAWNMODE_NONE";
@@ -215,8 +226,14 @@ inline SelectionPlan buildPlan(const PoolSettings& settings, const EnemyRecord& 
     if (!source.ordinary && !scripted) return reject(SelectionStatus::UnsupportedClass);
     const bool vent = settings.ventVariants && ventContext(source.context) && !source.arrivalKey.empty();
     if (!directContext(source.context) && !vent && !scripted) return reject(SelectionStatus::UnsupportedArrival);
-    if (stableHash(settings.seed, source.guid, source.model, 0x43484E43u) % 100 >=
-        std::min(settings.chance, 100u)) return reject(SelectionStatus::ChanceSkipped);
+    const bool chanceHit = stableHash(settings.seed, source.guid, source.model, 0x43484E43u) % 100 < std::min(settings.chance, 100u);
+    // A slasher or pregnant the ordinary draw leaves alone may still become its Severed
+    // counterpart; then only retargeted copies of its own family are candidates.
+    const unsigned severedChance = source.family == "Zombie" ? settings.twitcherChance : source.family == "Pregnant" ? settings.pregnantChance : 0;
+    const bool twitcherOnly = !chanceHit && severedChance &&
+        stableHash(settings.seed, source.guid, source.model, 0x54574954u) % 100 < std::min(severedChance, 100u);
+    if (!chanceHit && !twitcherOnly) return reject(SelectionStatus::ChanceSkipped);
+    plan.twitcherOnly = twitcherOnly;
     std::map<Guid, std::vector<size_t>> variants;
     for (size_t i = 0; i < pool.size(); ++i) {
         const auto& candidate = pool[i];
@@ -227,7 +244,11 @@ inline SelectionPlan buildPlan(const PoolSettings& settings, const EnemyRecord& 
                                           directContext(candidate.context));
         // A variant's chance is applied inside its family below, not here: as a
         // candidate gate it left the variant one model among twenty (13.09.).
-        const bool variantSkipped = candidate.chance == 0;
+        // A Severed copy stands only where its own tier stood: the oracle twitcher for an
+        // enhanced slasher, the security and classic ones for a plain slasher.
+        const bool tierMismatch = candidate.retargeted && candidate.family == source.family && candidate.enhanced != source.enhanced;
+        const bool variantSkipped = candidate.chance == 0 || tierMismatch ||
+            (twitcherOnly && (!candidate.retargeted || candidate.family != source.family));
         // An enemy that never dies may not stand where a death is counted.
         const bool deathAwaited = source.deathMessage.hash != 0 || source.healthModifiedMessage.hash != 0;
         if (candidate.targetEnabled && candidate.weight && arrival && !candidate.ambiguous &&

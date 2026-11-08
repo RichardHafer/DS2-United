@@ -26,15 +26,11 @@ import custom_sounds as cs  # noqa: E402
 from export_skin_textures import CHARACTER_STREAMS  # noqa: E402
 
 
-def main():
-    name = sys.argv[1]
-    spec = json.loads((ROOT / "variants/ds2_variants.json").read_text(encoding="utf-8"))
-    variant = next(v for v in spec["variants"] if v["name"] == name)
-    package = variant["skin"]["package"]
-    out = ROOT / "variants/sounds" / name / "original"
+def export(package_file, out):
+    """Every sound of the package's SBK banks as <bank>_<index>.wav in `out`."""
     out.mkdir(parents=True, exist_ok=True)
     total = 0
-    for it in skin_assets.load_package(ds2str.StreamSet(str(CHARACTER_STREAMS / package))):
+    for it in skin_assets.load_package(ds2str.StreamSet(str(package_file))):
         if it["meta"]["type"] != "SBK":
             continue
         stem = it["meta"]["name"][:-4]
@@ -54,6 +50,14 @@ def main():
         if (out / "_tmp.exa.snu").exists():
             os.remove(out / "_tmp.exa.snu")
     print("%d sounds written to %s" % (total, out))
+    return total
+
+
+def main():
+    name = sys.argv[1]
+    spec = json.loads((ROOT / "variants/ds2_variants.json").read_text(encoding="utf-8"))
+    variant = next(v for v in spec["variants"] if v["name"] == name)
+    export(CHARACTER_STREAMS / variant["skin"]["package"], ROOT / "variants/sounds" / name / "original")
 
 
 if __name__ == "__main__":

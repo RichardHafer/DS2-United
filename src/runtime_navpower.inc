@@ -1,3 +1,4 @@
+// Dead Space 2 United by Hafer.
 // NavPower's system pool, and why it is the enemy limit.
 //
 // Dump 2924 (20.09.2026): int3 at 0x005B480D, "System ran out of available
