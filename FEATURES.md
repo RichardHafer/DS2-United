@@ -4,11 +4,11 @@ Every feature of Dead Space 2 United for Dead Space 2 (by Hafer) in one place: p
 
 How the systems behind them work (networking, connecting, the survival director and its modes, engine addresses, source map): `docs/DS2COOP_FOR_MARK.md`. Both files are kept current with every change.
 
-**Last updated: 2026-11-08**
+**Last updated: 2026-11-11**
 
 **Renamed 08.11.2026:** the mod is Dead Space 2 United now. Before that it was the Co-op Mod (DS2Coop, from 17.10.2026) and HaferSprawl (Hafer's Sprawl). `DS2Coop.asi` is `DS2United.asi`, the merged `DS2Coop.ini` is `DS2United.ini` (the configurator copies it over on first start, the plugin reads the old file until then), `DS2CoopConfig.exe` is `DS2UnitedConfig.exe` and `DS2Coop.log` is `DS2United.log`. With the old plugin still in plugins\ the new one stays idle and says why in DS2United.log.
 
-**Update 08.11.2026 (built, not installed):** F1 ([Menu] HelpKey) shows the how to play page with every key in menus and levels, bot order keys included; the supply terminal defaults to V; Ellie's two vent slashers in the street scene count as story scene actors (no randomizing, no copies), and MoreEnemiesSkipScripted defaults to on in the code too; the configurator has the game modes first, an About dialog (F1) and the Severed, vent jam guard, quiet vent and bot order settings.
+**Update 08.11.2026 (built, not installed):** F1 ([Menu] HelpKey) shows the how to play page with every key in menus and levels, bot order keys included; the supply terminal defaults to V; Ellie's two vent slashers in the street scene, the two transport hub slashers that run at Ellie and the crawler of the se_04_09 vision count as story scene actors (no randomizing, no copies; tools/find_scene_actors.py now also takes targets a script kills or animates in sync), and MoreEnemiesSkipScripted defaults to on in the code too; the configurator has the game modes first, an About dialog (F1) and the Severed, vent jam guard, quiet vent and bot order settings.
 
 **Update 14.10.2026:** everything marked "built, not installed" up to 14.10. is installed now (plugin `DS2United.asi` CRC 86050441, menu stream CRC D2AEEB3A) and waits for a playtest.
 
