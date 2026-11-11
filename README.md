@@ -17,23 +17,74 @@ uses, and everything happens in memory while you play.
 Before November 2026 this was the Co-op Mod (DS2Coop) and, earlier still, the
 Dead Space 2 Randomizer.
 
+> **Experimental release.** A lot of this has only been tested by a handful of
+> people. Expect rough edges, back up your saves, and send the logs when
+> something breaks.
+
 ## What it does
 
-| | |
-|---|---|
-| Story co-op | Play the campaign together over LAN or a virtual network (Tailscale, ZeroTier, Radmin). The host decides levels, checkpoints and enemies; doors, lifts and scenes wait for everybody. |
-| Survival | Waves on the multiplayer maps, the Outbreak maps and campaign arenas, with a supply terminal between waves, plus the clock modes Mercenaries, Objective and Hold the Zone. |
-| Bots | Up to three companion Isaacs that follow, fight, loot, shop and heal, with orders on the numpad (follow or hold, go there, attack target, hold fire, formation). |
-| Versus | Humans against necromorph players on the multiplayer maps. Experimental. |
-| Enemy randomizer | Every enemy spawn in the campaign can become a different enemy, built by the game from its own data, in the spot and through the vent the level authored, with the room's scripting still working. Seeded. Enemies a story scene uses are left alone. |
-| More enemies | Repeats authored spawns, per family and with a budget. Story scene enemies are never multiplied, and a vent waits until the enemy before has climbed out. |
-| Also | Severed twitchers, hordes, scaled loot, shuffled schematics and workbench trees, a zone switch fix for high frame rates, and a settings window that explains every option. |
+Everything except Invasion can be played solo and offline, and nearly every
+part can be switched off or tuned in the settings window.
 
-Press **F1** in the game for a page with every key of the mod. The supply
-terminal opens with **V**.
+### Bots
+
+Up to three AI companions who follow you and can do almost anything a player
+can: shoot with every weapon, stomp, punch, use kinesis and stasis, loot, heal
+and shop. They react to what happens around them, and each one can have its own
+personality: name, favourite weapons and suits, aim, courage, pace and a bit of
+trolling. Orders sit on the numpad (follow or hold, go there, attack target,
+hold fire, attack or cover formation).
+
+### Story mode
+
+- **Co-op** for up to four players through the whole campaign, over LAN or a
+  virtual network such as Tailscale, ZeroTier or Radmin. The host leads levels,
+  checkpoints and enemies; doors, lifts and scenes wait for everybody.
+- **Invasion**: a friend can join as a necromorph instead of a human and hunt
+  the others during their playthrough.
+- **Enemy randomizer**: every enemy spawn can become a different enemy, through
+  the vent and at the spot the level authored, with the room's scripting still
+  working. Seeded, so a seed always gives the same run. Enemies a story scene
+  uses, or that the level kills by script, are left alone.
+- **More enemies**: two, three or four where the level placed one, set per enemy
+  type, with a hard cap and a budget. Off by default.
+- **Severed enemies** from the DLC: twitchers and the Severed pregnant can show
+  up in the campaign.
+- **Schematic and workbench shuffle**, scaled ammo and credit pickups.
+
+### Game modes
+
+The multiplayer menu is replaced by game modes. They run on all seven
+multiplayer maps (including the two Outbreak maps) and on nine arenas cut from
+the campaign, which are small because the story levels are linear.
+
+- **Survival**: endless waves that get harder, a boss wave at 10, until the team
+  runs out of lives.
+- **Mercenaries**: as many kills as possible against the clock. Kills and time
+  capsules around the map add seconds, lives are endless, the terminal is closed.
+- **Objective**: the multiplayer maps' own objectives as PvE against hordes and
+  a clock.
+- **Hold the Zone**: capture one zone after another while necromorphs try to
+  stop you.
+- **Versus**: humans against necromorph players, with AI slashers on both sides.
+  The most experimental mode.
+- **Supply terminal** (V): suits, weapons, upgrades and gadgets for your
+  credits, between waves or at any time if you allow it.
+- **Gadgets**: a turret, a stasis mine and a heal field.
+- **Progression** like the original multiplayer: XP for nearly everything that
+  matters, unlocking suits and weapons as you play.
+- **Dementia**, an optional survival mutator with a sanity meter and
+  hallucinations.
+
+### Customisation
+
+- Colours for the RIG, inventory, HUD, stasis, kinesis, visor and the menus.
+- `DS2UnitedConfig.exe`: every setting with an explanation, the recommended
+  value and a warning when a combination does nothing or is risky.
+- **F1** in the game shows every key of the mod.
 
 Every hook checks a byte signature before it is placed, and the log says which
-ones went in. An unsupported build is left alone.
+ones went in. An unsupported build of the game is left alone.
 
 ## Install
 
