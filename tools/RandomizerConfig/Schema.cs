@@ -229,14 +229,15 @@ namespace DS2CoopConfig
             var counts = new TableInfo
             {
                 Section = "MoreEnemies", Group = More, Title = "How many of each kind", InPlace = true,
-                Description = "The total per spawn point, not extra: 2 = two where the level placed one, 1 = unchanged. Default applies to every kind without its own line. Bosses always stay at one.",
+                Description = "The total per spawn point, not extra: 2 = two where the level placed one, 1 = unchanged. Default applies to every kind without its own line. Bosses, Brutes and swarmers always stay at one.",
                 NoteText = "Only used with More enemies on. Max per spawn point caps every value here."
             };
             var defaultCount = I(More, "MoreEnemies", "Default", 1, 1, 8, "Default", "Default total per spawn point.").Comment("Total per spawn point for kinds without their own line.");
             defaultCount.Table = "MoreEnemies";
             counts.Cells.Add(defaultCount);
             list.Add(defaultCount);
-            foreach (var fam in OrdinaryFamilies)
+            // swarmers and the Brute always stay at one (src/more_enemies.h), so they get no line
+            foreach (var fam in OrdinaryFamilies.Where(f => f != "SwarmEnemy" && f != "Brute"))
             {
                 var cell = I(More, "MoreEnemies", fam, 1, 1, 8, fam, "Total per spawn point for " + fam + ".").From("MoreEnemies.Default").Comment("Total per spawn point, 1 = unchanged.");
                 cell.Table = "MoreEnemies";
@@ -250,6 +251,8 @@ namespace DS2CoopConfig
                 {
                     long v = m.Int(id), cap = m.Int(M("MoreEnemiesMaxPerTrigger"));
                     if (v > cap) return "capped at " + cap + " by Max per spawn point.";
+                    if (v > 2 && (id.EndsWith(".Pregnant") || id.EndsWith(".Infector")))
+                        return "each copy brings its own swarm or turns corpses into more enemies; 2 is the safe maximum.";
                     if (v > 3) return "more than 3 per spawn point costs performance and can fill the enemy pool (pathfinding memory).";
                     return null;
                 });
