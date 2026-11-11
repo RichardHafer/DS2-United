@@ -58,12 +58,10 @@ inline const char* moreEnemiesStatusName(unsigned value) {
 
 // Families that stay at one no matter what the configuration asks for. Boss and
 // encounter actors, actors anchored to a wall or a floor plate, and the parts
-// another actor owns and counts. The Brute is a set piece wherever the game
-// places one (ch08's carries an attached prop); the DS1 randomizer learned the
-// same about its Brutes.
+// another actor owns and counts.
 inline bool moreEnemiesProtectedFamily(const std::string& family) {
     static const char* const kProtected[] = {
-        "Brute", "Hunter", "DividerCore", "DividerPart", "Nest", "NestProjectile",
+        "Hunter", "DividerCore", "DividerPart", "Nest", "NestProjectile",
         "Guardian", "GuardianPod", "GuardianTentacle", "Landmine",
         "Tripod", "WindowTripod", "BossTripod", "TripodProjectile",
         "Kong", "NicoleBoss", "Polyp", "DragTentacle", "SlamDragTentacle",

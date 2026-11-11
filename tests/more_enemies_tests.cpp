@@ -40,7 +40,7 @@ int main() {
     cfg.vents = false;
 
     // Protected families stay at one whatever the configuration asks for.
-    for (const char* family : {"Brute", "Hunter", "DividerCore", "DividerPart", "Nest",
+    for (const char* family : {"Hunter", "DividerCore", "DividerPart", "Nest",
                                "NestProjectile", "Guardian", "GuardianPod",
                                "GuardianTentacle", "TripodProjectile", "Landmine",
                                "Tripod", "WindowTripod", "BossTripod", "Kong",
