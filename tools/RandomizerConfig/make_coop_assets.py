@@ -1,4 +1,4 @@
-"""Builds assets/CoopMod_Logo.png from assets/DS2Randomizer_Logo.png, then Logo.png and App.ico.
+"""Builds assets/United_Logo.png from assets/DS2Randomizer_Logo.png, then Logo.png and App.ico.
 
 The helix and the red marble of the randomizer logo stay; the wordmark becomes
 UNITED in a wide face (Bahnschrift Bold, stretched). Run from the

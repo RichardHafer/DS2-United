@@ -80,7 +80,7 @@ void Report(uint32_t token, const coop_config::Assembly& a) {
         InterlockedIncrement(&buildMismatches);
         Line("%s (token %08X) runs another Dead Space 2 United build: %08X, ours %08X", who, token, a.build, ownBuild);
         char text[96];
-        std::snprintf(text, sizeof(text), "%s RUNS ANOTHER CO-OP MOD BUILD", whoUpper);
+        std::snprintf(text, sizeof(text), "%s RUNS ANOTHER DS2 UNITED BUILD", whoUpper);
         notice::Enqueue(text);
         char why[96];
         std::snprintf(why, sizeof(why), "%s runs a different DS2United.asi than this PC", who);
@@ -119,7 +119,7 @@ void Report(uint32_t token, const coop_config::Assembly& a) {
     }
     Line("%u must match, %u other difference(s)", must, static_cast<unsigned>(diff.size()) - must);
     char text[120];
-    if (must) std::snprintf(text, sizeof(text), "INI DIFFERS FROM %s: %u MUST MATCH, SEE DS2COOP.LOG", whoUpper, must);
+    if (must) std::snprintf(text, sizeof(text), "INI DIFFERS FROM %s: %u MUST MATCH, SEE DS2UNITED.LOG", whoUpper, must);
     else std::snprintf(text, sizeof(text), "INI DIFFERS FROM %s: %u SETTING(S), NONE CRITICAL", whoUpper, static_cast<unsigned>(diff.size()));
     notice::Enqueue(text);
     if (must) {

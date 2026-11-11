@@ -115,10 +115,13 @@ void Install(FILE* log, const std::string& ini) {
         std::fprintf(log, "credits block off ([Credits] Enabled=0)\n");
         return;
     }
-    GetPrivateProfileStringA("Credits", "Title", "Dead Space 2 Dead Space 2 United", title, sizeof(title), ini.c_str());
+    GetPrivateProfileStringA("Credits", "Title", "Dead Space 2 United", title, sizeof(title), ini.c_str());
+    if (!std::strcmp(title, "Dead Space 2 Co-op Mod") || !std::strcmp(title, "Dead Space 2 Dead Space 2 United"))
+        std::snprintf(title, sizeof(title), "Dead Space 2 United");
     GetPrivateProfileStringA("Credits", "Role", "Created by", role, sizeof(role), ini.c_str());
     char list[sizeof(names)]{};
-    GetPrivateProfileStringA("Credits", "Names", "Hafer", list, sizeof(list), ini.c_str());
+    GetPrivateProfileStringA("Credits", "Names", "Richard Hafer", list, sizeof(list), ini.c_str());
+    if (!std::strcmp(list, "Hafer")) std::snprintf(list, sizeof(list), "Richard Hafer");
     char* rest = nullptr;
     for (char* token = strtok_s(list, "|", &rest); token && nameCount < kMaxNames; token = strtok_s(nullptr, "|", &rest)) {
         while (*token == ' ') ++token;

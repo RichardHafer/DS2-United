@@ -296,7 +296,7 @@ struct Joiner {
             if (!token || p.token == token) { state = State::Refused; refusal = "the host closed the lobby"; }
             return false;
         }
-        if (t == Type::Mismatch || p.build != ourBuild) { state = State::Refused; refusal = "the host runs a different DS2Coop build"; return false; }
+        if (t == Type::Mismatch || p.build != ourBuild) { state = State::Refused; refusal = "the host runs a different DS2 United build"; return false; }
         if (p.randomizer != ourRandomizer) { state = State::Refused; refusal = "the host runs a different randomizer build"; return false; }
         if (t != Type::Welcome && t != Type::Launch) return false;
         if (!p.machine) return false;
@@ -322,7 +322,7 @@ struct Joiner {
     CampaignPacket campaign;
     bool OnCampaign(const CampaignPacket& p, uint32_t ourBuild, uint32_t ourRandomizer) {
         if (state != State::Hello && state != State::Welcomed) return false;
-        if (p.build != ourBuild) { state = State::Refused; refusal = "the host runs a different DS2Coop build"; return false; }
+        if (p.build != ourBuild) { state = State::Refused; refusal = "the host runs a different DS2 United build"; return false; }
         if (p.randomizer != ourRandomizer) { state = State::Refused; refusal = "the host runs a different randomizer build"; return false; }
         if (!p.machine || (token && p.token != token)) return false;
         token = p.token;

@@ -1,4 +1,4 @@
-"""The title logo with our line: DEAD SPACE 2 as shipped, a red 2 and a steel CO-OP MOD line.
+"""The title logo with our line: DEAD SPACE 2 as shipped, a red 2 and a steel UNITED line.
 
 lgo_ds2_02 (1024x512 DXT5, two levels) is edited block by block so the shipped letters keep
 their compression: the cyan 2 and its spill on the E only get new colour endpoints, and only
@@ -146,8 +146,8 @@ def build(body, levels, text):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--in', dest='src', default=str(ROOT / 'build' / 'frontend_red_dark' / 'ds2coop_frontend.str'))
-    ap.add_argument('--out', default=str(ROOT / 'build' / 'frontend_final' / 'ds2coop_frontend.str'))
-    ap.add_argument('--text', default="CO-OP MOD")
+    ap.add_argument('--out', default=str(ROOT / 'build' / 'frontend_united' / 'ds2coop_frontend.str'))
+    ap.add_argument('--text', default="UNITED")
     ap.add_argument('--preview', default=str(ROOT / 'build' / 'title_logo' / 'title_logo_final_preview.png'))
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--restock', action='store_true')

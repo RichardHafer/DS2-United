@@ -747,12 +747,17 @@ void Install(FILE* log, const std::string& ini) {
     notice::AddOverride(kTextGameMode, kGameModeLabel);
     GetPrivateProfileStringA("Menu", "NatLine1", "Dead Space 2 United game modes", natLine1, sizeof(natLine1), ini.c_str());
     GetPrivateProfileStringA("Menu", "NatLine2", "Host or join over LAN (or virtual network), set up in DS2UnitedConfig.exe", natLine2, sizeof(natLine2), ini.c_str());
+    // an INI from before the rename still carries the old default texts
+    if (!std::strcmp(natLine1, "Co-op Mod gamemodes")) std::snprintf(natLine1, sizeof(natLine1), "Dead Space 2 United game modes");
+    if (!std::strcmp(natLine2, "Host or join over LAN (or virtual network), set up in DS2CoopConfig.exe"))
+        std::snprintf(natLine2, sizeof(natLine2), "Host or join over LAN (or virtual network), set up in DS2UnitedConfig.exe");
     if (natLine1[0]) notice::AddOverride(kTextNatType, natLine1);
     if (natLine2[0]) notice::AddOverride(kTextNatSupport, natLine2);
     std::fprintf(log, "menu NAT lines: '%s' / '%s' (in place of the game's NAT warning; empty keeps it)\n", natLine1[0] ? natLine1 : "(the game's)",
                  natLine2[0] ? natLine2 : "(the game's)");
     // on a line of its own: after EA's text it wrapped in the middle (14.10.)
     GetPrivateProfileStringA("Menu", "TitleLine", "Dead Space 2 United", titleLine + 1, sizeof(titleLine) - 1, ini.c_str());
+    if (!std::strcmp(titleLine + 1, "Co-op Mod")) std::snprintf(titleLine + 1, sizeof(titleLine) - 1, "Dead Space 2 United");
     if (titleLine[1]) {
         titleLine[0] = '\n';
         notice::AddAppend(kTextLegal, titleLine);
