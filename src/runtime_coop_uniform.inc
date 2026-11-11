@@ -3,6 +3,9 @@
 namespace coop_uniform {
 constexpr uint32_t kManager = 0x1C1C0DC, kManagerVtable = 0x175CA78;
 constexpr uint32_t kChange = 0xAE0610, kAttach = 0xAB4E10, kLoad = 0xAC6310;
+// Skin bone scale pass (cdecl, skin): writes a 4x4 matrix per bone to [skin+0x120] + index * 64.
+// Nine call sites, among them the deferred skin queue entry 0x010767C0.
+constexpr uint32_t kSkinScale = 0xC741F0;
 struct UniformEntry {
     unsigned char loaded, dlc, activations, padding;
     Guid guid;
@@ -18,7 +21,7 @@ struct Array { uint32_t data, count, capacity; };
 struct Body { uint32_t player = 0, view = 0, bones = 0, mmi = 0, uniform = 0, buffer = 0, count = 0; };
 struct Donor { Body body; UniformEntry entry{}; };
 static_assert(sizeof(UniformEntry) == 24 && sizeof(PlayerEntry) == 12);
-safetyhook::InlineHook changeHook, attachHook, loadHook;
+safetyhook::InlineHook changeHook, attachHook, loadHook, skinScaleHook;
 bool installed = false;
 // Signatures verified and configuration read; the hooks themselves wait for
 // the first connected partner (Arm). Solo, ChangeToUniform keeps its retail
@@ -42,6 +45,7 @@ volatile LONG poseBound = 0, poseRebound = 0, poseMissing = 0, poseInvalid = 0;
 uint32_t detachedGhosts[16]{};
 volatile LONG detaches = 0, detachedSkips = 0, detachedOverflow = 0, detachedReclaimed = 0;
 bool Player(uint32_t p);
+void RememberSkin(uint32_t skin, uint32_t player);
 bool Detached(uint32_t player) {
     for (uint32_t d : detachedGhosts) if (d && d == player) return true;
     return false;
@@ -640,6 +644,7 @@ bool PreparePose(uint32_t component) {
     if (!Player(player) || !coop::IsGhostPlayer(player)) return true;
     const Body body = ReadBody(player);
     if (!Read(component + 0x1C, &skin, 4) || !skin) return true;
+    RememberSkin(skin, player);
     if (!body.mmi || !body.uniform) {
         if (InterlockedIncrement(&poseMissing) <= 8) PoseReport("pose_without_model", skin, player, body.mmi, body.uniform);
         return false;
@@ -695,6 +700,50 @@ bool PreparePose(uint32_t component) {
         PoseReport("pose_buffer_bound", skin, player, body.buffer, bufferCount);
     }
     return true;
+}
+// Skins of ghost Players and the Player they belong to. The engine binds a Player skin's pose
+// pointer (+0x120) to the Player's own buffer (+0x1E0, native at 0x01091AEE). A detach or a
+// suit change frees that buffer, but the deferred skin queue can still run the scale pass for
+// the skin afterwards; it then wrote bone matrices into freed memory, and the next heap
+// consolidation crashed in the free list (0x013FC421/0x013FC442, nine crashes 19.10. to 05.11.;
+// dumps 23352 and 41996: the trashed block was a freed pose buffer, a dead skin's +0x120 still
+// pointed at it and the queue still named that skin).
+struct SkinOwner { uint32_t skin, player; };
+SkinOwner skinOwners[64]{};
+SRWLOCK skinOwnersLock = SRWLOCK_INIT;
+volatile LONG skinScaleRuns = 0, skinScaleSkips = 0, skinOwnersFull = 0;
+void RememberSkin(uint32_t skin, uint32_t player) {
+    AcquireSRWLockExclusive(&skinOwnersLock);
+    SkinOwner* slot = nullptr;
+    for (auto& e : skinOwners) if (e.skin == skin) { slot = &e; break; }
+    if (!slot) for (auto& e : skinOwners) if (!e.skin) { slot = &e; break; }
+    if (!slot)
+        for (auto& e : skinOwners)
+            if (!Player(e.player) || !coop::IsGhostPlayer(e.player)) { slot = &e; break; }
+    if (slot) *slot = {skin, player};
+    else InterlockedIncrement(&skinOwnersFull);
+    ReleaseSRWLockExclusive(&skinOwnersLock);
+}
+// False when the skin belongs to a ghost whose buffer is gone or no longer the one the skin names.
+bool SkinPoseLive(uint32_t skin) {
+    uint32_t player = 0;
+    AcquireSRWLockShared(&skinOwnersLock);
+    for (const auto& e : skinOwners) if (e.skin == skin) { player = e.player; break; }
+    ReleaseSRWLockShared(&skinOwnersLock);
+    if (!player) return true;
+    uint32_t pose = 0, buffer = 0;
+    if (!Read(skin + 0x120, &pose, 4) || !pose) return false;
+    if (!Player(player) || Detached(player) || !Read(player + 0x1E0, &buffer, 4)) return false;
+    return pose == buffer;
+}
+void __cdecl OnSkinScale(uint32_t skin) {
+    if (!SkinPoseLive(skin)) {
+        const LONG n = InterlockedIncrement(&skinScaleSkips);
+        if (n <= 8) coop::gate::Event("coop_uniform skin %08X: scale pass skipped, its pose buffer belongs to a ghost that is gone, detached or redressed (%ld so far)", skin, n);
+        return;
+    }
+    InterlockedIncrement(&skinScaleRuns);
+    skinScaleHook.ccall<void>(skin);
 }
 bool GhostDetached(uint32_t component) {
     uint32_t owner = 0;
@@ -791,6 +840,8 @@ void WriteDiagnostics(FILE* log) {
         InterlockedCompareExchange(&preloadsUnregistered, 0, 0), InterlockedCompareExchange(&preloadFaults, 0, 0), preloadOk ? 1 : 0);
     std::fprintf(log, "coop_uniform hooks=%s armable=%d arm_attempts=%ld\n", installed ? "armed" : "not armed (solo)", armable ? 1 : 0,
         InterlockedCompareExchange(&armAttempts, 0, 0));
+    std::fprintf(log, "coop_uniform skin scale guard runs=%ld skipped=%ld owners_full=%ld (a skip is a write into a freed ghost pose buffer avoided)\n",
+                 InterlockedCompareExchange(&skinScaleRuns, 0, 0), InterlockedCompareExchange(&skinScaleSkips, 0, 0), InterlockedCompareExchange(&skinOwnersFull, 0, 0));
     std::fprintf(log, "coop_uniform detached ghosts detaches=%ld animation_skips=%ld overflow=%ld reclaimed=%ld\n", InterlockedCompareExchange(&detaches, 0, 0),
         InterlockedCompareExchange(&detachedSkips, 0, 0), InterlockedCompareExchange(&detachedOverflow, 0, 0),
         InterlockedCompareExchange(&detachedReclaimed, 0, 0));
@@ -815,6 +866,8 @@ bool Install(FILE* log, const std::string& ini) {
         {kChange, "\x51\x53\x8B\x5C\x24\x0C\x56\x8B\xF1\x85\xDB\x0F\x84\x71\x01\x00", reinterpret_cast<void*>(OnChange), &changeHook},
         {kAttach, "\x83\xEC\x34\x53\x56\x8B\x74\x24\x40\x33\xDB\x39\x9E\x88\x16\x00", reinterpret_cast<void*>(OnAttach), &attachHook},
         {kLoad, "\x53\x55\x8B\x6C\x24\x0C\x56\x8B\x35\x98\xC0\x01\x02\x57\x51\x8B", reinterpret_cast<void*>(OnLoad), &loadHook},
+        // push ebp / mov ebp,esp / and esp,-16 / sub esp,44h / push ebx,esi,edi / mov edi,[ebp+8] / xor ebx,ebx
+        {kSkinScale, "\x55\x8B\xEC\x83\xE4\xF0\x83\xEC\x44\x53\x56\x57\x8B\x7D\x08\x33", reinterpret_cast<void*>(OnSkinScale), &skinScaleHook},
     };
     for (const auto& site : sites) {
         unsigned char actual[16]{};
@@ -862,6 +915,7 @@ bool Arm() {
         {kChange, reinterpret_cast<void*>(OnChange), &changeHook},
         {kAttach, reinterpret_cast<void*>(OnAttach), &attachHook},
         {kLoad, reinterpret_cast<void*>(OnLoad), &loadHook},
+        {kSkinScale, reinterpret_cast<void*>(OnSkinScale), &skinScaleHook},
     };
     for (const auto& site : sites) {
         *site.hook = safetyhook::create_inline(reinterpret_cast<void*>(base + site.rva), site.callback);

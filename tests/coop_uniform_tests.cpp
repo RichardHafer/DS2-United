@@ -48,6 +48,7 @@ bool WriteBytes(uintptr_t address, const void* value, size_t size) {
 namespace safetyhook {
 struct InlineHook {
     template<class T, class... Args> T thiscall(void*, Args...);
+    template<class T, class... Args> T ccall(Args...) { return T(); }
     explicit operator bool() const { return true; }
     void reset() {}
 };
@@ -238,6 +239,28 @@ int main() {
     Put(targetPlayer + 0x1E0, uint32_t(0x10D000));
     coop_uniform::CheckResult(manager, targetPlayer, donor);
     assert(coop_uniform::stopped);
+    {
+    // The skin scale pass runs only for a ghost skin that still names its Player's live buffer.
+    Reset();
+    coop::ghost = targetPlayer;
+    const uint32_t scaledSkin = 0x10A000;
+    Put(targetPlayer + 0x1E0, uint32_t(0x10B000));
+    Put(scaledSkin + 0x120, uint32_t(0x10B000));
+    assert(coop_uniform::SkinPoseLive(0x10C000));                 // not a ghost skin: untouched
+    coop_uniform::RememberSkin(scaledSkin, targetPlayer);
+    assert(coop_uniform::SkinPoseLive(scaledSkin));
+    Put(targetPlayer + 0x1E0, uint32_t(0x10D000));                // redressed: a new buffer
+    assert(!coop_uniform::SkinPoseLive(scaledSkin));
+    Put(scaledSkin + 0x120, uint32_t(0x10D000));
+    assert(coop_uniform::SkinPoseLive(scaledSkin));
+    coop_uniform::MarkDetached(targetPlayer, true);                // between detach and attach
+    assert(!coop_uniform::SkinPoseLive(scaledSkin));
+    coop_uniform::MarkDetached(targetPlayer, false);
+    Put(targetPlayer, uint32_t(0));                                // the Player is gone
+    assert(!coop_uniform::SkinPoseLive(scaledSkin));
+    coop::ghost = 0;
+    }
+
     std::puts("Uniform routing, cleanup, donor validation, lifecycle guards and ownership checks passed.");
     FILE* output = nullptr;
     assert(tmpfile_s(&output) == 0 && output);
