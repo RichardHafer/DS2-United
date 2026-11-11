@@ -301,12 +301,9 @@ namespace DS2CoopConfig
             Action<Option> add = list.Add;
 
             // ---- Co-op
-            add(B(Coop, "Coop", "Network", 0, "Network co-op",
-                "Plays together with other copies of the game over the network. Off: companion bots only, no network session starts. The main menu's host co-op and join co-op switch it on for that game anyway.")
-                .Under("Connection")
-                .Warn(WhenCoopHalfOff(null, "Nothing on this page works")));
             add(T(Coop, "Coop", "JoinAddress", "", "Join address",
                 "The host's address and game port, for example a Tailscale address like 100.101.102.103:27015. The host leaves it empty. The game uses UDP on that port, port + 1000 and port + 2000.", Address)
+                .Under("Connection")
                 .Warn(m => m.Get("Coop.JoinAddress").Length == 0 || PeerOk(m.Get("Coop.JoinAddress")) ? null
                     : "Join co-op refuses this address: it takes an IPv4 address and the host's port, like 100.101.102.103:27015, not a host name."));
             add(Key(Coop, "Coop", "CatchUpKey", 0, "Catch-up key",
@@ -404,6 +401,10 @@ namespace DS2CoopConfig
                 "A crash writes a dump and a short report, into C:\\DS2CrashDumps when that folder exists, else into the game folder. Useful for bug reports."));
             add(B(Coop, "Coop", "ConfigCheck", 1, "Compare settings with partners",
                 "On joining, each machine compares this file and its plugin build with the others and says on screen whether they match; the log lists every setting that differs."));
+            add(B(Coop, "Coop", "Network", 0, "Start a network session at launch (manual setup)",
+                "Not needed to play together: host co-op and join co-op in the main menu start the network for that game by themselves. On: the game opens a session as soon as it starts and dials the partners listed under Peer (Expert page), the old setup for test launchers.")
+                .Under("Manual setup")
+                .Warn(WhenCoopHalfOff(null, "Nothing on this page works")));
 
             // ---- Bots
             add(B(Bots, "Bot", "Enabled", 0, "Companion bots",
