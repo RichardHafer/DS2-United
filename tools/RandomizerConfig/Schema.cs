@@ -12,6 +12,8 @@ namespace DS2CoopConfig
     {
         public string Section, Group, Title, Description, NoteText;
         public List<Option> Cells = new List<Option>();
+        // shown where its first cell sits among the switches instead of after all of them
+        public bool InPlace;
     }
 
     static class Schema
@@ -224,6 +226,35 @@ namespace DS2CoopConfig
             add(B(More, Main, "MoreEnemies", 0, "More enemies",
                 "Spawns more than one enemy per spawn point by repeating an arrival that already worked. How many is set per kind in the table below.")
                 .Note("Works on its own too: with Replacement chance 0 you still get more enemies."));
+            var counts = new TableInfo
+            {
+                Section = "MoreEnemies", Group = More, Title = "How many of each kind", InPlace = true,
+                Description = "The total per spawn point, not extra: 2 = two where the level placed one, 1 = unchanged. Default applies to every kind without its own line. Bosses always stay at one.",
+                NoteText = "Only used with More enemies on. Max per spawn point caps every value here."
+            };
+            var defaultCount = I(More, "MoreEnemies", "Default", 1, 1, 8, "Default", "Default total per spawn point.").Comment("Total per spawn point for kinds without their own line.");
+            defaultCount.Table = "MoreEnemies";
+            counts.Cells.Add(defaultCount);
+            list.Add(defaultCount);
+            foreach (var fam in OrdinaryFamilies)
+            {
+                var cell = I(More, "MoreEnemies", fam, 1, 1, 8, fam, "Total per spawn point for " + fam + ".").From("MoreEnemies.Default").Comment("Total per spawn point, 1 = unchanged.");
+                cell.Table = "MoreEnemies";
+                counts.Cells.Add(cell);
+                list.Add(cell);
+            }
+            foreach (var cell in counts.Cells)
+            {
+                string id = cell.Id;
+                cell.Warn(m =>
+                {
+                    long v = m.Int(id), cap = m.Int(M("MoreEnemiesMaxPerTrigger"));
+                    if (v > cap) return "capped at " + cap + " by Max per spawn point.";
+                    if (v > 3) return "more than 3 per spawn point costs performance and can fill the enemy pool (pathfinding memory).";
+                    return null;
+                });
+            }
+            Tables.Add(counts);
             add(I(More, Main, "MoreEnemiesMaxPerTrigger", 3, 1, 8, "Max per spawn point",
                 "Hard cap on the total per spawn point, whatever the table asks for.")
                 .Warn(m => m.Int(M("MoreEnemiesMaxPerTrigger")) > 4 ? "More than 4 per spawn point costs performance and fills the enemy pool (pathfinding memory) faster." : null));
@@ -256,35 +287,6 @@ namespace DS2CoopConfig
             add(B(More, Main, "ExtraSpawns", 1, "Hand-placed extra spawns",
                 "Reads plugins\\DS2ExtraSpawns.tsv: extra enemies (Guardians, Tripods ...) placed with the Spawner Editor. Rows bound to a spawner also need Spawner rules on; area rows do not."));
 
-            var counts = new TableInfo
-            {
-                Section = "MoreEnemies", Group = More, Title = "How many of each kind",
-                Description = "The total per spawn point, not extra: 2 = two where the level placed one, 1 = unchanged. Default applies to every kind without its own line. Bosses always stay at one.",
-                NoteText = "Only used with More enemies on. Max per spawn point caps every value here."
-            };
-            var defaultCount = I(More, "MoreEnemies", "Default", 1, 1, 8, "Default", "Default total per spawn point.").Comment("Total per spawn point for kinds without their own line.");
-            defaultCount.Table = "MoreEnemies";
-            counts.Cells.Add(defaultCount);
-            list.Add(defaultCount);
-            foreach (var fam in OrdinaryFamilies)
-            {
-                var cell = I(More, "MoreEnemies", fam, 1, 1, 8, fam, "Total per spawn point for " + fam + ".").From("MoreEnemies.Default").Comment("Total per spawn point, 1 = unchanged.");
-                cell.Table = "MoreEnemies";
-                counts.Cells.Add(cell);
-                list.Add(cell);
-            }
-            foreach (var cell in counts.Cells)
-            {
-                string id = cell.Id;
-                cell.Warn(m =>
-                {
-                    long v = m.Int(id), cap = m.Int(M("MoreEnemiesMaxPerTrigger"));
-                    if (v > cap) return "capped at " + cap + " by Max per spawn point.";
-                    if (v > 3) return "more than 3 per spawn point costs performance and can fill the enemy pool (pathfinding memory).";
-                    return null;
-                });
-            }
-            Tables.Add(counts);
 
             // ---- Loot
             add(I(Loot, "Loot", "AmmoPercent", 100, 25, 500, "Ammo in pickups (%)",

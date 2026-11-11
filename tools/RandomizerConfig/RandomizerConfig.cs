@@ -515,9 +515,9 @@ namespace DS2CoopConfig
                 }
                 views.Add(view);
             }
-            // switches first, tables after them within each section
-            foreach (var view in views.Where(v => !(v is TableView))) flows[view.Group].Controls.Add(view.Root);
-            foreach (var view in views.Where(v => v is TableView)) flows[view.Group].Controls.Add(view.Root);
+            // switches first, tables after them within each section, unless a table stays in place
+            foreach (var view in views.Where(v => !(v is TableView) || ((TableView)v).InPlace)) flows[view.Group].Controls.Add(view.Root);
+            foreach (var view in views.Where(v => v is TableView && !((TableView)v).InPlace)) flows[view.Group].Controls.Add(view.Root);
             // the Watchdog section ends with the advanced switches, after its tables
             var flow = flows[Schema.Watchdog];
             var advanced = new Label

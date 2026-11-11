@@ -193,6 +193,7 @@ namespace DS2CoopConfig
     sealed class TableView : IView
     {
         readonly TableInfo info;
+        public bool InPlace { get { return info.InPlace; } }
         readonly Surface panel;
         readonly Label title, section, description;
         readonly Button reset;
