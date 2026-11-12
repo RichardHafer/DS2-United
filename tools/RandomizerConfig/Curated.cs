@@ -246,11 +246,26 @@ namespace DS2CoopConfig
             }
         }
 
+        // The folder of the opened INI. In plugins\ the game folder is its parent, so the
+        // Outbreak archive can be looked for; anywhere else nothing is claimed.
+        public static string IniFolder;
+        public static bool? OutbreakInstalled()
+        {
+            if (string.IsNullOrEmpty(IniFolder)) return null;
+            var dir = new System.IO.DirectoryInfo(IniFolder);
+            if (!dir.Name.Equals("plugins", StringComparison.OrdinalIgnoreCase) || dir.Parent == null) return null;
+            if (!System.IO.File.Exists(System.IO.Path.Combine(dir.Parent.FullName, "deadspace2.exe")) &&
+                !System.IO.File.Exists(System.IO.Path.Combine(dir.Parent.FullName, "DS2DAT0.DAT"))) return null;
+            return System.IO.File.Exists(System.IO.Path.Combine(dir.Parent.FullName, "DS2DAT12.DAT"));
+        }
+
         static string MapWarning(Model m)
         {
             string map = SurvivalMapOf(m);
             if (!KnownMap(map)) return "No map is called that, so no map ever gets waves. Use one of: " + MapList + ".";
             if (IsAny(map)) return null;
+            if (map.Trim().StartsWith("pdlc_", StringComparison.OrdinalIgnoreCase) && OutbreakInstalled() == false)
+                return map.Trim() + " is an Outbreak map, and this game has no DS2DAT12.DAT (it comes with Mark's Dead Space 2 Multiplayer). The map is not in the map picker, so no map gets waves. Set it to any, or install the Outbreak maps.";
             if (m.On("Menu.Enabled"))
                 return "Only " + map + " gets waves: every other map and arena in the main menu's map picker has no enemies (Versus aside). Set it to any.";
             string visit = m.Get("MpMap.Map").Trim();

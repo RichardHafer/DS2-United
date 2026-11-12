@@ -248,6 +248,7 @@ namespace DS2CoopConfig
         public MainForm(string path, string startNote)
         {
             iniPath = path;
+            Curated.IniFolder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
             Text = Program.Caption;
             // the layout is scaled by hand through Look.S, so WinForms must not scale it again
             AutoScaleMode = AutoScaleMode.Dpi;

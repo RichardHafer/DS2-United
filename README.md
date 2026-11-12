@@ -59,8 +59,10 @@ multiplayer maps (including the two Outbreak maps) and on nine arenas cut from
 the campaign, which are small because the story levels are linear.
 
 The Outbreak maps (Concourse and Academy) are optional. They need
-`DS2DAT12.DAT` in the game folder; without it they are simply not in the map
-list. In co-op the map picker refuses them while any player lacks the file.
+`DS2DAT12.DAT` in the game folder, which comes with Mark's
+[Dead Space 2 Multiplayer](https://www.nexusmods.com/deadspace2/mods/181).
+Without it they are simply not in the map list. In co-op the map picker refuses
+them while any player lacks the file.
 
 - **Survival**: endless waves that get harder, a boss wave at 10, until the team
   runs out of lives.
@@ -274,6 +276,7 @@ Made by Richard Hafer.
 - The [Dead Space Modding](https://discord.com/invite/sWMRkYJ5JV) community for research, tests and feedback
 - [safetyhook](https://github.com/cursey/safetyhook) and [Zydis](https://github.com/zyantific/zydis) for hooking
 - [Marker Patch](https://github.com/Wemino/MarkerPatch) for the ASI loader and the fixes this runs on top of
+- Mark de Rune's [Dead Space 2 Multiplayer](https://www.nexusmods.com/deadspace2/mods/181) for the Outbreak maps, the game mode row's menu screen and the work on bringing console data to the PC build
 - Everyone who played test runs and sent logs
 
 ## Licence
