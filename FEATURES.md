@@ -49,7 +49,7 @@ How the systems behind them work (networking, connecting, the survival director 
 | [Bot] AltFireTrace | 0 | 1 |
 | [Bot] FollowIntoTubes | removed 13.10 | 0 (ignored) |
 | [Shop] DuringWaves | 0 | 1 |
-| [Menu] NativeModeRow | 0 | 1 |
+| [Menu] NativeModeRow | 1 (since 13.11.) | 1 |
 | [NativeLobby] Enabled | 0 | 1 |
 | [Loadout] Enabled | 0 | 1 |
 | [Respawn] Enabled, DelayMs, WaveClearedDelayMs | 0, 4000, 1000 | 1, 5000, 2000 |
@@ -396,7 +396,7 @@ The church and Psych Ward sequences also identify their immediate actor and came
 | Outbreak maps in the picker | ExtraMaps | on | Works (09.10) | Needs DS2DAT12.DAT |
 | Arenas in the picker | [Arena] Arenas | on | Works (09.10) | |
 | Mode switch in the picker | Modes, Mode | on, 0 | Works (12.10) | Modes=0 means survival since 13.10 |
-| Native "Game Mode" row | NativeModeRow | off (installed on) | Works (12.10) | Needs randomizer\ds2coop_frontend.str |
+| Native "Game Mode" row | NativeModeRow | on (since 13.11.) | Works (12.10) | Needs randomizer\ds2coop_frontend.str |
 | Lower-case mode and label text | | always | Unclear | "game mode" label, row texts |
 | Frontend colours (Mark's MP20 movies) | NativeModeRow | | Untested | |
 | Character setup screens | [Loadout] Enabled | off (installed on) | Works (13.10) | |

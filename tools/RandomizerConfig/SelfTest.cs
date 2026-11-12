@@ -555,6 +555,34 @@ namespace DS2CoopConfig
             return Encoding.GetEncoding(28591).GetString(doc.ToBytes());
         }
 
+        // The template without the randomizer's sections and the keys the survival file has: the
+        // co-op half's DS2Coop.ini from before the merge. With [DS2Randomizer] in it the migration
+        // would take it for the merged file.
+        static string CoopHalf(byte[] template, byte[] randomizer, byte[] survival)
+        {
+            var drop = new HashSet<string>(IniDocument.Parse(randomizer).SectionNames(), StringComparer.OrdinalIgnoreCase);
+            var surv = IniDocument.Parse(survival);
+            var survKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in surv.SectionNames())
+                foreach (var k in surv.KeyNames(s)) survKeys.Add(s + "\u0000" + k);
+            var sb = new StringBuilder();
+            bool skip = false;
+            string section = "";
+            foreach (var line in Encoding.GetEncoding(28591).GetString(template).Split('\n'))
+            {
+                var t = line.Trim();
+                if (t.StartsWith("[") && t.IndexOf(']') > 1)
+                {
+                    section = t.Substring(1, t.IndexOf(']') - 1).Trim();
+                    skip = drop.Contains(section);
+                }
+                int eq = t.IndexOf('=');
+                bool shared = !t.StartsWith(";") && eq > 0 && survKeys.Contains(section + "\u0000" + t.Substring(0, eq).Trim());
+                if (!skip && !shared) sb.Append(line).Append('\n');
+            }
+            return sb.ToString().TrimEnd('\n');
+        }
+
         // Phase 13: the old files merged into DS2Coop.ini, on the templates
         // with a duplicate, an unknown section and a stray key added.
         static void MigrationPhases()
@@ -563,7 +591,7 @@ namespace DS2CoopConfig
             var sources = new Dictionary<string, byte[]>
             {
                 { "DS2Randomizer.ini", Model.Resource("Recommended.ini") },
-                { "DS2Coop.ini", latin.GetBytes(latin.GetString(Model.Resource("Template.DS2United.ini")) + "\r\n[SelftestCoopOnly]\r\nAlpha=1\r\n") },
+                { "DS2Coop.ini", latin.GetBytes(CoopHalf(Model.Resource("Template.DS2United.ini"), Model.Resource("Recommended.ini"), Model.Resource("Template.DS2Survival.ini")) + "\r\n[SelftestCoopOnly]\r\nAlpha=1\r\n") },
                 { "DS2Survival.ini", latin.GetBytes(WithLine(Model.Resource("Template.DS2Survival.ini"), "Zone", "Ring=0")) },
                 { "DS2BotProfiles.ini", latin.GetBytes("Orphan=1\r\n" + latin.GetString(Model.Resource("Template.DS2BotProfiles.ini"))) },
             };

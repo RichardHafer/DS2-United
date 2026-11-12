@@ -756,7 +756,7 @@ void EarlyInstall(FILE* log, const std::string& ini) {
                      !red ? "stock" : useMp ? "red (randomizer\\ds2coop_global_mp_assets.str)" : whyMp);
     }
     const bool modes = GetPrivateProfileIntA("Menu", "Modes", 1, ini.c_str()) != 0;
-    wanted = modes && GetPrivateProfileIntA("Menu", "NativeModeRow", 0, ini.c_str()) != 0;
+    wanted = modes && GetPrivateProfileIntA("Menu", "NativeModeRow", 1, ini.c_str()) != 0;
     if (!wanted) {
         std::fprintf(log, "native row off (%s)\n", modes ? "[Menu] NativeModeRow=0" : "[Menu] Modes=0");
         InstallOpenOnly(log);

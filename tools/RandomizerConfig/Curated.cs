@@ -443,8 +443,8 @@ namespace DS2CoopConfig
                 "red or stock. The main menu, the map picker and the suit screens in red, or the same screens in the game's own blue. Applies with the game mode row below; stock needs randomizer\\ds2coop_frontend_stock.str, else red stays.",
                 FrontendColour)
                 .Warn(m => m.On("Menu.NativeModeRow") ? null : "Does nothing while the game mode row is off: without it the game shows its own main menu."));
-            add(B(Extras, "Menu", "NativeModeRow", 0, "Game mode row, title logo and map pictures",
-                "The mod's own copy of the main menu: a game mode row above the map, the DEAD SPACE 2 UNITED logo, pictures for the campaign arenas and the extra suit screens. Needs randomizer\\ds2coop_frontend.str. Experimental."));
+            add(B(Extras, "Menu", "NativeModeRow", 1, "Game mode row, title logo and map pictures",
+                "The mod's own copy of the main menu: a game mode row above the map, the DEAD SPACE 2 UNITED logo, pictures for the campaign arenas and the extra suit screens. Needs randomizer\\ds2coop_frontend.str, which comes with the mod. Off: the game's own main menu, and the mode shows in the map row."));
             add(B(Extras, "Menu", "MapPictures", 1, "Map pictures",
                 "Pictures for the campaign arenas in the map picker and the lobby. Needs the game mode row."));
             add(B(Extras, "Turret", "Enabled", 1, "Turret",
