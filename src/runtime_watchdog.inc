@@ -572,6 +572,19 @@ void OnMachineTick(uint32_t sm) {
 // periodic call the plugin has on the thread that owns the actors.
 void (*gameThreadWork)() = nullptr;
 bool driverOnly = false;   // the tick runs gameThreadWork alone (Watchdog=0)
+// The queued work runs from the frame tick, after the frame's logic, not from
+// inside an NPC's StateMachine::Update. Run from there it could spawn, kill or
+// tear down actors while that NPC's update was half done; dumps 75636 and
+// 51624 crashed in the update right after it (0x013E2D18, the machine's state
+// array already freed and reused; 0x012DAF9D, a null vtable). This tick only
+// stands in while the frame tick does not run on the actors' thread.
+volatile LONG machineThread = 0, machineTickAt = 0, frameWorkAt = 0;
+volatile LONG frameWorkRuns = 0, machineWorkRuns = 0;
+void RunQueuedWork();
+bool FrameDrives() {
+    const LONG at = InterlockedCompareExchange(&frameWorkAt, 0, 0);
+    return at && GetTickCount() - static_cast<DWORD>(at) < 1000;
+}
 
 // The twelve bytes the dispatch expects. Laid out by hand rather than by the
 // compiler so the padding after the flag byte is ours and is zero.
@@ -777,12 +790,27 @@ void SayProxiedDeath(const DeathProxy& p) {
 // Game thread, on every state machine update. With nothing queued it only runs
 // the table check and the game-thread work; each queue is one atomic read.
 void OnTick(SafetyHookContext& context) {
-    if (driverOnly) {
-        if (gameThreadWork) gameThreadWork();
-        return;
-    }
-    OnMachineTick(context.ecx);
+    InterlockedExchange(&machineThread, static_cast<LONG>(GetCurrentThreadId()));
+    InterlockedExchange(&machineTickAt, static_cast<LONG>(GetTickCount()));
+    if (!driverOnly) OnMachineTick(context.ecx);
+    if (FrameDrives()) return;
+    InterlockedIncrement(&machineWorkRuns);
+    RunQueuedWork();
+}
+
+// From the frame tick: the actors' thread, outside every state machine update.
+// Only while machines tick, as before; a loading screen gets none of this work.
+void FrameWork() {
+    if (!tickHook || static_cast<DWORD>(InterlockedCompareExchange(&machineThread, 0, 0)) != GetCurrentThreadId()) return;
+    if (GetTickCount() - static_cast<DWORD>(InterlockedCompareExchange(&machineTickAt, 0, 0)) > 250) return;
+    InterlockedExchange(&frameWorkAt, static_cast<LONG>(GetTickCount() | 1));
+    InterlockedIncrement(&frameWorkRuns);
+    RunQueuedWork();
+}
+
+void RunQueuedWork() {
     if (gameThreadWork) gameThreadWork();
+    if (driverOnly) return;
     // One release per tick. The dispatch runs every listener of the message, and
     // a quarantine's listener can open a door and start a cutscene, so two in one
     // tick is more than this hook has any business doing.
@@ -1139,6 +1167,16 @@ void Poll(FILE* log, Reader& read) {
 
 void WriteDiagnostics(FILE* log) {
     static LONG lastTotal = -1;
+    if (tickHook) {
+        static LONG lastFrameRuns = -1;
+        const LONG frameRuns = InterlockedCompareExchange(&frameWorkRuns, 0, 0), machineRuns = InterlockedCompareExchange(&machineWorkRuns, 0, 0);
+        static LONG lastMachineRuns = 0;
+        if (frameRuns / 1000 != lastFrameRuns / 1000 || machineRuns != lastMachineRuns) {
+            std::fprintf(log, "game-thread work from frame=%ld from state machine=%ld (the second only while the frame tick is missing)\n", frameRuns, machineRuns);
+            lastFrameRuns = frameRuns;
+            lastMachineRuns = machineRuns;
+        }
+    }
     if (!enabled) return;
     // the table sizes under `lock`, the printing after it
     size_t live = 0, dropped = 0;

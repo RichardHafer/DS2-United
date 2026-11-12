@@ -48,6 +48,7 @@ void __cdecl OnFrameTick() {
     exit_guard::FrameTick();
     zone_unload::FrameSweep();
     if (survivalFrameTick) survivalFrameTick();
+    ds2_watchdog_runtime::FrameWork();
     if (fpsCap) Pace();
 }
 

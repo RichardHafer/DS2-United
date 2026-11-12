@@ -4,9 +4,11 @@ Every feature of Dead Space 2 United for Dead Space 2 (by Hafer) in one place: p
 
 How the systems behind them work (networking, connecting, the survival director and its modes, engine addresses, source map): `docs/DS2COOP_FOR_MARK.md`. Both files are kept current with every change.
 
-**Last updated: 2026-11-11**
+**Last updated: 2026-11-12**
 
 **Renamed 08.11.2026:** the mod is Dead Space 2 United now. Before that it was the Co-op Mod (DS2Coop, from 17.10.2026) and HaferSprawl (Hafer's Sprawl). `DS2Coop.asi` is `DS2United.asi`, the merged `DS2Coop.ini` is `DS2United.ini` (the configurator copies it over on first start, the plugin reads the old file until then), `DS2CoopConfig.exe` is `DS2UnitedConfig.exe` and `DS2Coop.log` is `DS2United.log`. With the old plugin still in plugins\ the new one stays idle and says why in DS2United.log.
+
+**Update 12.11.2026 (installed):** the plugin's queued game-thread work (More Enemies repeats, area extra spawns, vent queue, placement key, watchdog kills and releases) now runs from the frame tick after the frame's logic instead of from inside an NPC's StateMachine::Update. Run there it could spawn or tear down actors while that NPC's update was half done; the update then read a freed state array (crashes 0x013E2D18 and 0x012DAF9D, survival and co-op). The state machine tick only stands in while the frame tick is missing; log line `game-thread work from frame= from state machine=`.
 
 **Update 11.11.2026 (installed):** co-op heap crash fixed at the root: the skin bone scale pass 0x010741F0 (deferred skin queue 0x010767C0) wrote bone matrices into a ghost's pose buffer after a detach or suit change had freed it, and the next heap consolidation crashed at 0x013FC421/0x013FC442 (nine crashes 19.10. to 05.11.). A hook skips that pass for a ghost skin whose pose pointer no longer names its Player's live buffer; log line `coop_uniform skin scale guard runs= skipped=`. Brutes stay multiplied; the configurator's More Enemies table drops the swarmer line (never multiplied).
 
