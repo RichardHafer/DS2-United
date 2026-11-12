@@ -7,8 +7,8 @@ looks as in his build; --stock-colours renames its 22 imports back to the stock
 libraries instead. Every other record is copied byte for byte. DS2United.asi reads this file instead of the stock one
 while [Menu] NativeModeRow=1; the archives are never touched.
 
-It contains EA data and Mark's movie, so it is built on each machine from the
-local installs and never shipped. tools/build_loadout_frontend.py builds the same
+It contains EA data and Mark's movie; the release zip carries the finished copy
+(tools/make_release_package.py), so players never run this. tools/build_loadout_frontend.py builds the same
 file with the MP suit and weapon screens extended on top of this.
 
     build_frontend_override.py [--game DIR] [--mark DIR] [--out FILE] [--third-row] [--check]

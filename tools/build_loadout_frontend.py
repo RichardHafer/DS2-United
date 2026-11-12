@@ -26,7 +26,7 @@ card: its helmet icon from the campaign inventory and its name.
 --check        build and verify everything in memory, write nothing (except --review)
 --header-only  only write src/generated_loadout_rows.h (needs no game files)
 
-The outputs hold EA data and are built on each machine, never shipped.
+The outputs hold EA data; the release zip carries the finished frontend (tools/make_release_package.py).
 """
 import argparse
 import hashlib
