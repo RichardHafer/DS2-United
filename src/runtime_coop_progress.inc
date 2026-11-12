@@ -59,8 +59,22 @@ unsigned SuitUnlockLevel(const uint32_t* uniform) {
 }
 // The gadget keys: a locked gadget says so (at most every 3 s) and stays put. Only where the
 // progression counts; the story keeps every gadget.
-volatile LONG gadgetRefusals = 0;
+volatile LONG gadgetRefusals = 0, storyGadgetRefusals = 0;
+// [Gadgets] Story: 0 keeps the turret, the stasis mine and the heal field to the game modes.
+bool gadgetsInStory = true;
 bool GadgetAllowed(const char* key, const char* label) {
+    if (inLevel && play::StoryCoop() && !gadgetsInStory) {
+        InterlockedIncrement(&storyGadgetRefusals);
+        static DWORD storySaidAt = 0;
+        const DWORD now = GetTickCount();
+        if (now - storySaidAt >= 3000) {
+            storySaidAt = now;
+            char text[80];
+            std::snprintf(text, sizeof(text), "%s ONLY IN THE GAME MODES", label);
+            notice::Enqueue(text);
+        }
+        return false;
+    }
     if (!enabled || !inLevel || play::StoryCoop() || Unlocked(key)) return true;
     InterlockedIncrement(&gadgetRefusals);
     static DWORD saidAt = 0;
@@ -406,6 +420,8 @@ void ReadRules(const char* f, FILE* log) {
 void Install(FILE* log, const std::string& ini) {
     const char* f = ini.c_str();
     unlocksIni = ini;
+    gadgetsInStory = GetPrivateProfileIntA("Gadgets", "Story", 1, f) != 0;
+    std::fprintf(log, "gadgets in the story: %s ([Gadgets] Story)\n", gadgetsInStory ? "yes" : "no, game modes only");
     enabled = GetPrivateProfileIntA("Progress", "Enabled", 1, f) != 0;
     effects = GetPrivateProfileIntA("Progress", "Upgrades", 1, f) != 0;
     versusRows = GetPrivateProfileIntA("Progress", "VersusRows", 1, f) != 0;

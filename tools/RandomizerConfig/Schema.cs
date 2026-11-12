@@ -28,11 +28,11 @@ namespace DS2CoopConfig
         public const string Diagnostics = "Diagnostics";
         public const string Expert = "Expert";
 
-        public static readonly string[] Groups = { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus,
+        public static readonly string[] Groups = { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus, Curated.Extras,
             General, Enemies, More, Loot, Schematics, Loading, Watchdog, Diagnostics, Expert };
 
-        // the side bar draws a divider after these entries: game modes, randomizer, technical
-        public static readonly int[] GroupBreaks = { 3, 8, 11 };
+        // the side bar draws a divider after these entries: play, randomizer, technical
+        public static readonly int[] GroupBreaks = { 4, 9, 12 };
 
         public static readonly Dictionary<string, string> GroupIntro = new Dictionary<string, string>
         {
@@ -40,6 +40,7 @@ namespace DS2CoopConfig
             { Curated.Bots, "Companion bots: up to three extra Isaacs the game itself runs. They follow you, fight, loot, shop and heal. Their personalities are the [Bot1] to [Bot3] sections on the Expert page." },
             { Curated.Survival, "Survival waves on the multiplayer maps and in the campaign arenas, and the clock modes Mercenaries, Objective and Hold the Zone. The waves themselves ([Wave1] to [Wave10]) are on the Expert page." },
             { Curated.Versus, "Humans against necromorph players on the multiplayer maps, on the game's own multiplayer systems. Experimental, like the multiplayer map visit everything here builds on." },
+            { Curated.Extras, "How it looks and what you carry: colours, menus, the turret and gadgets, voice packs, Dementia, the difficulty question and the debug menu." },
             { Expert, "Every other key in DS2United.ini, grouped by section, with the note from its template. Most of these are tuning values, experiments and diagnostics: change one only when you know what the line does. A key marked \"not in file\" uses the plugin's built-in value until you add it." },
             { General, "The enemy randomizer's main switches: it replaces the campaign's enemies by seed. Restart the game after saving: the plugin reads this file only at startup. Back up your saves." },
             { Enemies, "Which enemies may be replaced, what may replace them, and how often each kind is picked." },

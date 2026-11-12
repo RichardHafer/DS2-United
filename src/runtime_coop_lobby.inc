@@ -713,7 +713,7 @@ void JoinTick(DWORD now) {
             if (other >= 0 && joiner.state != coop_lobby::Joiner::State::Idle) {
                 mpmap::Event("lobby: join REFUSED: the host speaks lobby version %d, ours is %u (another DS2Coop build)", other, coop_lobby::kVersion);
                 joiner.state = coop_lobby::Joiner::State::Refused;
-                joiner.refusal = "the host runs a different DS2Coop build";
+                joiner.refusal = "the host runs a different DS2 United build";
                 SetStatus("join co-op: %s", joiner.refusal);
                 HintRefusal(joiner.refusal);
                 Close();

@@ -15,6 +15,7 @@ namespace DS2CoopConfig
         public const string Bots = "Bots";
         public const string Survival = "Survival";
         public const string Versus = "Versus";
+        public const string Extras = "Look & Extras";
 
         static readonly Func<long, long> AsIs = v => v;
 
@@ -85,6 +86,18 @@ namespace DS2CoopConfig
             string hex = t.StartsWith("#") ? t.Substring(1) : t;
             if (hex.Length == 6 && hex.All(Uri.IsHexDigit)) return null;
             return "Use one of " + string.Join(", ", HudColors) + " or a hex value like FF8A2A.";
+        }
+
+        static string FrontendColour(string v)
+        {
+            string t = v.Trim().ToLowerInvariant();
+            return t == "red" || t == "stock" ? null : "Use red or stock.";
+        }
+
+        static string DementiaModes(string v)
+        {
+            string t = v.Trim().ToLowerInvariant();
+            return t == "survival" || t == "all" ? null : "Use survival or all.";
         }
 
         static string SuitColor(string v)
@@ -362,29 +375,30 @@ namespace DS2CoopConfig
             add(T(Coop, "Nameplate", "Name", "", "Your name",
                 "The name partners see over your head, printable ASCII, 20 characters at most. Empty: PLAYER 1, PLAYER 2 and so on by seat.",
                 v => Validators.PlainText(v, 20)));
-            add(T(Coop, "Visuals", "RigColor", "stock", "RIG colour",
+            add(T(Extras, "Visuals", "RigColor", "stock", "RIG colour",
                 "The health bar on the back of your suit, any suit: stock, red, orange, yellow, lime, green, blue, purple, pink, white or gray. Only on your screen. Read at the start of the game.",
-                SuitColor));
+                SuitColor)
+                .Under("Colours"));
             add(B(Coop, "CameraTools", "Enabled", 0, "Trailer camera",
                 "A free camera flown with a gamepad while you keep playing Isaac with keyboard and mouse, slow motion and a camera path recorder. F6 or both sticks: free camera; F5 or A: slow motion; F4 or Back: stop time; F2 or X: record a path; F3 or Y: play it. Keys and speeds on the Expert page."));
-            add(T(Coop, "Visuals", "StasisColor", "stock", "Stasis colour",
+            add(T(Extras, "Visuals", "StasisColor", "stock", "Stasis colour",
                 "The stasis shot, its blast and the frozen glow, also the stasis canisters. Same colours as the RIG. Read at the start of the game.",
                 SuitColor));
-            add(T(Coop, "Visuals", "KinesisColor", "stock", "Kinesis colour",
+            add(T(Extras, "Visuals", "KinesisColor", "stock", "Kinesis colour",
                 "The kinesis beam and its flashes. Same colours as the RIG.",
                 SuitColor));
-            add(B(Coop, "Visuals", "KinesisThrowTrail", 0, "Kinesis colour on thrown objects",
+            add(B(Extras, "Visuals", "KinesisThrowTrail", 0, "Kinesis colour on thrown objects",
                 "Also colours the trail of objects you throw. Enemy blades share that trail and take the colour too."));
-            add(T(Coop, "Visuals", "LaserColor", "stock", "Aiming laser colour",
+            add(T(Extras, "Visuals", "LaserColor", "stock", "Aiming laser colour",
                 "The aiming laser of every gun. The red laser of an empty clip stays.",
                 SuitColor));
-            add(T(Coop, "Visuals", "WeaponColor", "stock", "Weapon effect colour",
+            add(T(Extras, "Visuals", "WeaponColor", "stock", "Weapon effect colour",
                 "Muzzle flashes, shots, beams and impacts of every gun. One key per gun on the Expert page (PlasmaCutterColor and so on) overrides it.",
                 SuitColor));
-            add(T(Coop, "Visuals", "BloodColor", "stock", "Blood colour",
+            add(T(Extras, "Visuals", "BloodColor", "stock", "Blood colour",
                 "Blood sprays, drips, gore chunks and decals. Green acid and orange bile stay. Blood painted into the levels and on cut limbs stays red.",
                 SuitColor));
-            add(T(Coop, "Visuals", "VisorColor", "stock", "Visor colour",
+            add(T(Extras, "Visuals", "VisorColor", "stock", "Visor colour",
                 "The glow of your helmet visor, with the same colours. It also tints the lens flares the visor shares with some lamps, as the TexMod colour packs do. Read at the start of the game.",
                 SuitColor));
             add(B(Coop, "Coop", "BackgroundFullSpeed", 0, "Full speed in the background",
@@ -405,6 +419,64 @@ namespace DS2CoopConfig
                 "Not needed to play together: host co-op and join co-op in the main menu start the network for that game by themselves. On: the game opens a session as soon as it starts and dials the partners listed under Peer (Expert page), the old setup for test launchers.")
                 .Under("Manual setup")
                 .Warn(WhenCoopHalfOff(null, "Nothing on this page works")));
+
+            // ---- Look & Extras
+            add(B(Extras, "Menu", "RedInGameMenus", 1, "Red in-game menus",
+                "The pause menu, settings, popups, RIG holograms and loading screens in red. Off: the game's own blue. Needs the red copies in the randomizer folder; a missing copy keeps its part blue.")
+                .Under("Menus"));
+            add(T(Extras, "Menu", "FrontendColours", "red", "Main menu colours",
+                "red or stock. The main menu, the map picker and the suit screens in red, or the same screens in the game's own blue. Applies with the game mode row below; stock needs randomizer\\ds2coop_frontend_stock.str, else red stays.",
+                FrontendColour)
+                .Warn(m => m.On("Menu.NativeModeRow") ? null : "Does nothing while the game mode row is off: without it the game shows its own main menu."));
+            add(B(Extras, "Menu", "NativeModeRow", 0, "Game mode row, title logo and map pictures",
+                "The mod's own copy of the main menu: a game mode row above the map, the DEAD SPACE 2 UNITED logo, pictures for the campaign arenas and the extra suit screens. Needs randomizer\\ds2coop_frontend.str. Experimental."));
+            add(B(Extras, "Menu", "MapPictures", 1, "Map pictures",
+                "Pictures for the campaign arenas in the map picker and the lobby. Needs the game mode row."));
+            add(B(Extras, "Turret", "Enabled", 1, "Turret",
+                "A turret you put down and pick up with its key. It shoots the necromorphs around you, never a player or a bot. Only you see it in co-op.")
+                .Under("Turret and gadgets"));
+            add(Key(Extras, "Turret", "Key", 102, "Turret key",
+                "Puts the turret down and picks it up again.", v => v < 0 || v > 255 ? 0 : v));
+            add(B(Extras, "Gadgets", "StasisMineEnabled", 1, "Stasis mine",
+                "A mine that puts every necromorph near it into stasis when one comes close, then recharges."));
+            add(Key(Extras, "Gadgets", "StasisMineKey", 103, "Stasis mine key",
+                "Puts the mine down; the same key next to it takes it back.", v => v < 0 || v > 255 ? 0 : v));
+            add(B(Extras, "Gadgets", "HealFieldEnabled", 1, "Heal field",
+                "A field that heals you and the bots standing in it for a few seconds, then recharges."));
+            add(Key(Extras, "Gadgets", "HealFieldKey", 104, "Heal field key",
+                "Puts the heal field down.", v => v < 0 || v > 255 ? 0 : v));
+            add(B(Extras, "Gadgets", "Story", 1, "Turret and gadgets in the story",
+                "Off: the turret, the stasis mine and the heal field only work in the game modes, and the campaign plays as shipped."));
+            add(B(Extras, "Voices", "Enabled", 1, "Voice packs",
+                "Players and bots speak recorded lines from plugins\\voices (pain, reloads, kills, low health). Without a pack in that folder nothing changes.")
+                .Under("Voices"));
+            add(C(Extras, "Voices", "Volume", 100, 0, 200, "Voice volume (%)",
+                "On top of the game's own voice slider."));
+            add(B(Extras, "Voices", "Subtitles", 1, "Voice subtitles",
+                "Each line also shows as text."));
+            add(B(Extras, "Voices", "MuteIsaac", 1, "Mute Isaac's own voice",
+                "Isaac's pain and effort sounds are muted while a pack speaks for him. The breathing stays."));
+            add(B(Extras, "Dementia", "Enabled", 0, "Dementia",
+                "A sanity meter: fighting alone fills it, staying with a partner or bot drains it. Its stages bring hallucinations only you see and hear. Experimental.")
+                .Under("Dementia"));
+            add(T(Extras, "Dementia", "Modes", "survival", "Dementia in",
+                "survival = the game modes only, all = story co-op too.", DementiaModes));
+            add(B(Extras, "Dementia", "Flashes", 1, "Blackouts and white flashes",
+                "Off is gentler on the eyes: no full blackouts and no white flashes."));
+            add(C(Extras, "Dementia", "Pace", 100, 25, 400, "Hallucination pace (%)",
+                "How often hallucinations come. 200 = twice as often."));
+            add(C(Extras, "Difficulty", "Pick", 1, 0, 2, "Ask for the difficulty",
+                "How the map picker asks for the difficulty of a game mode: 0 = not at all (the current one plays), 1 = the game's difficulty screen after the map, 2 = a third row in the map picker (needs the game mode row).")
+                .Under("Difficulty"));
+            add(B(Extras, "Difficulty", "AllowHardcore", 0, "Hard Core in the game modes",
+                "Off: Hard Core stays a story difficulty."));
+            add(B(Extras, "Difficulty", "LockInMatch", 1, "Keep the difficulty during a match",
+                "The pause menu cannot change the difficulty while a game mode runs."));
+            add(B(Extras, "Debug", "Enabled", 1, "Debug menu",
+                "A menu with chapter jumps, credits, power nodes and test switches. It counts as a cheat: a run that used it pays no XP. Saves stay held after a chapter jump.")
+                .Under("Debug menu"));
+            add(Key(Extras, "Debug", "Key", 45, "Debug menu key",
+                "Opens and closes the debug menu. 45 = Insert.", v => v < 0 || v > 255 ? 0 : v));
 
             // ---- Bots
             add(B(Bots, "Bot", "Enabled", 0, "Companion bots",
@@ -567,6 +639,8 @@ namespace DS2CoopConfig
                 .Under("Shop, respawn, music and status line"));
             add(Key(Survival, "Shop", "Key", 86, "Terminal key",
                 "Opens and closes the terminal.", v => v <= 0 || v > 255 ? 86 : v));
+            add(C(Survival, "Shop", "Scale", 100, 50, 250, "Terminal size (%)",
+                "Size of the supply terminal's panel and text. Larger helps on big screens."));
             add(B(Survival, "Shop", "DuringWaves", 0, "Shop during waves",
                 "Off: the terminal opens only before the first wave and between waves."));
             add(B(Survival, "Respawn", "Enabled", 0, "Respawn on multiplayer maps",
@@ -583,6 +657,8 @@ namespace DS2CoopConfig
                 .Adjust(v => v < 5 || v > 400 ? 40 : v));
             add(B(Survival, "Hud", "Enabled", 1, "Status line",
                 "Wave, enemies left and the break's countdown as one small line at the top of the screen, instead of RIG notices."));
+            add(C(Survival, "Hud", "Scale", 75, 40, 200, "Status line size (%)",
+                "Text size of the status line."));
             add(T(Survival, "Hud", "Color", "stock", "Status line colour",
                 "stock, red, orange, yellow, lime, green, blue, purple, pink, white, gray or a hex value like FF8A2A.",
                 v => HudColor(v, false)));

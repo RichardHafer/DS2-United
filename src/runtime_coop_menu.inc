@@ -52,7 +52,7 @@ char joinDescription[200] = "";
 // Screen titles (LCH2 ids read from deadspace2_global.en.lh2): "/main menu" and the
 // Multiplayer screen's "//multiplayer".
 constexpr uint32_t kTextMainMenuTitle = 0xD701A383, kTextMultiplayerTitle = 0xDCEF509F;
-const char kMainMenuTitle[] = "/Co-op", kModesTitle[] = "//gamemodes";
+const char kMainMenuTitle[] = "/United", kModesTitle[] = "//gamemodes";
 constexpr uint32_t kFormatLookupCall = 0xF71A1C, kLocaleLookup = 0xF70B60;
 volatile LONG titleLookups = 0;
 const char* __fastcall FormatMenuText(void* locale, void*, uint32_t hash) {

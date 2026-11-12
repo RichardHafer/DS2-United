@@ -7,12 +7,45 @@
 #include <dbghelp.h>
 namespace crashdump {
 bool enabled = false;
+// Full memory (1.2 to 1.4 GB) only into C:\DS2CrashDumps or with [Coop] CrashDumpFull=1.
+// The game folder gets a small dump (stacks and the memory they point at) and keeps the last few.
+bool full = false;
+constexpr unsigned kKeepInGameFolder = 3;
 LPTOP_LEVEL_EXCEPTION_FILTER previous = nullptr;
 std::string logToKeep;   // set by coop_plugin.cpp once the log is open
 FILE* logStream = nullptr;
 volatile LONG inside = 0, written = 0, reclaimed = 0;
 
 // Our own logs are open deny-write; a copy has to share writing to read them.
+bool UsesDevFolder() { return GetFileAttributesA("C:\\DS2CrashDumps") != INVALID_FILE_ATTRIBUTES; }
+// Old crash sets in the game folder beyond the newest few: .dmp, .txt and the log copy by pid.
+unsigned PruneGameFolder() {
+    struct Found { FILETIME at; char pid[32]; };
+    Found found[64];
+    unsigned n = 0, removed = 0;
+    WIN32_FIND_DATAA d;
+    const HANDLE h = FindFirstFileA("deadspace2.crash.*.txt", &d);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    do {
+        const char* pid = d.cFileName + std::strlen("deadspace2.crash.");
+        const char* dot = std::strrchr(pid, '.');
+        if (!dot || dot - pid >= 31 || n >= 64) continue;
+        found[n].at = d.ftLastWriteTime;
+        std::memcpy(found[n].pid, pid, dot - pid);
+        found[n].pid[dot - pid] = 0;
+        ++n;
+    } while (FindNextFileA(h, &d));
+    FindClose(h);
+    std::sort(found, found + n, [](const Found& a, const Found& b) { return CompareFileTime(&a.at, &b.at) > 0; });
+    for (unsigned i = kKeepInGameFolder; i < n; ++i) {
+        for (const char* ext : {"dmp", "txt", "log"}) {
+            char path[MAX_PATH];
+            std::snprintf(path, sizeof(path), "deadspace2.crash.%s.%s", found[i].pid, ext);
+            if (DeleteFileA(path)) ++removed;
+        }
+    }
+    return removed;
+}
 bool CopyShared(const char* from, const char* to) {
     const HANDLE in = CreateFileA(from, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (in == INVALID_HANDLE_VALUE) return false;
@@ -30,7 +63,7 @@ bool CopyShared(const char* from, const char* to) {
     return ok;
 }
 void Folder(char* out, size_t size) {
-    std::snprintf(out, size, "%s", GetFileAttributesA("C:\\DS2CrashDumps") != INVALID_FILE_ATTRIBUTES ? "C:\\DS2CrashDumps" : ".");
+    std::snprintf(out, size, "%s", UsesDevFolder() ? "C:\\DS2CrashDumps" : ".");
 }
 void WriteNote(const char* path, EXCEPTION_POINTERS* info) {
     HANDLE file = CreateFileA(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -72,7 +105,8 @@ LONG WINAPI OnUnhandled(EXCEPTION_POINTERS* info) {
         if (file != INVALID_HANDLE_VALUE) {
             MINIDUMP_EXCEPTION_INFORMATION exception{GetCurrentThreadId(), info, FALSE};
             write(GetCurrentProcess(), GetCurrentProcessId(), file,
-                  static_cast<MINIDUMP_TYPE>(MiniDumpWithFullMemory | MiniDumpWithHandleData | MiniDumpWithThreadInfo | MiniDumpWithUnloadedModules),
+                  static_cast<MINIDUMP_TYPE>((full ? MiniDumpWithFullMemory : MiniDumpWithIndirectlyReferencedMemory) | MiniDumpWithHandleData |
+                                             MiniDumpWithThreadInfo | MiniDumpWithUnloadedModules),
                   info ? &exception : nullptr, nullptr, nullptr);
             CloseHandle(file);
         }
@@ -83,11 +117,15 @@ LONG WINAPI OnUnhandled(EXCEPTION_POINTERS* info) {
 }
 void Install(FILE* log, const std::string& ini) {
     enabled = GetPrivateProfileIntA("Coop", "CrashDumps", 0, ini.c_str()) != 0;
+    char fullText[8]{};
+    GetPrivateProfileStringA("Coop", "CrashDumpFull", "", fullText, sizeof(fullText), ini.c_str());
+    full = fullText[0] ? std::atoi(fullText) != 0 : UsesDevFolder();
     if (enabled) previous = SetUnhandledExceptionFilter(OnUnhandled);
     char folder[MAX_PATH];
     Folder(folder, sizeof(folder));
-    std::fprintf(log, "coop_crashdump enabled=%d folder=%s (an unhandled exception writes deadspace2.crash.<pid>.dmp, .txt and a copy of this log)\n", enabled ? 1 : 0,
-                 folder);
+    const unsigned pruned = UsesDevFolder() ? 0 : PruneGameFolder();
+    std::fprintf(log, "coop_crashdump enabled=%d folder=%s dump=%s pruned=%u (an unhandled exception writes deadspace2.crash.<pid>.dmp, .txt and a copy of this log)\n", enabled ? 1 : 0,
+                 folder, full ? "full memory" : "small", pruned);
 }
 // From the diagnostics thread: a filter set later by somebody else goes behind ours.
 void Keep() {

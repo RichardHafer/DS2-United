@@ -115,7 +115,9 @@ namespace native {
 enum Verdict { Unknown, Stock, Mark };
 const char* const kVerdicts[] = {"unknown", "stock", "mark"};
 const char* const kRowText[kCount] = {"survival", "mercenaries", "objective", "hold the zone", "versus"};   // lower case like the map names
-char overridePath[] = "randomizer\\ds2coop_frontend.str";
+// [Menu] FrontendColours=stock picks the copy built without the recolour steps, when it is there.
+char overridePath[64] = "randomizer\\ds2coop_frontend.str";
+const char kStockOverridePath[] = "randomizer\\ds2coop_frontend_stock.str";
 // [Loadout]: the suit list with the campaign suits (tools/build_loadout_frontend.py).
 // PlayerSkinDB reads mpskins.lua once at boot, through the same file open.
 char skinsPath[] = "randomizer\\ds2coop_mpskins.lua";
@@ -768,6 +770,16 @@ void EarlyInstall(FILE* log, const std::string& ini) {
     GetModuleFileNameA(nullptr, exe, MAX_PATH);
     std::string folder(exe);
     folder = folder.substr(0, folder.find_last_of('\\') + 1);
+    char colours[16]{};
+    GetPrivateProfileStringA("Menu", "FrontendColours", "red", colours, sizeof(colours), ini.c_str());
+    if (!_stricmp(colours, "stock")) {
+        if (GetFileAttributesA((folder + kStockOverridePath).c_str()) != INVALID_FILE_ATTRIBUTES) {
+            std::snprintf(overridePath, sizeof(overridePath), "%s", kStockOverridePath);
+            std::fprintf(log, "frontend colours: stock (%s)\n", kStockOverridePath);
+        } else {
+            std::fprintf(log, "frontend colours: stock wanted, but %s is missing; the red copy stays\n", kStockOverridePath);
+        }
+    }
     if (!CheckFile(log, folder + overridePath)) {
         std::fprintf(log, "native row NOT installed: no usable frontend copy, the stock frontend and the label row stay\n");
         InstallOpenOnly(log);
