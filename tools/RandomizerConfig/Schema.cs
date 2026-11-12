@@ -382,6 +382,11 @@ namespace DS2CoopConfig
             add(B(Watchdog, Main, "WatchdogKill", 0, "Remove stuck enemies",
                 "Kills a stuck enemy through the game's own death path, so its drop and any door counter still fire. Only kinds checked in the table below; bosses are always refused.").Raw()
                 .Warn(WhenOff(M("WatchdogKill"), softLock)));
+            add(B(Watchdog, Main, "WatchdogSpareFights", 1, "Spare enemies in a fight",
+                "An enemy whose time is up while it holds someone in a grab, is held itself or stands close to a player is not removed; the watchdog looks again 15 s later. The survival checks for stuck, frozen and far-behind enemies do the same.").Raw()
+                .Warn(WhenOff(M("WatchdogSpareFights"), "Off: an enemy can be removed in the middle of a grab.")));
+            add(I(Watchdog, Main, "WatchdogSpareMeters", 3, 0, 20, "Close to a player (m)",
+                "Within this distance of a player an enemy counts as in a fight. 0 = only grabs count."));
             add(B(Watchdog, Main, "WatchdogRepairTables", 1, "Repair state tables",
                 "Points enemies the randomizer created back at their current state tables after the game rebuilds them. This is the fix for a known crash.").Raw()
                 .Warn(WhenOff(M("WatchdogRepairTables"), "Off brings back a known crash.")));

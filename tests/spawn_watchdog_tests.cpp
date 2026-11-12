@@ -1,5 +1,6 @@
 // Dead Space 2 United by Richard Hafer.
 #include "../src/spawn_watchdog.h"
+#include "../src/engaged_enemy.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -149,6 +150,67 @@ int main() {
     assert(registry.Count() == 4);
     registry.Reset();
     assert(registry.Count() == 0 && registry.Lookup(0x12AD6E04) == 0);
+
+    // An expired enemy in a fight waits for its recheck, across a tick wrap too.
+    Tracker<4> spared;
+    place(memory, 0x3000, 0xAABB, guidA);
+    assert(spared.Track(0x3000, 0xAABB, guidA, donor, late, true));
+    assert(spared.Inspect(0, late + kTimeout, kTimeout, memory) == Verdict::Expired);
+    spared.Defer(0, late + kTimeout, 15000);
+    assert(spared.At(0).deferrals == 1);
+    assert(spared.Inspect(0, late + kTimeout + 14999, kTimeout, memory) == Verdict::Waiting);
+    assert(spared.Inspect(0, late + kTimeout + 15000, kTimeout, memory) == Verdict::Expired);
+
+    // The fight check: a grab from either side, a player's grab, distance, and nothing else.
+    {
+        namespace e = ds2::engaged;
+        constexpr uintptr_t base = 0x400000;
+        constexpr uint32_t enemy = 0x10000000, player = 0x20000000, coord = 0x30000000, manager = 0x40000000, slots = 0x41000000;
+        const uint32_t coordVt = static_cast<uint32_t>(base + e::kCoordinatorVtableRva), playerVt = static_cast<uint32_t>(base + e::kPlayerVtableRva);
+        Memory m;
+        auto put32 = [&](uint32_t a, uint32_t v) { m.put(a, &v, 4); };
+        auto putPos = [&](uint32_t a, float x) { const float p[3]{x, 0.0f, 0.0f}; m.put(a + e::kEntityPos, p, sizeof(p)); };
+        put32(static_cast<uint32_t>(base + e::kPlayerManagerRva), manager);
+        put32(manager + 4, slots);
+        put32(manager + 8, 1);
+        put32(slots, player + e::kBasePlayer);
+        put32(player, playerVt);
+        put32(player + e::kPairedCoordinator, 0);
+        putPos(player, 0.0f);
+        put32(enemy + e::kPairedCoordinator, 0);
+        putPos(enemy, 10.0f);
+        put32(coord, coordVt);
+        put32(coord + e::kCoordAttacker, enemy + e::kSafeToEntity);
+        put32(coord + e::kCoordDefender, player + e::kSafeToEntity);
+
+        auto r = e::Check(enemy, base, 3.0f, m);
+        assert(!r.Engaged() && r.meters > 9.9f && r.meters < 10.1f);
+        putPos(enemy, 2.0f);
+        assert(e::Check(enemy, base, 3.0f, m).reason == e::Reason::Near);
+        assert(!e::Check(enemy, base, 0.0f, m).Engaged());   // 0 m: only grabs count
+        putPos(enemy, 10.0f);
+        put32(enemy + e::kPairedCoordinator, coord);
+        r = e::Check(enemy, base, 3.0f, m);
+        assert(r.reason == e::Reason::Grab && r.coordinator == coord);
+        // the enemy's own field empty, the player's names it
+        put32(enemy + e::kPairedCoordinator, 0);
+        put32(player + e::kPairedCoordinator, coord);
+        assert(e::Check(enemy, base, 3.0f, m).reason == e::Reason::PlayerGrab);
+        // held by something else
+        put32(player + e::kPairedCoordinator, 0);
+        put32(coord + e::kCoordAttacker, player + e::kSafeToEntity);
+        put32(coord + e::kCoordDefender, enemy + e::kSafeToEntity);
+        put32(enemy + e::kPairedCoordinator, coord);
+        assert(e::Check(enemy, base, 3.0f, m).reason == e::Reason::Held);
+        // a stale pointer to something that is not a coordinator counts for nothing
+        put32(coord, 0x12345678);
+        assert(!e::Check(enemy, base, 3.0f, m).Engaged());
+        // no player manager: a grab still counts, the distance is unknown
+        put32(coord, coordVt);
+        m.erase(static_cast<uint32_t>(base + e::kPlayerManagerRva), 4);
+        r = e::Check(enemy, base, 3.0f, m);
+        assert(r.reason == e::Reason::Held && r.meters > 1e8f);
+    }
 
     std::cout << "Spawn watchdog: identity re-checked on every verdict, wrap-safe timing, "
               << "ring capacity " << Tracker<4>::Capacity() << " with drop accounting\n";

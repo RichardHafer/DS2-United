@@ -941,6 +941,11 @@ volatile LONG replacedSpawns = 0;
 volatile LONG requeuedToVent = 0;
 volatile LONG walkedNotPlaced = 0, enginesForgiven = 0;
 volatile LONG frozenKills = 0;
+// Enemies the stuck, frozen, catch-up and placement checks left alone because they were in
+// a fight: a grab (either side) or close to a player (engaged_enemy.h, the watchdog's
+// WatchdogSpareFights and WatchdogSpareMeters).
+volatile LONG sparedFights[5]{};
+unsigned sparedLines = 0;
 
 // awareness state (functions below, before PollTracked)
 constexpr uint32_t kAwareVtable = 0x17646B0, kAwareHandle = 0xB87C80, kZombieVtable = 0x1783948, kZombieChargeSet = 0xEC9AE0;
@@ -1877,6 +1882,9 @@ void EndRun(const char* why, uint32_t now) {
     donorFailures.clear();
     Event("run %u: %u item(s) sent to a vent for want of a direct donor or engine; %ld level spawn(s) refused in arenas so far", run.number, run.ventFallbacks,
           InterlockedCompareExchange(&levelSpawnsRefused, 0, 0));
+    Event("run %u: checks that spared an enemy in a fight so far (per pass): grab=%ld held=%ld player_grab=%ld near_player=%ld", run.number,
+          InterlockedCompareExchange(&sparedFights[1], 0, 0), InterlockedCompareExchange(&sparedFights[2], 0, 0),
+          InterlockedCompareExchange(&sparedFights[3], 0, 0), InterlockedCompareExchange(&sparedFights[4], 0, 0));
     RestoreCharging();
     RestoreVersusGroups();
     awarePackets.clear();
@@ -3269,6 +3277,23 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
         Awareness(t, now);
         V3 pos;
         if (!ReadV3(t.actor + kEntityPos, pos)) continue;
+        // Read once per enemy and pass, and only when a check is about to act.
+        bool fightRead = false;
+        ds2::engaged::Result fightResult;
+        auto inFight = [&](const char* check) {
+            if (!ds2_watchdog_runtime::spareFights) return false;
+            if (!fightRead) {
+                fightRead = true;
+                auto reader = [](uint32_t address, void* out, size_t size) { return Read(address, out, size); };
+                fightResult = ds2::engaged::Check(t.actor, base, ds2_watchdog_runtime::spareMeters, reader);
+            }
+            if (!fightResult.Engaged()) return false;
+            InterlockedIncrement(&sparedFights[static_cast<int>(fightResult.reason)]);
+            if (Budget(sparedLines, 60))
+                Event("enemy %08X (%s) spared by the %s check: in a fight (%s, nearest player %.1f m, coordinator %08X)", t.actor, t.family.c_str(), check,
+                      ds2::engaged::ReasonName(fightResult.reason), fightResult.meters < 1e8f ? fightResult.meters : -1.0f, fightResult.coordinator);
+            return true;
+        };
         if (t.vent && t.marker >= 0 && !t.arrivalChecked && now - t.watch.bornAt >= 3000) {
             t.arrivalChecked = true;
             const auto& chosen = ds2::kSurvivalVentMarkers[t.marker];
@@ -3304,7 +3329,7 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
             // engines (19.10. mp_escape: 17 retired, the waves starved).
             const float reach = std::max(5.0f, 2.0f + 7.0f * static_cast<float>(now - t.watch.bornAt) / 1000.0f);
             if (off > 5.0f && off <= reach) InterlockedIncrement(&walkedNotPlaced);
-            if (off > reach) {
+            if (off > reach && !inFight("placement")) {
                 ds2::ExtraSpawnRule rule;
                 rule.kind = t.family;
                 rule.arrival = ds2::ExtraArrival::Direct;
@@ -3374,7 +3399,7 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
         // FrozenSeconds, it is taken away and its item queued again.
         survival::NoteMoved(t.watch, pos.x, pos.y, pos.z, now);
         if (survival::Frozen(t.watch, now, inVent, cfg) && !survival::HoldsStill(t.family.c_str()) && !run.versus && run.state == State::Wave &&
-            killReady && kills < 3) {
+            killReady && kills < 3 && !inFight("frozen")) {
             ++kills;
             survival::Item again;
             again.family = again.asked = t.family;
@@ -3403,7 +3428,7 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
                 t.farSince = 0;
             } else if (!t.farSince && cfg.catchUpMs) {
                 t.farSince = now ? now : 1;
-            } else if ((!cfg.catchUpMs || now - t.farSince >= cfg.catchUpMs) && kills < 3) {
+            } else if ((!cfg.catchUpMs || now - t.farSince >= cfg.catchUpMs) && kills < 3 && !inFight("catch-up")) {
                 ++kills;
                 survival::Item again;
                 again.family = again.asked = t.family;
@@ -3421,7 +3446,7 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
         }
         const survival::Fate fate = survival::Observe(t.watch, now, nearest, inVent, machines, cfg);
         if (fate == survival::Fate::Inert) { Retire(t, fate, now); continue; }
-        if ((fate == survival::Fate::Stuck || fate == survival::Fate::VentStuck) && kills < 3) {
+        if ((fate == survival::Fate::Stuck || fate == survival::Fate::VentStuck) && kills < 3 && !inFight(fate == survival::Fate::Stuck ? "stuck" : "vent_stuck")) {
             ++kills;
             NoteVentFailure(t);
             if (fate == survival::Fate::Stuck) NavReport(t, pos, viewers, viewerCount);

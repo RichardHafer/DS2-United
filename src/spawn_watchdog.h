@@ -44,6 +44,9 @@ struct Entry {
     // Per-family leash, decided at creation. Zero means use the global value.
     // Some kinds get stuck more readily than others and deserve a shorter one.
     uint32_t timeoutMs = 0;
+    // Expired while in a fight: looked at again from this tick on, not before.
+    uint32_t recheckAt = 0;
+    uint32_t deferrals = 0;
 };
 
 // State machine layout, from the Xbox PDB and confirmed on live objects:
@@ -158,6 +161,7 @@ public:
         if (!entry.used) return Verdict::Empty;
         const uint32_t leash = entry.timeoutMs ? entry.timeoutMs : timeoutMs;
         if (now - entry.bornTick < leash) return Verdict::Waiting;
+        if (entry.recheckAt && static_cast<int32_t>(now - entry.recheckAt) < 0) return Verdict::Waiting;
         uint32_t vtable = 0;
         Guid guid{};
         if (!read(entry.actor, &vtable, 4) || !read(entry.actor + 0x24, guid.data(), sizeof(guid)))
@@ -169,6 +173,10 @@ public:
     void Retire(size_t index) { entries_[index] = {}; }
     void MarkReported(size_t index) { entries_[index].reported = true; }
     void MarkProbed(size_t index) { entries_[index].probed = true; }
+    void Defer(size_t index, uint32_t now, uint32_t delayMs) {
+        entries_[index].recheckAt = (now + delayMs) ? now + delayMs : 1;
+        ++entries_[index].deferrals;
+    }
     const Entry& At(size_t index) const { return entries_[index]; }
     static constexpr size_t Capacity() { return N; }
     size_t Dropped() const { return dropped_; }

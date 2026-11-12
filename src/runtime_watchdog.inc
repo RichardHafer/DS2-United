@@ -23,6 +23,7 @@
 #include <string>
 #include "spawn_watchdog.h"
 #include "death_message.h"
+#include "engaged_enemy.h"
 #include "../third_party/safetyhook/safetyhook.hpp"
 
 namespace ds2_watchdog_runtime {
@@ -91,11 +92,19 @@ void OnTick(SafetyHookContext&);
 extern void (*gameThreadWork)();   // below
 extern bool driverOnly;
 
-struct Pending { uint32_t actor = 0, vtable = 0; Guid guid{}; };
+struct Pending { uint32_t actor = 0, vtable = 0; Guid guid{}, selected{}; };
 Pending queue[kQueueCapacity]{};
 volatile LONG queued = 0;
 volatile LONG tracked = 0, expired = 0, released = 0, unreadable = 0;
 volatile LONG killed = 0, killSkippedFamily = 0, componentMissing = 0, identityChanged = 0, killFaults = 0;
+// An expired enemy in a fight is looked at again later instead of killed: one in a grab
+// (either side) or within spareMeters of a player ([DS2Randomizer] WatchdogSpareFights).
+bool spareFights = true;
+float spareMeters = 3.0f;
+constexpr uint32_t kSpareRecheckMs = 15000;
+template<class Reader>
+void Track(uint32_t actor, const Guid& selected, bool allowKill, uint32_t leashMs, Reader& read);
+volatile LONG sparedGrab = 0, sparedNear = 0, sparedAtCall = 0, sparedLines = 0;
 
 // The second queue: actors whose scripted death message still has to be said.
 // Same rule as the kill queue: the worker only queues, the game thread calls.
@@ -268,14 +277,18 @@ void Configure(const char* ini, FILE* log) {
     repairEnabled = GetPrivateProfileIntA("DS2Randomizer", "WatchdogRepairTables", 1, ini) != 0;
     releaseEnabled = GetPrivateProfileIntA("DS2Randomizer", "WatchdogReleaseDeathMessage", 1, ini) != 0;
     deathProxyEnabled = GetPrivateProfileIntA("DS2Randomizer", "WatchdogDeathProxy", 1, ini) != 0;
+    spareFights = GetPrivateProfileIntA("DS2Randomizer", "WatchdogSpareFights", 1, ini) != 0;
+    const int meters = GetPrivateProfileIntA("DS2Randomizer", "WatchdogSpareMeters", 3, ini);
+    spareMeters = static_cast<float>(meters < 0 ? 0 : meters > 20 ? 20 : meters);
     liveTables.Reset();
     const int seconds = GetPrivateProfileIntA("DS2Randomizer", "WatchdogSeconds", 90, ini);
     timeoutMs = static_cast<uint32_t>(seconds < 10 ? 10 : seconds > 3600 ? 3600 : seconds) * 1000u;
     tracker.Reset();
     std::fprintf(log, "watchdog config: enabled=%u kill=%u repair_tables=%u release_death_message=%u "
-                      "timeout_s=%u capacity=%zu\n",
+                      "timeout_s=%u capacity=%zu spare_fights=%u spare_m=%.0f recheck_s=%u\n",
                  enabled ? 1u : 0u, killEnabled ? 1u : 0u, repairEnabled ? 1u : 0u,
-                 releaseEnabled ? 1u : 0u, timeoutMs / 1000u, kCapacity);
+                 releaseEnabled ? 1u : 0u, timeoutMs / 1000u, kCapacity, spareFights ? 1u : 0u,
+                 static_cast<double>(spareMeters), kSpareRecheckMs / 1000u);
 }
 
 bool CheckSignature(FILE* log, const char* name, uintptr_t rva,
@@ -856,6 +869,16 @@ void RunQueuedWork() {
         InterlockedIncrement(&identityChanged);
         return;
     }
+    // A grab can start between the worker's look and this call.
+    if (spareFights) {
+        auto reader = [](uint32_t address, void* output, size_t size) { return ReadAt(address, output, size); };
+        const auto fight = ds2::engaged::Check(target.actor, moduleBase, spareMeters, reader);
+        if (fight.Engaged()) {
+            InterlockedIncrement(&sparedAtCall);
+            Track(target.actor, target.selected, true, kSpareRecheckMs, reader);
+            return;
+        }
+    }
     const uint32_t component = FindHealthComponent(target.actor);
     if (!component) { InterlockedIncrement(&componentMissing); return; }
     uint32_t componentVtable = 0, slot = 0;
@@ -1047,6 +1070,24 @@ void PollTracked(std::string& out, Reader& read) {
                 tracker.Retire(i);
                 break;
             }
+            if (spareFights && living) {
+                const auto fight = ds2::engaged::Check(entry.actor, moduleBase, spareMeters, read);
+                if (fight.Engaged()) {
+                    InterlockedIncrement(fight.reason == ds2::engaged::Reason::Near ? &sparedNear : &sparedGrab);
+                    // the first deferral of an enemy and every grab; a long stand-off stays quiet
+                    if ((entry.deferrals == 0 || fight.reason != ds2::engaged::Reason::Near) && InterlockedIncrement(&sparedLines) <= 200) {
+                        char where[48]{};
+                        Appendf(out, "watchdog expired actor=%08X entity=%08X-%08X-%08X-%08X age_s=%u pos=%s "
+                                          "action=spared reason=%s player_m=%.1f coordinator=%08X deferrals=%u recheck_s=%u\n",
+                                     entry.actor, entry.guid[0], entry.guid[1], entry.guid[2], entry.guid[3],
+                                     (now - entry.bornTick) / 1000u, ActorPositionText(entry.actor, read, where, sizeof(where)),
+                                     ds2::engaged::ReasonName(fight.reason), static_cast<double>(fight.meters < 1e8f ? fight.meters : -1.0f),
+                                     fight.coordinator, entry.deferrals + 1, kSpareRecheckMs / 1000u);
+                    }
+                    tracker.Defer(i, now, kSpareRecheckMs);
+                    break;
+                }
+            }
             // Not one state machine after the whole leash. That is the Super
             // Puker at the triage vent: an actor that exists, holds its place and
             // never becomes an NPC, while a slasher and an infector out of the
@@ -1071,7 +1112,7 @@ void PollTracked(std::string& out, Reader& read) {
                 std::lock_guard<std::mutex> queueGuard(queueLock);
                 const LONG count = InterlockedCompareExchange(&queued, 0, 0);
                 if (count < static_cast<LONG>(kQueueCapacity)) {
-                    queue[count] = {entry.actor, entry.vtable, entry.guid};
+                    queue[count] = {entry.actor, entry.vtable, entry.guid, entry.selected};
                     InterlockedExchange(&queued, count + 1);
                     willKill = true;
                 }
@@ -1206,14 +1247,17 @@ void WriteDiagnostics(FILE* log) {
                        InterlockedCompareExchange(&proxiesNoDispatch, 0, 0) +
                        InterlockedCompareExchange(&survivorsParked, 0, 0) +
                        InterlockedCompareExchange(&idled, 0, 0) +
-                       InterlockedCompareExchange(&teardowns, 0, 0);
+                       InterlockedCompareExchange(&teardowns, 0, 0) +
+                       InterlockedCompareExchange(&sparedGrab, 0, 0) +
+                       InterlockedCompareExchange(&sparedNear, 0, 0) +
+                       InterlockedCompareExchange(&sparedAtCall, 0, 0);
     if (total == lastTotal) return;
     lastTotal = total;
     std::fprintf(log, "watchdog summary: tracked=%ld expired=%ld killed=%ld family_excluded=%ld "
                       "component_missing=%ld identity_changed=%ld released=%ld unreadable=%ld "
                       "stale=%ld repaired=%ld no_live_table=%ld ticks=%ld live_tables=%zu "
                       "live=%zu dropped=%zu queued=%ld vent_stuck=%ld inert=%ld corpses=%ld "
-                      "kill_faults=%ld staging_full=%ld\n",
+                      "kill_faults=%ld staging_full=%ld spared_grab=%ld spared_near=%ld spared_at_call=%ld\n",
                  InterlockedCompareExchange(&tracked, 0, 0),
                  InterlockedCompareExchange(&expired, 0, 0),
                  InterlockedCompareExchange(&killed, 0, 0),
@@ -1231,7 +1275,10 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&inert, 0, 0),
                  InterlockedCompareExchange(&corpses, 0, 0),
                  InterlockedCompareExchange(&killFaults, 0, 0),
-                 InterlockedCompareExchange(&stagingFull, 0, 0));
+                 InterlockedCompareExchange(&stagingFull, 0, 0),
+                 InterlockedCompareExchange(&sparedGrab, 0, 0),
+                 InterlockedCompareExchange(&sparedNear, 0, 0),
+                 InterlockedCompareExchange(&sparedAtCall, 0, 0));
     if (InterlockedCompareExchange(&teardowns, 0, 0) && !InterlockedCompareExchange(&survivorsParked, 0, 0))
         std::fprintf(log, "watchdog teardowns=%ld mark_rank=%ld dropped=%ld last='%s': no enemy machine older than the mark ticked since (none parked)\n",
                      InterlockedCompareExchange(&teardowns, 0, 0), InterlockedCompareExchange(&teardownRank, 0, 0),
