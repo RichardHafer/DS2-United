@@ -154,11 +154,11 @@ struct Fingerprint {
     unsigned personal = 0;
 };
 // A game file both machines need alike, by its size or content hash.
-inline void AddFile(Fingerprint& f, const std::string& relative, const std::string& value) {
+inline void AddFile(Fingerprint& f, const std::string& relative, const std::string& value, int severity = 2) {
     const uint32_t k = Fnv("file." + Lower(relative));
     f.entries.push_back(Entry{k, Fnv(value)});
     f.names[k] = "file " + relative + " (" + value + ")";
-    f.severity[k] = 2;
+    f.severity[k] = severity;
 }
 // What really runs here, beside the INI text (a failed hook looks like the switch off).
 inline uint32_t StateKey(const std::string& name) { return Fnv("state." + Lower(name)); }

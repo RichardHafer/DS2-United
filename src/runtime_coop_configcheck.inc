@@ -182,7 +182,10 @@ void Install(FILE* log, const std::string& ini) {
             char size[32] = "absent";
             if (GetFileAttributesExA((game + name).c_str(), GetFileExInfoStandard, &a))
                 std::snprintf(size, sizeof(size), "%llu bytes", (static_cast<unsigned long long>(a.nFileSizeHigh) << 32) | a.nFileSizeLow);
-            coop_config::AddFile(own, name, size);
+            // Optional extras: the Outbreak maps (the map picker and the lobby refuse them to a PC
+            // without the archive) and the main menu copy (looks, the host's picker rows).
+            const bool optional = !_stricmp(name, "DS2DAT12.DAT") || !_stricmp(name, "randomizer\\ds2coop_frontend.str");
+            coop_config::AddFile(own, name, size, optional ? 1 : 2);
             ++files;
         }
         coop_config::Finish(own);

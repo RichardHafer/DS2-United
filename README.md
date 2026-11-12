@@ -58,6 +58,10 @@ The multiplayer menu is replaced by game modes. They run on all seven
 multiplayer maps (including the two Outbreak maps) and on nine arenas cut from
 the campaign, which are small because the story levels are linear.
 
+The Outbreak maps (Concourse and Academy) are optional. They need
+`DS2DAT12.DAT` in the game folder; without it they are simply not in the map
+list. In co-op the map picker refuses them while any player lacks the file.
+
 - **Survival**: endless waves that get harder, a boss wave at 10, until the team
   runs out of lives.
 - **Mercenaries**: as many kills as possible against the clock. Kills and time
