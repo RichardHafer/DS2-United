@@ -1,0 +1,98 @@
+diff --git a/MarkerPatch/MarkerPatch.vcxproj b/MarkerPatch/MarkerPatch.vcxproj
+index c5be81b..052eb52 100644
+--- a/MarkerPatch/MarkerPatch.vcxproj
++++ b/MarkerPatch/MarkerPatch.vcxproj
+@@ -20,15 +20,15 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <UseDebugLibraries>true</UseDebugLibraries>
+-    <PlatformToolset>v145</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <CharacterSet>Unicode</CharacterSet>
+     <TargetName>dinput8</TargetName>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <PlatformToolset>v145</PlatformToolset>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
++    <PlatformToolset>v143</PlatformToolset>
++    <WholeProgramOptimization>false</WholeProgramOptimization>
+     <CharacterSet>Unicode</CharacterSet>
+     <TargetName>dinput8</TargetName>
+   </PropertyGroup>
+@@ -95,7 +95,7 @@
+       <SubSystem>Windows</SubSystem>
+       <EnableCOMDATFolding>true</EnableCOMDATFolding>
+       <OptimizeReferences>true</OptimizeReferences>
+-      <GenerateDebugInformation>true</GenerateDebugInformation>
++      <GenerateDebugInformation>false</GenerateDebugInformation>
+       <ModuleDefinitionFile>$(SolutionDir)src\dinput8.def</ModuleDefinitionFile>
+       <AdditionalDependencies>winmm.lib;imm32.lib;version.lib;setupapi.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+     </Link>
+diff --git a/src/Features/General/ASILoader.cpp b/src/Features/General/ASILoader.cpp
+index 35b9ede..3dc29dc 100644
+--- a/src/Features/General/ASILoader.cpp
++++ b/src/Features/General/ASILoader.cpp
+@@ -28,6 +28,9 @@ static void ApplyASILoader()
+ 			if (!entry.is_regular_file(error)) continue;
+ 			if (_wcsicmp(entry.path().extension().c_str(), L".asi") != 0) continue;
+ 
++			// A second, official MarkerPatch as an .asi would patch the game again on top of this one
++			if (_wcsnicmp(entry.path().filename().c_str(), L"MarkerPatch", 11) == 0) continue;
++
+ 			const std::wstring fullPath = entry.path().wstring();
+ 
+ 			if (GetModuleHandleW(fullPath.c_str()) != NULL) continue;
+diff --git a/src/Initialization/Initialization.cpp b/src/Initialization/Initialization.cpp
+index e3ec1a9..7be9d8b 100644
+--- a/src/Initialization/Initialization.cpp
++++ b/src/Initialization/Initialization.cpp
+@@ -128,6 +128,20 @@ static void ReadConfig()
+ 	IncreasedEntityPersistenceBodies = std::clamp(IncreasedEntityPersistenceBodies, 0, 35);
+ 	IncreasedEntityPersistenceLimbs = std::clamp(IncreasedEntityPersistenceLimbs, 0, 120);
+ 
++	// Dead Space 2 United edition: the same MarkerPatch.ini, but these stay off whatever it says.
++	// FixSuitChangeTiming and MultiplayerSuit hook the suit functions United's partner suits and
++	// loadouts are built on; AlwaysSucceedQTE answers prompts the scene leader decides in co-op;
++	// FixMainLoopSpin, FixAudioSyncStall and FixStreamingBudget retime the main loop, the clock
++	// and the spawner while United paces its own work on them (suspects in the hang of two copies
++	// on one PC). United is an ASI plugin, so the loader always runs.
++	FixSuitChangeTiming = false;
++	MultiplayerSuit = 0;
++	AlwaysSucceedQTE = false;
++	FixMainLoopSpin = false;
++	FixAudioSyncStall = false;
++	FixStreamingBudget = false;
++	LoadASIPlugins = true;
++
+ 	// Init SDL variables
+ 	ControllerHelper::SetGyroEnabled(GyroEnabled);
+ 	ControllerHelper::SetGyroSensitivity(GyroSensitivity);
+diff --git a/src/dinput8.def b/src/dinput8.def
+index d725db0..de58b1a 100644
+--- a/src/dinput8.def
++++ b/src/dinput8.def
+@@ -5,4 +5,5 @@ EXPORTS
+ 	DllGetClassObject = Hook_DllGetClassObject PRIVATE
+ 	DllRegisterServer = Hook_DllRegisterServer PRIVATE
+ 	DllUnregisterServer = Hook_DllUnregisterServer PRIVATE
+-	GetdfDIJoystick = Hook_GetdfDIJoystick
+\ No newline at end of file
++	GetdfDIJoystick = Hook_GetdfDIJoystick
++	MarkerPatchUnitedEdition
+diff --git a/src/dllmain.hpp b/src/dllmain.hpp
+index f68a783..dbc3799 100644
+--- a/src/dllmain.hpp
++++ b/src/dllmain.hpp
+@@ -32,4 +32,7 @@ __declspec(naked) void Hook_DllCanUnloadNow() { _asm { jmp[dinput8.DllCanUnloadN
+ __declspec(naked) void Hook_DllGetClassObject() { _asm { jmp[dinput8.DllGetClassObject] } }
+ __declspec(naked) void Hook_DllRegisterServer() { _asm { jmp[dinput8.DllRegisterServer] } }
+ __declspec(naked) void Hook_DllUnregisterServer() { _asm { jmp[dinput8.DllUnregisterServer] } }
+-__declspec(naked) void Hook_GetdfDIJoystick() { _asm { jmp[dinput8.GetdfDIJoystick] } }
+\ No newline at end of file
++__declspec(naked) void Hook_GetdfDIJoystick() { _asm { jmp[dinput8.GetdfDIJoystick] } }
++
++// Dead Space 2 United looks for this export to tell this edition from the official MarkerPatch.
++extern "C" const char* MarkerPatchUnitedEdition() { return "Dead Space 2 United edition of MarkerPatch 3.2.0"; }
+\ No newline at end of file

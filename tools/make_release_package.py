@@ -3,8 +3,8 @@
 The plugin and the settings window come from build\\, the settings from a release INI
 (default: the repository's DS2United.ini) with the personal values cleared, the game
 data the plugin loads (enemy pool, Severed and Twitcher records, the frontend and menu
-copies) from an installed game folder. Marker Patch and the Outbreak archive are not
-packed; INSTALL.txt links them. The zip unpacks straight into the Dead Space 2 folder.
+copies) from an installed game folder, and the United edition of MarkerPatch as dinput8.dll
+(build_markerpatch_united.cmd). The Outbreak archive is not packed; INSTALL.txt links it. The zip unpacks straight into the Dead Space 2 folder.
 
     python -I tools/make_release_package.py --game "<Dead Space 2>" --out <zip>
         [--ini <release DS2United.ini>] [--version 1.0] [--list] [--force]
@@ -53,6 +53,9 @@ GAME_FILES = [
 REPO_FILES = [
     (r"build\DS2United.asi", r"plugins\DS2United.asi"),
     (r"build\DS2UnitedConfig.exe", r"DS2UnitedConfig.exe"),
+    (r"build\markerpatch-united\dinput8.dll", r"dinput8.dll"),
+    (r"third_party\MarkerPatch-United\LICENSE", r"MarkerPatch_United_LICENSE.txt"),
+    (r"third_party\MarkerPatch-United\README.md", r"MarkerPatch_United_README.md"),
     (r"README.md", r"DS2United_README.md"),
     (r"LICENSE", r"DS2United_LICENSE.txt"),
 ]
@@ -64,10 +67,13 @@ PERSONAL = {("nameplate", "name"), ("coop", "joinaddress"), ("coop", "peer"), ("
 INSTALL = """Dead Space 2 United {version}
 {line}
 
-1. Install the Marker Patch first: https://github.com/Wemino/MarkerPatch
-   It brings dinput8.dll, the loader that starts the plugin.
-2. Close the game and extract this archive into the Dead Space 2 folder,
+1. Close the game and extract this archive into the Dead Space 2 folder,
    next to deadspace2.exe. Let it overwrite when asked.
+2. dinput8.dll is United's own edition of the Marker Patch (by Wemino,
+   https://github.com/Wemino/MarkerPatch). It replaces an official Marker
+   Patch, reads the same MarkerPatch.ini and keeps its fixes, except a few
+   that clash with the mod (MarkerPatch_United_README.md lists them). Do not
+   put the official one back: with it the mod stays off and says so.
 3. Start DS2UnitedConfig.exe to look through the settings (optional).
 4. Start the game. F1 in the game shows every key of the mod.
 
@@ -154,6 +160,10 @@ def main():
     ini_raw = Path(args.ini).read_bytes()
     ini_data, notes = clean_ini(ini_raw)
 
+    mp = REPO / "build" / "markerpatch-united" / "dinput8.dll"
+    if mp.is_file() and b"MarkerPatchUnitedEdition" not in mp.read_bytes():
+        print("build\markerpatch-united\dinput8.dll has no MarkerPatchUnitedEdition export; run build_markerpatch_united.cmd")
+        return 1
     installed = game / "plugins" / "DS2United.asi"
     built = REPO / "build" / "DS2United.asi"
     if installed.is_file() and built.is_file() and sha1(installed) != sha1(built):

@@ -10,9 +10,10 @@ campaign arenas, companion bots, versus against necromorph players, and the
 enemy randomizer with more enemies per spawn. Every part works solo too, and
 every part can be switched off on its own.
 
-Nothing in the game's files is changed. The plugin runs beside the
-[Marker Patch](https://github.com/Wemino/MarkerPatch), whose ASI loader it
-uses, and everything happens in memory while you play.
+Nothing in the game's files is changed. The plugin runs on its own edition of
+the [Marker Patch](https://github.com/Wemino/MarkerPatch), which loads it and
+keeps the Marker Patch fixes that work with the mod, and everything happens in
+memory while you play.
 
 Before November 2026 this was the Co-op Mod (DS2Coop) and, earlier still, the
 Dead Space 2 Randomizer.
@@ -96,15 +97,20 @@ ones went in. An unsupported build of the game is left alone.
 
 **[Download the latest release](https://github.com/RichardHafer/DS2-United/releases/latest)**
 
-You need the [Marker Patch](https://github.com/Wemino/MarkerPatch) installed
-first; it brings the ASI loader (`dinput8.dll`) that starts this plugin.
+The release brings everything, including its own edition of the
+[Marker Patch](https://github.com/Wemino/MarkerPatch) as `dinput8.dll`. It
+replaces an official Marker Patch, reads the same `MarkerPatch.ini` and keeps
+its fixes and options, except six that work on the same game functions as the
+mod; [third_party/MarkerPatch-United](third_party/MarkerPatch-United/README.md)
+lists them and why. With the official Marker Patch loaded instead, the mod
+stays off and says so.
 
 Close the game and extract the archive into the Dead Space 2 folder, next to
 `deadspace2.exe`:
 
 ```text
 Dead Space 2/
-|-- dinput8.dll                 (from the Marker Patch)
+|-- dinput8.dll                 (United's edition of the Marker Patch)
 |-- DS2UnitedConfig.exe         (the settings window)
 |-- plugins/
 |   |-- DS2United.asi
@@ -275,10 +281,12 @@ Made by Richard Hafer.
 
 - The [Dead Space Modding](https://discord.com/invite/sWMRkYJ5JV) community for research, tests and feedback
 - [safetyhook](https://github.com/cursey/safetyhook) and [Zydis](https://github.com/zyantific/zydis) for hooking
-- [Marker Patch](https://github.com/Wemino/MarkerPatch) for the ASI loader and the fixes this runs on top of
+- Wemino's [Marker Patch](https://github.com/Wemino/MarkerPatch), which the release ships in its own edition (GPL-2.0, source and patch in `third_party/MarkerPatch-United`)
 - Mark de Rune's [Dead Space 2 Multiplayer](https://www.nexusmods.com/deadspace2/mods/181) for the Outbreak maps, the game mode row's menu screen and the work on bringing console data to the PC build
 - Everyone who played test runs and sent logs
 
 ## Licence
 
-MIT, see `LICENSE`. Not affiliated with EA or Visceral Games.
+MIT, see `LICENSE`. The Marker Patch edition in `third_party/MarkerPatch-United`
+and the `dinput8.dll` built from it are GPL-2.0, like the Marker Patch itself.
+Not affiliated with EA or Visceral Games.
