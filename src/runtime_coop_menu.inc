@@ -36,6 +36,7 @@ char natLine1[96] = "", natLine2[96] = "";
 // Inc.", read live 13.10.) keeps EA's text; [Menu] TitleLine goes after it.
 constexpr uint32_t kTextLegal = 0x85247E23;
 char titleLine[96] = "";
+constexpr char kTitleLine[] = "Dead Space 2 United - Fan made mod";
 constexpr uint32_t kPc01Select = 0x6A1C30, kFe03Select = 0x6A9DD0, kMp20Select = 0x667B50, kPushScreen = 0x6879D0;
 constexpr uint32_t kFe03InputSlot = 0x17394E0, kFe03Input = 0x6AF9F0;   // FE03 HandleInput, thiscall(code) ret 4
 constexpr uint32_t kDirector = 0x1C8BE90, kGameManager = 0x1C213FC;
@@ -772,8 +773,10 @@ void Install(FILE* log, const std::string& ini) {
     std::fprintf(log, "menu NAT lines: '%s' / '%s' (in place of the game's NAT warning; empty keeps it)\n", natLine1[0] ? natLine1 : "(the game's)",
                  natLine2[0] ? natLine2 : "(the game's)");
     // on a line of its own: after EA's text it wrapped in the middle (14.10.)
-    GetPrivateProfileStringA("Menu", "TitleLine", "Dead Space 2 United", titleLine + 1, sizeof(titleLine) - 1, ini.c_str());
-    if (!std::strcmp(titleLine + 1, "Co-op Mod")) std::snprintf(titleLine + 1, sizeof(titleLine) - 1, "Dead Space 2 United");
+    GetPrivateProfileStringA("Menu", "TitleLine", kTitleLine, titleLine + 1, sizeof(titleLine) - 1, ini.c_str());
+    // the earlier defaults of older INIs
+    if (!std::strcmp(titleLine + 1, "Co-op Mod") || !std::strcmp(titleLine + 1, "Dead Space 2 United"))
+        std::snprintf(titleLine + 1, sizeof(titleLine) - 1, "%s", kTitleLine);
     if (titleLine[1]) {
         titleLine[0] = '\n';
         notice::AddAppend(kTextLegal, titleLine);
