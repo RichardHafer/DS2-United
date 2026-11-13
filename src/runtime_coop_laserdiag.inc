@@ -46,6 +46,30 @@ __declspec(noinline) bool KillAimingVfx(uint32_t gun, uint32_t fn) {
         return false;
     }
 }
+// Who switches our laser off: Gun's base kill 0x00DB0A00 (thiscall(gun), ret; the guns' own
+// +0x2E4 overrides kill their extra handles and jump here), logged with the caller for our
+// Isaac's gun. A left-on laser is then the release whose usual caller never came.
+constexpr uint32_t kKillAimingVfxRva = 0x9B0A00;
+safetyhook::InlineHook killHook;
+struct Caller { uint32_t rva = 0; LONG count = 0; };
+Caller killCallers[8]{};
+volatile LONG killsSeen = 0, killLines = 0;
+void __fastcall OnKillAimingVfx(void* gun, void*) {
+    const uint32_t g = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(gun));
+    const uint32_t from = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress()));
+    uint32_t ownerRef = 0, beam = 0;
+    const uint32_t player = LocalCampaignPlayer();
+    if (player && Read(g + kGunOwner, &ownerRef, 4) && ownerRef - 0x10 == player && Read(g + kBeam, &beam, 4) && beam) {
+        InterlockedIncrement(&killsSeen);
+        const uint32_t rva = from - static_cast<uint32_t>(base);
+        for (Caller& c : killCallers) {
+            if (c.rva == rva || !c.rva) { c.rva = rva; InterlockedIncrement(&c.count); break; }
+        }
+        if (InterlockedIncrement(&killLines) <= 300)
+            gate::Event("laser off t=%lu: gun %08X beam %08X switched off from %08X", static_cast<unsigned long>(GetTickCount()), g, beam, from);
+    }
+    killHook.thiscall<void>(gun);
+}
 // The owner's state machines with their current state names, for the left-on line: which
 // state the switch-off message should have come from. Same walk as the spawn watchdog's.
 void OwnerStates(uint32_t actor, char* out, size_t size) {
@@ -67,8 +91,11 @@ void OwnerStates(uint32_t actor, char* out, size_t size) {
         char text[32]{};
         if (Read(sm + m::kStateArr, &array, 4) && array && Read(sm + m::kCurState, &index, 4) && index < 4096 &&
             Read(array + index * m::kStateSize + m::kStateName, &name, 4) && name && Read(name, text, sizeof(text) - 1)) {
-            for (char& c : text) if (c && (c < 0x20 || c > 0x7E)) c = '?';
-            if (used + std::strlen(text) + 2 < size) used += static_cast<size_t>(std::snprintf(out + used, size - used, "%s%s", used ? "," : "", text));
+            // a name only when every byte up to its end is printable; other machines keep no name there
+            size_t length = 0;
+            bool plain = true;
+            for (; length < sizeof(text) && text[length]; ++length) plain = plain && text[length] >= 0x20 && text[length] <= 0x7E;
+            if (plain && length >= 3 && used + length + 2 < size) used += static_cast<size_t>(std::snprintf(out + used, size - used, "%s%s", used ? "," : "", text));
         }
         uint32_t child = 0, next = 0;
         if (Read(sm + m::kChildHead, &child, 4) && child && depth < 32) stack[depth++] = child;
@@ -161,6 +188,11 @@ void Install(FILE* log, const std::string& ini) {
     static const unsigned char kSite[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0xA1, 0xAC, 0x13, 0x02, 0x02, 0x8B, 0x40, 0x20};
     installed = hook_site::Install(log, "laser diagnostics Gun::UpdateAimingVFX", base + kUpdateAimingVfxRva, kSite, sizeof(kSite),
                                    reinterpret_cast<void*>(OnUpdateAimingVfx), updateHook);
+    // push esi / mov esi,ecx / cmp dword ptr [esi+3C0h],0
+    static const unsigned char kKill[] = {0x56, 0x8B, 0xF1, 0x83, 0xBE, 0xC0, 0x03, 0x00, 0x00, 0x00};
+    const bool killOk = installed && hook_site::Install(log, "laser diagnostics Gun kill aiming VFX", base + kKillAimingVfxRva, kKill, sizeof(kKill),
+                                                        reinterpret_cast<void*>(OnKillAimingVfx), killHook);
+    std::fprintf(log, "laser switch-off callers %s (Gun 0x00DB0A00, our Isaac's gun only)\n", killOk ? "logged" : "NOT logged");
     std::fprintf(log, "laser diagnostics %s ([Coop] LaserDiag): our gun's laser handles and loaded ammo on every change, every reload start; "
                       "cleanup %s ([Coop] LaserCleanup): a gun with no aiming update for %lu ms and a laser still set is switched off\n",
                  installed ? "on" : "NOT installed", cleanup && installed ? "on" : "off", static_cast<unsigned long>(kStaleMs));
@@ -169,7 +201,8 @@ void WriteDiagnostics(FILE* log) {
     if (!installed) return;
     static LONG lastChanges = -1;
     const LONG c = InterlockedCompareExchange(&changes, 0, 0) + InterlockedCompareExchange(&reloads, 0, 0) * 1000 +
-                   (InterlockedCompareExchange(&cleanups, 0, 0) + InterlockedCompareExchange(&cleanupFaults, 0, 0) + InterlockedCompareExchange(&leftOnSeen, 0, 0)) * 100000;
+                   (InterlockedCompareExchange(&cleanups, 0, 0) + InterlockedCompareExchange(&cleanupFaults, 0, 0) + InterlockedCompareExchange(&leftOnSeen, 0, 0)) * 100000 +
+                   InterlockedCompareExchange(&killsSeen, 0, 0) * 7;
     if (c == lastChanges) return;
     lastChanges = c;
     std::fprintf(log, "laser frames=%ld changes=%ld reloads=%ld empty_frames=%ld lines=%ld | left on: seen only=%ld switched off=%ld faults=%ld refused=%ld watch_full=%ld\n",
@@ -177,5 +210,11 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&emptyFrames, 0, 0), InterlockedCompareExchange(&lines, 0, 0), InterlockedCompareExchange(&leftOnSeen, 0, 0),
                  InterlockedCompareExchange(&cleanups, 0, 0),
                  InterlockedCompareExchange(&cleanupFaults, 0, 0), InterlockedCompareExchange(&cleanupRefused, 0, 0), InterlockedCompareExchange(&watchFull, 0, 0));
+    if (InterlockedCompareExchange(&killsSeen, 0, 0)) {
+        std::fprintf(log, "laser switched off by the game %ld times, callers:", InterlockedCompareExchange(&killsSeen, 0, 0));
+        for (const Caller& k : killCallers)
+            if (k.rva) std::fprintf(log, " %08X x%ld", k.rva + 0x400000u, k.count);
+        std::fprintf(log, "\n");
+    }
 }
 }  // namespace laserdiag
