@@ -312,7 +312,9 @@ struct Config {
     float wallClearance = 0.3f;   // a direct spawn keeps this much room from walls (0 = off)
     unsigned candidatesPerTick = 3;
     bool ventSpawns = true, ventLineOfSight = false, ventCrossFamily = true, ventIgnoreFamilyOff = true;
-    float ventMinDistance = 0.0f, ventMaxDistance = 30.0f;   // from the nearest player or bot; a vent may be right next to them
+    // From the nearest player or bot. VentMinDistance holds for one of them, every further living
+    // player or bot takes VentMinStep off (user, 13.11.: 5 m solo, 2 m less per player or bot).
+    float ventMinDistance = 5.0f, ventMinStep = 2.0f, ventMaxDistance = 30.0f;
     bool ventAnyMarker = true;   // every open VentMarker of the map, not only the five slasher spawners' own
     float ventMaxAbove = 2.5f;   // a wall vent this far above the floor below it is the necro players'; 0 = no limit
     bool ventMustReach = true;   // only vents whose floor the living can walk to (the nav mesh decides)
@@ -467,7 +469,8 @@ inline Config ParseConfig(const std::string& text) {
     c.ventSpawns = UnsignedOr(ini, s, "VentSpawns", 1, 0, 1, c) != 0;
     c.ventLineOfSight = UnsignedOr(ini, s, "VentLineOfSight", 0, 0, 1, c) != 0;
     c.ventAnyMarker = UnsignedOr(ini, s, "VentAnyMarker", 1, 0, 1, c) != 0;
-    c.ventMinDistance = FloatOr(ini, s, "VentMinDistance", 0.0f, 0.0f, 60.0f, c);
+    c.ventMinDistance = FloatOr(ini, s, "VentMinDistance", 5.0f, 0.0f, 60.0f, c);
+    c.ventMinStep = FloatOr(ini, s, "VentMinStep", 2.0f, 0.0f, 30.0f, c);
     c.ventMaxDistance = FloatOr(ini, s, "VentMaxDistance", 30.0f, 8.0f, 120.0f, c);
     c.ventMaxAbove = FloatOr(ini, s, "VentMaxAbove", 2.5f, 0.0f, 50.0f, c);
     c.ventMustReach = UnsignedOr(ini, s, "VentMustReach", 1, 0, 1, c) != 0;
@@ -1106,6 +1109,11 @@ inline void NoteMoved(Watch& w, float x, float y, float z, uint32_t now) {
     }
 }
 // Lurkers and Pukers shoot from where they stand, Stalkers wait in cover.
+// The vent minimum for this many living players and bots.
+inline float VentMinFor(const Config& c, unsigned living) {
+    const float d = c.ventMinDistance - c.ventMinStep * static_cast<float>(living > 1 ? living - 1 : 0);
+    return d > 0.0f ? d : 0.0f;
+}
 inline bool HoldsStill(const char* family) {
     return _stricmp(family, "Lurker") == 0 || _stricmp(family, "Puker") == 0 || _stricmp(family, "Stalker") == 0;
 }

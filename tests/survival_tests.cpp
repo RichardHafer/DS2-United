@@ -92,13 +92,17 @@ void ConfigEdges() {
            ParseConfig("[Survival]\nGameOverSeconds=25\n").gameOverS == 25);
     assert(ParseConfig(ReadFile("DS2Survival.ini")).gameOverS == 10);
     assert(none.trackMeters == 80.0f && ParseConfig(ReadFile("DS2Survival.ini")).trackMeters == 80.0f);
+    // the vent minimum: 5 m for one, 2 m less per further player or bot, never below 0
+    assert(VentMinFor(none, 0) == 5.0f && VentMinFor(none, 1) == 5.0f && VentMinFor(none, 2) == 3.0f && VentMinFor(none, 3) == 1.0f && VentMinFor(none, 4) == 0.0f &&
+           VentMinFor(none, 8) == 0.0f);
+    assert(VentMinFor(ParseConfig(ReadFile("DS2Survival.ini")), 1) == 5.0f && VentMinFor(ParseConfig("[Survival]\nVentMinStep=0\n"), 4) == 5.0f);
     assert(ParseConfig("[Survival]\nTrackMeters=0\n").trackMeters == 0.0f && ParseConfig("[Survival]\nTrackMeters=900\n").trackMeters == 300.0f);
-    // vents: no real minimum, a radius around the nearest player or bot
-    assert(none.ventMinDistance == 0.0f && none.ventMaxDistance == 30.0f && !none.ventLineOfSight);
+    // vents: 5 m from the nearest player or bot for one of them (13.11.), a radius around them
+    assert(none.ventMinDistance == 5.0f && none.ventMinStep == 2.0f && none.ventMaxDistance == 30.0f && !none.ventLineOfSight);
     const Config tight = ParseConfig("[Survival]\nVentMinDistance=10\nVentMaxDistance=9\n");
     assert(tight.ventMinDistance == 10.0f && tight.ventMaxDistance == 14.0f);
     const Config shipped = ParseConfig(ReadFile("DS2Survival.ini"));
-    assert(shipped.ventMinDistance == 0.0f && shipped.ventMaxDistance == 30.0f && !shipped.ventLineOfSight);
+    assert(shipped.ventMinDistance == 5.0f && shipped.ventMinStep == 2.0f && shipped.ventMaxDistance == 30.0f && !shipped.ventLineOfSight);
     std::printf("config edges ok\n");
 }
 

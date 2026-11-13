@@ -1047,6 +1047,7 @@ struct Run {
     std::vector<survival::Item> queue;
     size_t next = 0;
     uint32_t itemSince = 0;
+    uint32_t directSince = 0;     // the current item's first direct search: the relax levels count from here
     unsigned itemTries = 0;
     unsigned total = 0;   // killable enemies the wave fields
     unsigned requeued = 0;   // arena enemies left outside and queued again, this run
@@ -1210,7 +1211,8 @@ float MaxDistanceHere() { return InArena() ? std::min(cfg.maxDistance, kArenaMax
 // Stalker Room, 29 m from its far end) must still get its enemies.
 unsigned RelaxLevel(uint32_t now);
 float VentMaxDistanceHere(uint32_t now) {
-    return InArena() && RelaxLevel(now) == 0 ? std::min(cfg.ventMaxDistance, kArenaVentMaxDistance) : cfg.ventMaxDistance;
+    const bool waited = run.itemSince && now - run.itemSince >= 4000;   // the first relax step
+    return InArena() && !waited ? std::min(cfg.ventMaxDistance, kArenaVentMaxDistance) : cfg.ventMaxDistance;
 }
 // The campaign arenas field no Brute (user, 17.10.): every Brute of a wave is the Ubermorph there
 // (one hunts at a time, a second is skipped as always), or nothing on a map without one.
@@ -2187,13 +2189,25 @@ bool EngineInsideArena(uintptr_t spawner) {
     V3 p;
     return arenaInside && ReadV3(spawner + kSpawnerPos, p) && arenaInside(&p.x) == 1;
 }
-uintptr_t PickEngine(Engine** used) {
+// A direct enemy is made at its engine and moved to its spot after that; some engines put it
+// back on their own spot for up to 2.5 s (13.11. mp_escape: four times at (-1 5.9 0), the map's
+// middle). An engine whose own spot is nearer a living player than MinDistance is skipped.
+volatile LONG enginesNearSkipped = 0;
+bool EngineNearPlayer(uint32_t pointer, const Viewer* viewers, unsigned viewerCount) {
+    V3 p;
+    if (!viewers || !ReadV3(pointer + kSpawnerPos, p)) return false;
+    for (unsigned i = 0; i < viewerCount; ++i)
+        if (viewers[i].alive && survival::Distance(p, viewers[i].feet) < cfg.minDistance) return true;
+    return false;
+}
+uintptr_t PickEngine(Engine** used, const Viewer* viewers, unsigned viewerCount) {
     *used = nullptr;
     for (auto& e : engines) {
         // 17.10., Marker Labs: an engine that put its enemies back behind a locked door twice was
         // still used for five more, the avoid list was only asked by the area rule picker
         if (e.bad || !e.pointer || EngineAvoided(e.pointer)) continue;
         if (!KnownSpawnerUsable(e.pointer, e.row->spawner)) { e.pointer = 0; continue; }
+        if (EngineNearPlayer(e.pointer, viewers, viewerCount)) { InterlockedIncrement(&enginesNearSkipped); continue; }
         *used = &e;
         return e.pointer;
     }
@@ -2245,6 +2259,9 @@ int MarkerIndex(const Guid& vent) {
 // spawning header is pointed at the chosen vent (ventRedirect, OnLookup); the
 // vent least recently used goes first.
 bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, unsigned viewerCount) {
+    unsigned living = 0;
+    for (unsigned i = 0; i < viewerCount; ++i) living += viewers[i].alive ? 1u : 0u;
+    const float ventMin = survival::VentMinFor(cfg, living);
     struct Pick { size_t spot = SIZE_MAX, marker = SIZE_MAX; float nearest = 0.0f, roll = 0.0f; uint32_t used = 0; float walk = -1.0f; };
     Pick pick, winding;
     reachRewalks = 6;
@@ -2278,7 +2295,7 @@ bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, un
                     const float away = survival::Distance(at, viewers[i].feet);
                     if (away < nearest) { nearest = away; nearestFeetY = viewers[i].feet.y; nearestFeet = viewers[i].feet; }
                 }
-            if (nearest < cfg.ventMinDistance) { ++run.refusals.ventClose; continue; }
+            if (nearest < ventMin) { ++run.refusals.ventClose; continue; }
             if (nearest > VentMaxDistanceHere(now)) { ++run.refusals.ventFar; continue; }
             // the MP maps' high wall vents are the necro players' (their slashers only use floor-level
             // ones; 13.10. on Solar Array they came out 7 m up). Measured from the walkable floor below
@@ -2379,9 +2396,11 @@ bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, un
 // alone gets enemies near him too.
 constexpr uint32_t kRelaxShorterMs = 4000, kRelaxCornerMs = 8000, kRelaxFacingMs = 14000, kRelaxSightMs = 22000;
 constexpr float kCornerDistance = 3.0f;
+// 13.11. mp_escape, solo: a Leaper waited 15 s for a busy vent, and its first direct search
+// already ran at level 3 (3 m) because the levels counted from the item's start.
 unsigned RelaxLevel(uint32_t now) {
-    if (!run.itemSince) return 0;
-    const uint32_t wait = now - run.itemSince;
+    if (!run.directSince) return 0;
+    const uint32_t wait = now - run.directSince;
     return wait >= kRelaxSightMs ? 4 : wait >= kRelaxFacingMs ? 3 : wait >= kRelaxCornerMs ? 2 : wait >= kRelaxShorterMs ? 1 : 0;
 }
 const char* RelaxName(unsigned level) {
@@ -2437,7 +2456,7 @@ void SearchStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
     if (relax > run.relaxLogged) {
         run.relaxLogged = relax;
         Event("wave %u: no spot for %u s with %u player(s) and bot(s): search relaxed to level %u (%s)", run.wave,
-              static_cast<unsigned>((now - run.itemSince) / 1000), viewerCount, relax, RelaxName(relax));
+              static_cast<unsigned>((now - run.directSince) / 1000), viewerCount, relax, RelaxName(relax));
     }
     const survival::PointRules rules = RelaxedRules(relax);
     // the anchor takes turns among the living; a dead player waiting for the wave end is none
@@ -2544,6 +2563,7 @@ void SearchStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
 }
 
 bool TryDirect(const survival::Item& item, uint32_t now, const Viewer* viewers, unsigned viewerCount) {
+    if (!run.directSince) run.directSince = now ? now : 1;
     if (!viewerCount) return false;
     V3 spot;
     const bool follower = !item.groupHead && run.packDirect && now - run.packAt < 3000;
@@ -2571,7 +2591,7 @@ bool TryDirect(const survival::Item& item, uint32_t now, const Viewer* viewers, 
                              : PickEscalated("direct:" + item.family + (item.package.empty() ? "" : ":" + item.package), *plainList, enhancedList), nullptr, nullptr);
     if (donor == SIZE_MAX) { ++run.refusals.noDonor; Refuse("no direct donor left", item, nullptr); return false; }
     Engine* engine = nullptr;
-    const uintptr_t spawner = PickEngine(&engine);
+    const uintptr_t spawner = PickEngine(&engine, viewers, viewerCount);
     if (!spawner) { ++run.refusals.noEngine; Refuse("no engine spawner", item, "(no live prop spawner and no area rule spawner)"); return false; }
     ds2::ExtraSpawnRule rule;
     rule.kind = item.family;
@@ -2743,6 +2763,7 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
                 Event("wave %u: an Ubermorph (%08X) is already hunting; no second one", run.wave, t.actor);
                 ++run.next;
                 run.itemSince = 0;
+                run.directSince = 0;
                 return;
             }
     }
@@ -2765,6 +2786,7 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
         run.lastSpawnAt = now;
         ++run.next;
         run.itemSince = 0;
+        run.directSince = 0;
         return;
     }
     // an item that cannot be placed for 30 s is given up, so the wave can end
@@ -2778,6 +2800,7 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
               run.refusals.verdict[static_cast<unsigned>(survival::PointVerdict::OtherFloor)], run.refusals.notMade, run.refusals.ventBusy, run.refusals.ventSeen);
         ++run.next;
         run.itemSince = 0;
+        run.directSince = 0;
     }
 }
 
@@ -4495,6 +4518,7 @@ void StartWave(unsigned n, uint32_t now) {
     ArenaBrutes(run.queue);
     run.next = 0;
     run.itemSince = 0;
+    run.directSince = 0;
     run.waveAt = now;
     run.lastSpawnAt = now;
     run.wc = Counters{};
@@ -4667,6 +4691,7 @@ void VersusBegin(uint32_t now, int round) {
     run.queue.clear();
     run.next = 0;
     run.itemSince = 0;
+    run.directSince = 0;
     run.vDroppedSeen = run.rc.dropped;
     run.vMade.clear();
     run.vBag.clear();
@@ -4755,6 +4780,7 @@ void VersusTick(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
             run.vLastSkin = head.package;
             head.path = ItemHasVent(head) ? survival::Path::Vent : survival::Path::Direct;
             run.itemSince = now;
+            run.directSince = 0;
             Event("versus: no open vent for a super slasher in %u s; a %s with the super health instead", cfg.ventWaitMs / 1000, head.package.c_str());
         }
     }
@@ -5567,11 +5593,11 @@ void Install(FILE* log, const std::string& directory) {
         return;
     }
     std::fprintf(log, "survival config map=%s start_delay_s=%u start_key=%u max_alive=%u interval_ms=%u pause_s=%u distance=%.0f..%.0f bot_min=%.0f ideal=%.0f floor_band=%.1f wall_clearance=%.1f other_floor_bonus=%.1f "
-                      "path_factor=%.1f vents=%d vent_share=%u vent_gap_ms=%u vent_los=%d vent_m=%.0f..%.0f vent_max_above=%.1f vent_must_reach=%d catch_up=%.0f..%.0fm/%us vent_cross_family=%d vent_ignore_vent_families=%d stuck_s=%u vent_stuck_s=%u inert_s=%u "
+                      "path_factor=%.1f vents=%d vent_share=%u vent_gap_ms=%u vent_los=%d vent_m=%.0f(-%.0f per extra player or bot)..%.0f vent_max_above=%.1f vent_must_reach=%d catch_up=%.0f..%.0fm/%us vent_cross_family=%d vent_ignore_vent_families=%d stuck_s=%u vent_stuck_s=%u inert_s=%u "
                       "engage_m=%.0f timed_end_kill=%d super=%d nav_reserve_kib=%u rewards ammo=%u med=%u(size %u) credits=%u stasis=%u endless=%u..%u +%u%% "
                       "boss_every=%u waves=%zu notices=%d\n",
                  cfg.map.c_str(), cfg.startDelayS, cfg.startKey, cfg.maxAlive, cfg.intervalMs, cfg.pauseS, cfg.minDistance, cfg.maxDistance, cfg.botMinDistance, cfg.idealDistance,
-                 cfg.floorBand, cfg.wallClearance, cfg.otherFloorBonus, cfg.maxPathFactor, cfg.ventSpawns ? 1 : 0, cfg.ventSharePercent, cfg.ventGapMs, cfg.ventLineOfSight ? 1 : 0, cfg.ventMinDistance, cfg.ventMaxDistance,
+                 cfg.floorBand, cfg.wallClearance, cfg.otherFloorBonus, cfg.maxPathFactor, cfg.ventSpawns ? 1 : 0, cfg.ventSharePercent, cfg.ventGapMs, cfg.ventLineOfSight ? 1 : 0, cfg.ventMinDistance, cfg.ventMinStep, cfg.ventMaxDistance,
                  cfg.ventMaxAbove, cfg.ventMustReach ? 1 : 0, cfg.catchUpMeters, cfg.catchUpMetersFour, cfg.catchUpMs / 1000u, cfg.ventCrossFamily ? 1 : 0, cfg.ventIgnoreFamilyOff ? 1 : 0, cfg.stuckS, cfg.ventStuckS, cfg.inertS, cfg.engageMeters, cfg.timedEndKill ? 1 : 0, cfg.superVariants ? 1 : 0,
                  cfg.navReserveKiB, cfg.rewardAmmoPerGun, cfg.rewardMedPacks, cfg.rewardMedSize, cfg.rewardCredits, cfg.rewardStasis, cfg.endlessFrom,
                  cfg.endlessTo, cfg.endlessGrowthPercent, cfg.bossEvery, cfg.waves.size(), cfg.notices ? 1 : 0);
@@ -5733,10 +5759,11 @@ void WriteDiagnostics(FILE* log) {
                  static_cast<unsigned long>(streamProbeThread), InterlockedCompareExchange(&tickFaults, 0, 0),
                  InterlockedCompareExchange(&faults, 0, 0), lastFaultAddress, InterlockedCompareExchange(&linesWritten, 0, 0),
                  InterlockedCompareExchange(&linesOverBudget, 0, 0), InterlockedCompareExchange(&linesLost, 0, 0));
-    std::fprintf(log, "survival placements replaced=%ld written_off_requeued_by_vent=%ld walked_not_placed=%ld engines_forgiven=%ld vents_retired=%ld vent_retired_skips=%ld | nav reports=%ld reached=%ld short=%ld no_path=%ld\n", InterlockedCompareExchange(&replacedSpawns, 0, 0),
+    std::fprintf(log, "survival placements replaced=%ld written_off_requeued_by_vent=%ld walked_not_placed=%ld engines_forgiven=%ld vents_retired=%ld vent_retired_skips=%ld engines_near_player_skipped=%ld | nav reports=%ld reached=%ld short=%ld no_path=%ld\n", InterlockedCompareExchange(&replacedSpawns, 0, 0),
                  InterlockedCompareExchange(&requeuedToVent, 0, 0), InterlockedCompareExchange(&walkedNotPlaced, 0, 0),
                  InterlockedCompareExchange(&enginesForgiven, 0, 0), InterlockedCompareExchange(&ventsRetired, 0, 0),
-                 InterlockedCompareExchange(&ventRetiredSkips, 0, 0), InterlockedCompareExchange(&navReports, 0, 0), InterlockedCompareExchange(&navReached, 0, 0),
+                 InterlockedCompareExchange(&ventRetiredSkips, 0, 0), InterlockedCompareExchange(&enginesNearSkipped, 0, 0),
+                 InterlockedCompareExchange(&navReports, 0, 0), InterlockedCompareExchange(&navReached, 0, 0),
                  InterlockedCompareExchange(&navShort, 0, 0), InterlockedCompareExchange(&navNoPath, 0, 0));
     size_t directCopies = 0;
     for (const auto& f : twitcherDirect) directCopies += f.second.size();
