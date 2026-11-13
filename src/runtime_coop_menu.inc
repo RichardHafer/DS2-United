@@ -10,6 +10,7 @@
 // Never reached from here: the login (UIFrontendManager::Transition(3)),
 // matchmaking (0x00A5A4E0), playgroups (0x00AA45F0) and the lobby, leaderboard,
 // friends and character screens. All of them need Blaze or the EA login.
+#include "united_version.h"
 namespace nativelobby { bool HostWants(); bool OpenFromPicker(uint32_t entry, const char* map); }   // runtime_coop_nativelobby.inc
 namespace loadout { bool OpenFromMenu(); }   // runtime_coop_loadout.inc: the character setup on item 4
 namespace gamemode_nav { void Sound(); }   // runtime_coop_gamemode.inc: the menu navigation sound
@@ -55,9 +56,19 @@ constexpr uint32_t kTextMainMenuTitle = 0xD701A383, kTextMultiplayerTitle = 0xDC
 const char kMainMenuTitle[] = "/United", kModesTitle[] = "//gamemodes";
 constexpr uint32_t kFormatLookupCall = 0xF71A1C, kLocaleLookup = 0xF70B60;
 volatile LONG titleLookups = 0;
+// The release notice, once per game start: when the main menu first shows its title, or at
+// the start when no main menu hook can tell.
+volatile LONG releaseNoticeShown = 0;
+void ReleaseNotice(DWORD ms) {
+    if (InterlockedExchange(&releaseNoticeShown, 1)) return;
+    overlay::ShowNotice("DEAD SPACE 2 UNITED " DS2UNITED_VERSION ": A HIGHLY EXPERIMENTAL RELEASE",
+                        "Expect crashes and bugs. Back up your saves before you play.",
+                        "F1 shows the keys. Problems: send the logs from the plugins folder to the Dead Space Modding Discord.", ms);
+}
 const char* __fastcall FormatMenuText(void* locale, void*, uint32_t hash) {
     if (hash == kTextMainMenuTitle) {
         InterlockedIncrement(&titleLookups);
+        ReleaseNotice(7000);
         return kMainMenuTitle;
     }
     return reinterpret_cast<const char*(__thiscall*)(void*, uint32_t)>(base + kLocaleLookup)(locale, hash);
@@ -701,13 +712,16 @@ void Install(FILE* log, const std::string& ini) {
     // the hint cards need the overlay in the menus too
     overlay::hintsOn = GetPrivateProfileIntA("Notice", "OverlayHints", 1, ini.c_str()) != 0;
     overlay::hintMaxMs = static_cast<DWORD>(GetPrivateProfileIntA("Notice", "OverlayHintSeconds", 5, ini.c_str())) * 1000u;
-    if (overlay::hintsOn && !overlay::ready) overlay::Install(log, ini);
+    if (!overlay::ready) overlay::Install(log, ini);   // hint cards and the release notice
     std::fprintf(log, "hint cards %s ([Notice] OverlayHints): refusals and warnings say why and how to fix it\n", overlay::hintsOn ? (overlay::ready ? "on" : "on, overlay NOT installed") : "off");
     helpKey = static_cast<int>(GetPrivateProfileIntA("Menu", "HelpKey", VK_F1, ini.c_str()));
     if (helpKey > 0 && !overlay::ready) overlay::Install(log, ini);
     if (helpKey > 0 && overlay::ready) pagesIni = ini;
     std::fprintf(log, "help key %d ([Menu] HelpKey): %s\n", helpKey,
                  helpKey <= 0 ? "off" : overlay::ready ? "shows the how to play page in menus and levels" : "overlay NOT installed, no page");
+    std::fprintf(log, "Dead Space 2 United %s, a highly experimental release: notice on the main menu, overlay %s\n", DS2UNITED_VERSION,
+                 overlay::ready ? "ready" : "NOT installed");
+    if (!enabled || !mpmap::enabled) ReleaseNotice(7000);
     if (!enabled) { std::fprintf(log, "menu off ([Menu] Enabled=0)\n"); return; }
     if (!mpmap::enabled) { std::fprintf(log, "menu off: needs [MpMap] Enabled=1 for the launch\n"); return; }
     sitesOk = true;
@@ -737,7 +751,9 @@ void Install(FILE* log, const std::string& ini) {
     }
     bool ok = SetLabel(log, "main menu item 1", kPc01Labels + 4, kPc01MultiLabel, kSurvivalLabel);
     notice::AddOverride(kTextMainMenuTitle, kMainMenuTitle);
-    std::fprintf(log, "menu first title lookup: %s\n", InstallTitleLookup() ? "installed" : "unavailable; table override active");
+    const bool lookup = InstallTitleLookup();
+    if (!lookup) ReleaseNotice(7000);
+    std::fprintf(log, "menu first title lookup: %s\n", lookup ? "installed" : "unavailable; table override active");
     notice::AddOverride(kTextMultiplayerTitle, kModesTitle);
     notice::AddOverride(kTextEaAccount1, kHowToLabel);
     notice::AddOverride(kTextEaAccount2, kHowToLabel);

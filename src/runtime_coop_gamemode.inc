@@ -18,6 +18,11 @@ namespace gamemode {
 enum Mode : int { Survival = 0, Mercenaries = 1, Objective = 2, Zone = 3, Versus = 4, kCount };
 const char* const kNames[kCount] = {"survival", "mercenaries", "objective", "zone", "versus"};
 bool enabled = false;
+// Versus is not part of the release: off unless [Versus] Experimental=1. A new key on purpose,
+// so an old INI with [Versus] Enabled=1 does not bring it back. mpnative reads it from here.
+bool versusOn = false;
+bool VersusWanted(const std::string& ini) { return GetPrivateProfileIntA("Versus", "Experimental", 0, ini.c_str()) != 0; }
+LONG ModeCount() { return versusOn ? kCount : Versus; }
 volatile LONG mode = Survival;
 safetyhook::InlineHook setInfoHook;
 uint32_t inputOriginal = 0;
@@ -48,9 +53,11 @@ bool ArenaRow(const uint8_t* screen, char* name = nullptr, size_t size = 0) {
 // those it can play (survival when [Arena] Modes is off).
 LONG NextMode(const uint8_t* screen, LONG before, bool up) {
     char name[64]{};
-    if (!ArenaRow(screen, name, sizeof(name))) return (before + (up ? 1 : kCount - 1)) % kCount;
+    const LONG count = ModeCount();
+    if (before >= count) before = Survival;
+    if (!ArenaRow(screen, name, sizeof(name))) return (before + (up ? 1 : count - 1)) % count;
     if (!arena::modesOn) return before;
-    return coop_arena::StepMode(coop_arena::PointsFor(name), before, up ? 1 : -1, kCount);
+    return coop_arena::StepMode(coop_arena::PointsFor(name), before, up ? 1 : -1, count);
 }
 // What the row plays with the picked mode.
 int RowMode(const uint8_t* screen, LONG picked) {
@@ -762,8 +769,9 @@ void EarlyInstall(FILE* log, const std::string& ini) {
         InstallOpenOnly(log);
         return;
     }
+    versusOn = VersusWanted(ini);
     const int start = static_cast<int>(GetPrivateProfileIntA("Menu", "Mode", 0, ini.c_str()));
-    InterlockedExchange(&mode, start >= 0 && start < kCount ? start : Survival);
+    InterlockedExchange(&mode, start >= 0 && start < ModeCount() ? start : Survival);
     // read here: the difficulty module installs after the frontend opened
     threeWanted = GetPrivateProfileIntA("Difficulty", "Pick", 1, ini.c_str()) == 2;
     char exe[MAX_PATH]{};
@@ -1046,10 +1054,12 @@ void VerifyRestart(FILE* log) {
 void Install(FILE* log, const std::string& ini) {
     VerifyRestart(log);
     enabled = menu::installed && GetPrivateProfileIntA("Menu", "Modes", 1, ini.c_str()) != 0;
+    versusOn = VersusWanted(ini);
     const int wanted = static_cast<int>(GetPrivateProfileIntA("Menu", "Mode", 0, ini.c_str()));
     // Without the mode row every visit plays survival; [Menu] Mode only picks where the
     // row starts (13.10.: Modes=0 kept Mode, so every visit played that mode for good).
-    InterlockedExchange(&mode, enabled && wanted >= 0 && wanted < kCount ? wanted : Survival);
+    InterlockedExchange(&mode, enabled && wanted >= 0 && wanted < ModeCount() ? wanted : Survival);
+    std::fprintf(log, "gamemode modes: %ld (versus %s)\n", ModeCount(), versusOn ? "on, [Versus] Experimental=1" : "not in this release");
     if (!enabled) {
         std::fprintf(log, "gamemode off (%s): every visit plays survival%s\n", menu::installed ? "[Menu] Modes=0" : "the menu module is not installed",
                      wanted != Survival ? " ([Menu] Mode ignored)" : "");

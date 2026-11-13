@@ -22,7 +22,7 @@
 namespace loadout { bool FrontendXp(uint64_t id, uint32_t* xp); }   // runtime_coop_loadout.inc: the character setup's level
 namespace mpnative {
 namespace mp = coop_mpnative;
-bool enabled = true;
+bool enabled = false;
 unsigned humansWanted = 0;     // [Versus] Humans, 0 = half
 std::string profilePath;
 
@@ -347,7 +347,7 @@ bool HookAt(FILE* log, const char* name, uint32_t rva, const unsigned char* byte
 }
 
 void Install(FILE* log, const std::string& ini) {
-    enabled = GetPrivateProfileIntA("Versus", "Enabled", 1, ini.c_str()) != 0;
+    enabled = gamemode::VersusWanted(ini);
     humansWanted = GetPrivateProfileIntA("Versus", "Humans", 0, ini.c_str());
     if (humansWanted > mp::kMaxPlayers) humansWanted = 0;
     const size_t slash = ini.find_last_of("\\/");
@@ -374,7 +374,7 @@ void Install(FILE* log, const std::string& ini) {
         countOk = HookAt(log, "versus DGM::GetTeamCount", kTeamCountRva, kTeamCount, sizeof(kTeamCount), reinterpret_cast<void*>(OnTeamCount), teamCountHook);
     }
     std::fprintf(log, "versus %s: humans %u (0 = half), profile %s (XP %u, level %u, weapon %u, suit %u); stats guard %s/%s, team index %s, team count %s\n",
-                 enabled ? "on" : "off ([Versus] Enabled=0)", humansWanted, profilePath.c_str(), profile.xp, mp::LevelForXp(profile.xp), profile.weapon,
+                 enabled ? "on ([Versus] Experimental=1)" : "off (not in this release)", humansWanted, profilePath.c_str(), profile.xp, mp::LevelForXp(profile.xp), profile.weapon,
                  profile.skin, hasOk ? "in" : "MISSING", getOk ? "in" : "MISSING", teamOk ? "in" : enabled ? "MISSING" : "off", countOk ? "in" : enabled ? "MISSING" : "off");
 }
 void WriteDiagnostics(FILE* log) {

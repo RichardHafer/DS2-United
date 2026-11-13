@@ -1663,7 +1663,7 @@ void Install(FILE* log, const std::string& ini) {
     for (vs::Points& p : vs::kPoints) p.value = GetPrivateProfileIntA("VersusPoints", p.key, p.value, f);
     cfg.roundWin = GetPrivateProfileIntA("VersusPoints", "RoundWin", 1000, f);
     cfg.bothRounds = GetPrivateProfileIntA("VersusPoints", "BothRounds", 2000, f);
-    if (!mpnative::enabled) { std::fprintf(log, "versus match off ([Versus] Enabled=0)\n"); return; }
+    if (!mpnative::enabled) { std::fprintf(log, "versus match off (not in this release)\n"); return; }
     bool all = true;
     for (size_t i = 0; i < std::size(kSigs); ++i) {
         unsigned char want[32]{}, have[32]{};

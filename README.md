@@ -6,7 +6,7 @@
 
 A mod for the PC port of Dead Space 2 that brings co-op to the story and adds
 everything around it: survival game modes on the multiplayer maps and in
-campaign arenas, companion bots, versus against necromorph players, and the
+campaign arenas, companion bots, necromorph players invading the story, and the
 enemy randomizer with more enemies per spawn. Every part works solo too, and
 every part can be switched off on its own.
 
@@ -18,9 +18,10 @@ memory while you play.
 Before November 2026 this was the Co-op Mod (DS2Coop) and, earlier still, the
 Dead Space 2 Randomizer.
 
-> **Experimental release.** A lot of this has only been tested by a handful of
-> people. Expect rough edges, back up your saves, and send the logs when
-> something breaks.
+> **Version 0.1 is a highly experimental release.** A lot of this has only been
+> tested by a handful of people. Expect crashes and bugs, back up your saves,
+> and send the logs when something breaks. The settings window and the main
+> menu say so too.
 
 ## What it does
 
@@ -41,8 +42,8 @@ hold fire, attack or cover formation).
 - **Co-op** for up to four players through the whole campaign, over LAN or a
   virtual network such as Tailscale, ZeroTier or Radmin. The host leads levels,
   checkpoints and enemies; doors, lifts and scenes wait for everybody.
-- **Invasion**: a friend can join as a necromorph instead of a human and hunt
-  the others during their playthrough.
+- **Invasion** (experimental, off by default): a friend can join as a necromorph
+  instead of a human and hunt the others during their playthrough.
 - **Enemy randomizer**: every enemy spawn can become a different enemy, through
   the vent and at the spot the level authored, with the room's scripting still
   working. Seeded, so a seed always gives the same run. Enemies a story scene
@@ -73,8 +74,6 @@ them while any player lacks the file.
   a clock.
 - **Hold the Zone**: capture one zone after another while necromorphs try to
   stop you.
-- **Versus**: humans against necromorph players, with AI slashers on both sides.
-  The most experimental mode.
 - **Supply terminal** (V): suits, weapons, upgrades and gadgets for your
   credits, between waves or at any time if you allow it.
 - **Gadgets**: a turret, a stasis mine and a heal field.

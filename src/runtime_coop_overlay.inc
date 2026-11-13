@@ -525,6 +525,19 @@ void ShowInfo(const char* title, const char* line1, const char* line2, DWORD ms)
     hintShared.info = true;
     ReleaseSRWLockExclusive(&hintLock);
 }
+// The release notice: the info card past [Notice] OverlayHints and the hint length cap.
+void ShowNotice(const char* title, const char* line1, const char* line2, DWORD ms) {
+    if (InterlockedIncrement(&hintLines) <= 120) Line("notice: %s | %s | %s", title, line1, line2);
+    AcquireSRWLockExclusive(&hintLock);
+    std::snprintf(hintShared.what, sizeof(hintShared.what), "%s", title);
+    std::snprintf(hintShared.why, sizeof(hintShared.why), "%s", line1);
+    std::snprintf(hintShared.fix, sizeof(hintShared.fix), "%s", line2);
+    hintShared.until = GetTickCount() + ms;
+    if (!hintShared.until) hintShared.until = 1;
+    hintShared.info = true;
+    ReleaseSRWLockExclusive(&hintLock);
+    InterlockedIncrement(&hintShows);
+}
 // Render thread: takes the current card; true while it is up.
 bool TakeHint() {
     AcquireSRWLockShared(&hintLock);

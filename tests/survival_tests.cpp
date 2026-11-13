@@ -475,9 +475,16 @@ void VersusSlashers() {
     const auto& d = none.versus;
     assert(d.enabled && d.alive == 5 && d.respawnMinS == 25 && d.respawnMaxS == 40 && d.health == 80 && d.superHealth == 200);
     assert(VersusSkinsFor(d, "mp_gov") == std::vector<std::string>{"slasher"} && VersusAliveFor(d, "pdlc_mp_school") == 5);
-    // the shipped template: the user's skins per map (11.10.), Academy with three
-    const Config shipped = ParseConfig(ReadFile("DS2Survival.ini"));
-    assert(shipped.warnings.empty());
+    // the user's skins per map (11.10.), Academy with three; Versus left the template on 13.11.
+    assert(ReadFile("DS2Survival.ini").find("[VersusSlashers]") == std::string::npos);
+    const Config shipped = ParseConfig("[VersusSlashers]\nEnabled=1\nAlive=5\nAlivePerMap=pdlc_mp_school:3\n[VersusSkins]\nDefault=slasher\n"
+                                       "mp_bombRun=slasher_miner, slasher_var1, slasher_var2\n"
+                                       "mp_gov=slasher_doctor, slasher_hospital, slasher_gov_worker, slashersecurity\n"
+                                       "pdlc_mp_mall=slasher_male_civilian, slasher_fem_civilian, slasher_fem_eyes\n"
+                                       "pdlc_mp_school=slasher_male_civilian, slasher_fem_civilian, slasher_fem_eyes\n"
+                                       "mp_detonate=slasher, slasher_fanatic, slasherclergy\nmp_escape=slasher, slasher_fanatic, slasherclergy\n"
+                                       "mp_solar=slasher, slasher_fanatic, slasherclergy\n");
+    for (const auto& w : shipped.warnings) assert(w.find("Versus") == std::string::npos);
     const auto& s = shipped.versus;
     assert((VersusSkinsFor(s, "MP_BOMBRUN") == std::vector<std::string>{"slasher_miner", "slasher_var1", "slasher_var2"}));
     assert((VersusSkinsFor(s, "mp_gov") == std::vector<std::string>{"slasher_doctor", "slasher_hospital", "slasher_gov_worker", "slashersecurity"}));

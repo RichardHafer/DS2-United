@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace DS2CoopConfig
 {
-    // The co-op, bot, survival and versus switches a player is likely to change.
+    // The co-op, bot, survival and multiplayer switches a player is likely to change.
     // Defaults and clamps follow the plugin source (src/runtime_coop_*.inc,
     // src/survival.h); the recommended values are the repository templates.
     static class Curated
@@ -14,7 +14,7 @@ namespace DS2CoopConfig
         public const string Coop = "Co-op";
         public const string Bots = "Bots";
         public const string Survival = "Survival";
-        public const string Versus = "Versus";
+        public const string Multiplayer = "Multiplayer";
         public const string Extras = "Look & Extras";
 
         static readonly Func<long, long> AsIs = v => v;
@@ -70,7 +70,7 @@ namespace DS2CoopConfig
             return Validators.PlainText(v, 127);
         }
 
-        static readonly string[] Modes = { "survival", "mercenaries", "objective", "hold the zone", "versus" };
+        static readonly string[] Modes = { "survival", "mercenaries", "objective", "hold the zone" };
 
         // src/runtime_coop_rigcolor.inc kChoices
         static readonly string[] SuitColors = { "stock", "red", "orange", "yellow", "lime", "green", "blue", "purple", "pink", "white", "gray" };
@@ -142,8 +142,7 @@ namespace DS2CoopConfig
             return Validators.PlainText(v, 63) ?? (KnownMap(v) ? null : "No map is called that. Use one of: " + MapList + ".");
         }
 
-        // Survival waves and the enemy pool are what every wave mode, the Versus AI
-        // slashers and the arenas need. With the randomizer's master switch off the
+        // Survival waves and the enemy pool are what every wave mode and the arenas need. With the randomizer's master switch off the
         // director still runs on its own (survival-only mode), so that switch is not checked.
         static string DirectorOff(Model m)
         {
@@ -267,10 +266,10 @@ namespace DS2CoopConfig
             if (map.Trim().StartsWith("pdlc_", StringComparison.OrdinalIgnoreCase) && OutbreakInstalled() == false)
                 return map.Trim() + " is an Outbreak map, and this game has no DS2DAT12.DAT (it comes with Mark's Dead Space 2 Multiplayer). The map is not in the map picker, so no map gets waves. Set it to any, or install the Outbreak maps.";
             if (m.On("Menu.Enabled"))
-                return "Only " + map + " gets waves: every other map and arena in the main menu's map picker has no enemies (Versus aside). Set it to any.";
+                return "Only " + map + " gets waves: every other map and arena in the main menu's map picker has no enemies. Set it to any.";
             string visit = m.Get("MpMap.Map").Trim();
             if (m.On("MpMap.Enabled") && visit.Length > 0 && !visit.Equals(map, StringComparison.OrdinalIgnoreCase))
-                return "The visit key loads " + visit + " (Versus page), which gets no waves. Set it to any or " + visit + ".";
+                return "The visit key loads " + visit + " (Multiplayer page), which gets no waves. Set it to any or " + visit + ".";
             return null;
         }
 
@@ -279,9 +278,9 @@ namespace DS2CoopConfig
             if (!m.On("Menu.Enabled")) return null;
             string coop = CoopHalfOff(m);
             if (coop != null) return "The main menu stays as it is: " + CoopHalfGone + ". " + coop;
-            if (!m.On("MpMap.Enabled")) return "Needs the multiplayer map visit (Versus page); without it the main menu stays as it is. Turn it on.";
+            if (!m.On("MpMap.Enabled")) return "Needs the multiplayer map visit (Multiplayer page); without it the main menu stays as it is. Turn it on.";
             string director = DirectorOff(m);
-            return director == null ? null : "No map in the map picker gets waves, and Versus no AI slashers, while " + director;
+            return director == null ? null : "No map in the map picker gets waves while " + director;
         }
 
         // Bonuses that never shrink (fade 0 or a 100 % floor) and no run limit: a good
@@ -363,7 +362,7 @@ namespace DS2CoopConfig
                 "Single player becomes co-op: whoever starts or loads a game hosts, and \"previously on Dead Space\" becomes join co-op. A joiner arrives at the host's next checkpoint restart; his own saves stay untouched.")
                 .Under("Levels, doors and loading")
                 .Warn(m => m.On("Menu.CampaignCoop") && (!m.On("Menu.Enabled") || !m.On("MpMap.Enabled"))
-                    ? "Does nothing while Survival in the main menu (Survival page) or the multiplayer map visit (Versus page) is off." : null));
+                    ? "Does nothing while Survival in the main menu (Survival page) or the multiplayer map visit (Multiplayer page) is off." : null));
             add(B(Coop, "Level", "FollowHost", 1, "Follow the host's level",
                 "A client loads the map the host plays. After joining only a new map is followed, so crossing a checkpoint reloads nobody."));
             add(B(Coop, "Checkpoint", "FollowRestart", 1, "Restart with the host",
@@ -560,7 +559,7 @@ namespace DS2CoopConfig
 
             // ---- Survival
             add(B(Survival, "Survival", "Enabled", 0, "Survival waves",
-                "The wave director behind every wave mode, the Versus AI slashers and the campaign arenas. It runs only on the survival map below and needs the cross-level enemy pool (Loading page).")
+                "The wave director behind every wave mode and the campaign arenas. It runs only on the survival map below and needs the cross-level enemy pool (Loading page).")
                 .Under("Waves")
                 .Warn(m =>
                 {
@@ -568,10 +567,10 @@ namespace DS2CoopConfig
                         return m.On("DS2Randomizer.GlobalTemplates") ? null
                             : "Every survival map loads empty while the cross-level enemy pool (Loading page) is off. Turn it on.";
                     return m.On("Menu.Enabled")
-                        ? "Off: no map in the main menu's map picker gets waves, and Versus no AI slashers. Turn it on, or turn Survival in the main menu off." : null;
+                        ? "Off: no map in the main menu's map picker gets waves. Turn it on, or turn Survival in the main menu off." : null;
                 }));
             add(T(Survival, "Survival", "Map", "mp_bombRun", "Survival map",
-                "Where the waves run: any for every multiplayer map, the Outbreak maps and the campaign arenas, or one of mp_bombRun, mp_detonate, mp_escape, mp_gov, mp_solar, pdlc_mp_mall (Concourse), pdlc_mp_school (Academy), arena_ch01 (tripod room), arena_ch03 (church crypt), arena_ch03b (church sanctuary), arena_ch04, arena_ch05 (Sprawl hub), arena_ch08 (Ishimura), arena_ch09 (mining entry hall), arena_ch10 and arena_ch11 (Marker floor). Versus ignores it. The best wave is kept per map.",
+                "Where the waves run: any for every multiplayer map, the Outbreak maps and the campaign arenas, or one of mp_bombRun, mp_detonate, mp_escape, mp_gov, mp_solar, pdlc_mp_mall (Concourse), pdlc_mp_school (Academy), arena_ch01 (tripod room), arena_ch03 (church crypt), arena_ch03b (church sanctuary), arena_ch04, arena_ch05 (Sprawl hub), arena_ch08 (Ishimura), arena_ch09 (mining entry hall), arena_ch10 and arena_ch11 (Marker floor). The best wave is kept per map.",
                 SurvivalMap)
                 .Warn(MapWarning));
             add(C(Survival, "Survival", "StartDelaySeconds", 20, 0, 600, "First wave after (s)",
@@ -595,31 +594,29 @@ namespace DS2CoopConfig
                 .Under("Main menu and modes")
                 .Warn(MenuWarning));
             add(B(Survival, "Menu", "Modes", 1, "Game modes in the map picker",
-                "Up and down in the map picker switch between survival, mercenaries, objective, hold the zone and versus. Off: every visit plays survival.")
+                "Up and down in the map picker switch between survival, mercenaries, objective and hold the zone. Off: every visit plays survival.")
                 .Warn(m =>
                 {
                     string director = m.On("Menu.Modes") && m.On("Menu.Enabled") ? DirectorOff(m) : null;
-                    return director == null ? null : "Survival, mercenaries, objective and hold the zone have no enemies, and versus no AI slashers, while " + director;
+                    return director == null ? null : "Survival, mercenaries, objective and hold the zone have no enemies while " + director;
                 }));
-            add(C(Survival, "Menu", "Mode", 0, 0, 4, "Starting mode",
-                "The mode the map picker starts with: 0 survival, 1 mercenaries, 2 objective, 3 hold the zone, 4 versus.")
-                .Adjust(v => v < 0 || v > 4 ? 0 : v)
+            add(C(Survival, "Menu", "Mode", 0, 0, 3, "Starting mode",
+                "The mode the map picker starts with: 0 survival, 1 mercenaries, 2 objective, 3 hold the zone.")
+                .Adjust(v => v < 0 || v > 3 ? 0 : v)
                 .Hint(m =>
                 {
                     if (!m.On("Menu.Enabled") || !m.On("Menu.Modes"))
                         return "Ignored while " + (m.On("Menu.Enabled") ? "Game modes in the map picker" : "Survival in the main menu") + " is off: every visit plays survival.";
                     long v = m.Int("Menu.Mode");
                     return v >= 0 && v < Modes.Length ? "Starts with " + Modes[v] + "." : null;
-                })
-                .Warn(m => m.On("Menu.Enabled") && m.On("Menu.Modes") && m.Int("Menu.Mode") == 4 && !m.On("Versus.Enabled")
-                    ? "Starts with versus, but Versus (Versus page) is off, so that pick loads a map with no round. Turn Versus on, or start with another mode." : null));
+                }));
             add(B(Survival, "Menu", "ExtraMaps", 1, "Outbreak maps",
                 "The map picker also lists Concourse and Academy when DS2DAT12.DAT is in the game folder. Co-op partners need the same file."));
             add(B(Survival, "Arena", "Arenas", 1, "Campaign arenas",
                 "The recorded campaign arenas in the survival map picker. An arena keeps its rooms loaded and locks the doors out of it.")
                 .Warn(ArenaWarning));
             add(B(Survival, "Arena", "Modes", 1, "Arenas in every mode",
-                "An arena plays Mercenaries or Hold the Zone when picked (Objective and Versus play survival there), a death respawns inside the arena and co-op partners join the arena with the host. Off: survival only, a death reloads the arena."));
+                "An arena plays Mercenaries or Hold the Zone when picked (Objective plays survival there), a death respawns inside the arena and co-op partners join the arena with the host. Off: survival only, a death reloads the arena."));
             add(C(Survival, "Mercenaries", "StartSeconds", 150, 30, 900, "Mercenaries: starting clock (s)",
                 "The time you start with. Kills and time capsules add to it; when it reaches zero the run is over.")
                 .Under("Mercenaries and Hold the Zone"));
@@ -664,7 +661,7 @@ namespace DS2CoopConfig
                 "Respawns per wave when you play solo; every cleared wave fills them up again.")
                 .Adjust(v => v < 0 || v > 99 ? 1 : v));
             add(B(Survival, "SurvivalMusic", "Enabled", 0, "Wave music",
-                "Music while a wave, a Mercenaries, Objective or Zone run or a Versus round is on: the original multiplayer tracks when the map has them, else the campaign's action music, which grows with the danger. A calm piece plays between the waves."));
+                "Music while a wave, a Mercenaries, Objective or Zone run is on: the original multiplayer tracks when the map has them, else the campaign's action music, which grows with the danger. A calm piece plays between the waves."));
             add(B(Survival, "Cleanup", "PickupCap", 1, "Item limit",
                 "Above the limit the oldest drops on the map fade away, never ones near a player or bot and never capsules. Hundreds of items cost frame rate."));
             add(C(Survival, "Cleanup", "MaxPickups", 40, 5, 400, "Items on the map",
@@ -681,86 +678,41 @@ namespace DS2CoopConfig
                 "The short event line under the status line, with the same choices. Empty: the status line's colour.",
                 v => HudColor(v, true)));
 
-            // ---- Versus
-            add(B(Versus, "Versus", "Enabled", 1, "Versus",
-                "Humans against necromorph players, picked in the map picker like the other modes. The host splits the teams; necromorph players start each round as the ghost and pick a vent. Experimental.")
-                .Under("Match")
-                .Warn(m =>
-                {
-                    if (m.On("Versus.Enabled"))
-                        return m.On("Necro.Enabled") ? null : "Necromorph players (below) is off, so the necro team spawns as Isaac. Turn it on.";
-                    return m.On("Menu.Enabled") && m.On("Menu.Modes")
-                        ? "Off: the map picker still offers versus, and picking it loads a map with no round and no AI slashers. Turn it on unless nobody picks versus." : null;
-                }));
-            add(B(Versus, "Necro", "Enabled", 0, "Necromorph players",
-                "The necro team plays necromorphs: each necro player picks a type and comes out of a vent. Off: the necro team spawns as Isaac.")
-                .Warn(m => !m.On("Necro.Enabled") && m.On("Versus.Enabled")
-                    ? "Off: in Versus the necro team spawns as Isaac, so every round is Isaac against Isaac. Turn it on." : null));
-            add(C(Versus, "Versus", "Humans", 0, 0, 8, "Humans per round",
-                "0 = half the players, rounded up.").Adjust(v => v > 8 || v < 0 ? 0 : v));
-            add(B(Versus, "Versus", "Rounds", 1, "Two rounds",
-                "Two rounds with the sides swapped; the host ends each round."));
-            add(N(Versus, "Versus", "SwapSeconds", 12, 0, 600, "Side swap after (s)",
-                "Seconds from the end of a round to the side swap. Values below 3 are raised to 3.")
-                .Adjust(v => v >= 0 && v < 3 ? 3 : v)
-                .Warn(m => m.Int("Versus.SwapSeconds") < 3 ? "The plugin raises this to 3." : null));
-            add(B(Versus, "Versus", "Inventory", 0, "RIG inventory",
-                "On keeps the inventory usable. Off is the multiplayer rule: no inventory, Tab is the scoreboard, and guns, heal and stasis stay on their quick keys."));
-            add(Key(Versus, "Versus", "ScoreKey", 9, "Scoreboard key",
-                "Hold it for the scoreboard.", null));
-            add(B(Versus, "Versus", "CombatText", 1, "Combat text",
-                "The points over each scoring event."));
-            add(B(Versus, "Versus", "MpLoot", 1, "Multiplayer loot",
-                "The AI slashers drop what the maps' own slashers do: universal ammo, health kits and stasis batteries, no credits."));
-            add(B(Versus, "Bot", "VersusDeaths", 1, "Bots can die in Versus",
-                "In Versus the bots can die and come back after a short delay at a spawn point near their team. Everywhere else they never die."));
-            add(N(Versus, "VersusPoints", "HumanKill", 100, -100000, 100000, "Points per kill (human)",
-                "Points a human player scores for a kill.").Under("Points"));
-            add(N(Versus, "VersusPoints", "NecroKill", 100, -100000, 100000, "Points per kill (necromorph)",
-                "Points a necromorph player scores for a kill."));
-            add(N(Versus, "VersusPoints", "Objective", 200, -100000, 100000, "Points per objective",
-                "Points for completing an objective."));
-            add(N(Versus, "VersusPoints", "TeamKill", -100, -100000, 100000, "Points for a team kill",
-                "Normally negative: the penalty for killing a teammate."));
-            add(B(Versus, "VersusSlashers", "Enabled", 1, "AI slashers",
-                "The host keeps AI slashers on the map in place of the map's own, with the map's skins. More super slashers come while the humans dominate.")
-                .Under("AI slashers")
-                .Warn(m =>
-                {
-                    string director = m.On("VersusSlashers.Enabled") && m.On("Versus.Enabled") ? DirectorOff(m) : null;
-                    if (director == null) return null;
-                    return "Versus rounds get no AI slashers" + (m.Flag("MpMap.BlockMpSlashers", true) ? " (the maps' own stay blocked)" : "") + " while " + director;
-                }));
-            add(C(Versus, "VersusSlashers", "Alive", 5, 0, 12, "AI slashers alive",
-                "How many at once. Single maps can have their own count (AlivePerMap, Expert page)."));
-            add(B(Versus, "NativeLobby", "Enabled", 0, "Pre-game lobby",
-                "The game's own lobby screen for host co-op, with every player's level and signal; in Versus the humans fill the top rows. Experimental.")
+            // ---- Multiplayer
+            add(B(Multiplayer, "Necro", "Enabled", 0, "Necromorph players",
+                "Story co-op with necromorph players (invasion): a player joins as a necromorph from the story screen's join row or with the necro key, picks a type and comes out of a vent near the humans. Experimental.")
+                .Under("Necromorph players"));
+            add(B(Multiplayer, "Necro", "Invasion", 1, "Invasion rules",
+                "With necromorph players in story co-op: a living necro goes back into the vents while a human plays a scene, the ghost camera stays near the humans, and a necro opens the door it stands at. Off: necro players without those rules.")
+                .Warn(m => m.On("Necro.Invasion") || !m.On("Necro.Enabled") ? null : "Off with necromorph players on: a necro can stand in a human's scene and the ghost camera does not follow the humans."));
+            add(B(Multiplayer, "NativeLobby", "Enabled", 0, "Pre-game lobby",
+                "The game's own lobby screen for host co-op, with every player's level and signal. Experimental.")
                 .Under("Lobby and character setup")
                 .Warn(m => m.On("NativeLobby.Enabled") && !m.On("Menu.Enabled") ? "Needs Survival in the main menu (Survival page)." : null));
-            add(B(Versus, "NativeLobby", "LaunchButton", 1, "Host LAUNCH button",
+            add(B(Multiplayer, "NativeLobby", "LaunchButton", 1, "Host LAUNCH button",
                 "The host starts the match with LAUNCH on the lobby's help bar (click) or select (A, Enter). Off: select only."));
-            add(C(Versus, "NativeLobby", "LaunchSeconds", 3, 1, 10, "Launch countdown (s)",
+            add(C(Multiplayer, "NativeLobby", "LaunchSeconds", 3, 1, 10, "Launch countdown (s)",
                 "Seconds from the host's launch to the start."));
-            add(C(Versus, "NativeLobby", "AutoStartSeconds", 0, 0, 5999, "Start by itself after (s)",
+            add(C(Multiplayer, "NativeLobby", "AutoStartSeconds", 0, 0, 5999, "Start by itself after (s)",
                 "0: the lobby waits until the host launches. Above 0: the countdown also starts by itself once enough players are in."));
-            add(C(Versus, "NativeLobby", "MinPlayers", 2, 1, 8, "Players to start",
+            add(C(Multiplayer, "NativeLobby", "MinPlayers", 2, 1, 8, "Players to start",
                 "With a start by itself: the countdown starts once this many players are in."));
-            add(B(Versus, "Loadout", "Enabled", 0, "Character setup",
-                "The original multiplayer weapon and suit select for Versus and Mercenaries, from the Multiplayer screen and the lobby. The pick is kept in DS2Profile.ini. Experimental.")
+            add(B(Multiplayer, "Loadout", "Enabled", 0, "Character setup",
+                "The original multiplayer weapon and suit select for Mercenaries, from the Multiplayer screen and the lobby. The pick is kept in DS2Profile.ini. Experimental.")
                 .Warn(m => m.On("Loadout.Enabled") && !m.On("Menu.Enabled") ? "Needs Survival in the main menu (Survival page)." : null));
-            add(B(Versus, "Loadout", "Unlocks", 1, "Everything unlocked",
-                "On: level 60 with every item. Off: the locks follow your own XP, which Versus matches add."));
-            add(B(Versus, "Loadout", "SpecialSuits", 1, "Special suits",
+            add(B(Multiplayer, "Loadout", "Unlocks", 1, "Everything unlocked",
+                "On: level 60 with every item. Off: the locks follow your own XP."));
+            add(B(Multiplayer, "Loadout", "SpecialSuits", 1, "Special suits",
                 "Unlocks the collector's edition, Dr Pepper, viral and developer suits."));
-            add(B(Versus, "Loadout", "RivetGun", 1, "Rivet Gun",
+            add(B(Multiplayer, "Loadout", "RivetGun", 1, "Rivet Gun",
                 "Unlocks the Rivet Gun."));
-            add(B(Versus, "MpMap", "Enabled", 0, "Multiplayer map visit",
-                "Plays a multiplayer map in single player: press the key below twice within 3 seconds in the campaign, and again on the map to go back to your checkpoint. Survival, the main menu entries and Versus build on it. Back up your save first.")
+            add(B(Multiplayer, "MpMap", "Enabled", 0, "Multiplayer map visit",
+                "Plays a multiplayer map in single player: press the key below twice within 3 seconds in the campaign, and again on the map to go back to your checkpoint. Survival and the main menu entries build on it. Back up your save first.")
                 .Under("Multiplayer map visit")
                 .Warn(WhenCoopHalfOff("MpMap.Enabled", "The visit key does nothing")));
-            add(Key(Versus, "MpMap", "Key", 110, "Visit key",
+            add(Key(Multiplayer, "MpMap", "Key", 110, "Visit key",
                 "Press it twice. Numpad keys need NumLock on.", v => v < 0 || v > 255 ? 0 : v));
-            add(T(Versus, "MpMap", "Map", "mp_bombRun", "Visit map",
+            add(T(Multiplayer, "MpMap", "Map", "mp_bombRun", "Visit map",
                 "The map the key loads: mp_bombRun, mp_detonate, mp_escape, mp_gov or mp_solar.",
                 v => v.Length == 0 ? "Enter a map name." : Validators.PlainText(v, 63)));
         }

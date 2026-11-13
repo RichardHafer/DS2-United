@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 [assembly: System.Reflection.AssemblyTitle("Dead Space 2 United Config")]
 [assembly: System.Reflection.AssemblyProduct("Dead Space 2 United")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.0.0")]
 
 namespace DS2CoopConfig
 {
@@ -20,6 +20,14 @@ namespace DS2CoopConfig
     {
         public const string IniName = Merger.FileName;
         public const string Caption = "Dead Space 2 United";
+        // the release the zip carries; shown on every start of this window
+        public const string ReleaseVersion = "0.1";
+        public const string ExperimentalWarning =
+            "Dead Space 2 United " + ReleaseVersion + " is a highly experimental release.\n\n" +
+            "Expect crashes and bugs. Back up your save games before you play, and keep a copy of plugins\\DS2United.ini " +
+            "before you change a lot here.\n\n" +
+            "When something goes wrong, the logs are in the plugins folder (the Open log button). " +
+            "Send them with a short note of where you were to the Dead Space Modding Discord: https://discord.com/invite/sWMRkYJ5JV";
 
         [DllImport("kernel32.dll")]
         static extern bool AttachConsole(int processId);
@@ -44,6 +52,7 @@ namespace DS2CoopConfig
             string startNote = null;
             string path = Open(args, ref startNote);
             if (path == null) return 1;
+            MessageBox.Show(ExperimentalWarning, Caption + " " + ReleaseVersion, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Application.Run(new MainForm(path, startNote));
             return 0;
         }
@@ -458,10 +467,9 @@ namespace DS2CoopConfig
                     dialog.Controls.Add(label);
                     y += Look.S(26);
                 };
-                string version = typeof(Program).Assembly.GetName().Version.ToString(3);
                 line("DEAD SPACE 2", Look.Small, Look.Accent);
                 line("United", Look.PageTitle, Look.Text);
-                line("Version " + version + ": story co-op, survival modes, bots, the enemy randomizer and more enemies.", Look.Base, Look.Secondary);
+                line("Version " + Program.ReleaseVersion + ", highly experimental: story co-op, survival modes, bots, the enemy randomizer and more enemies.", Look.Base, Look.Secondary);
                 y += Look.S(8);
                 line("Created by " + Author, Look.Heading, Look.Text);
                 y += Look.S(6);

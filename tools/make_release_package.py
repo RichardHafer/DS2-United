@@ -7,9 +7,10 @@ copies) from an installed game folder, and the United edition of MarkerPatch as 
 (build_markerpatch_united.cmd). The Outbreak archive is not packed; INSTALL.txt links it. The zip unpacks straight into the Dead Space 2 folder.
 
     python -I tools/make_release_package.py --game "<Dead Space 2>" --out <zip>
-        [--ini <release DS2United.ini>] [--version 1.0] [--list] [--force]
+        [--ini <release DS2United.ini>] [--version 0.1] [--list] [--force]
 """
 import argparse
+import collections
 import datetime
 import hashlib
 import re
@@ -63,9 +64,18 @@ REPO_FILES = [
 # values cleared in the packed INI: (section, key), lower case; Peer1..PeerN count as Peer
 PERSONAL = {("nameplate", "name"), ("coop", "joinaddress"), ("coop", "peer"), ("coop", "machineindex"),
             ("coop", "hostid"), ("voices", "pack")}
+# Versus is not in the release: its sections and keys leave the packed INI, with the comment
+# lines right above a removed key
+DROPPED_SECTIONS = {"versus", "versuspoints", "versusslashers", "versusskins"}
+DROPPED_KEYS = {("bot", "versusdeaths"), ("bot", "versusrespawnms"), ("progress", "versusrows")}
+# values the release forces: (section, key) -> (value, why)
+FORCED = {("menu", "mode"): ("0", "versus is not in the release")}
 
 INSTALL = """Dead Space 2 United {version}
 {line}
+
+A HIGHLY EXPERIMENTAL RELEASE. Expect crashes and bugs, and back up your save
+games before you play.
 
 1. Close the game and extract this archive into the Dead Space 2 folder,
    next to deadspace2.exe. Let it overwrite when asked.
@@ -107,19 +117,39 @@ def clean_ini(raw):
     """The release INI with the personal values cleared. Returns (bytes, notes)."""
     bom = raw.startswith(b"\xef\xbb\xbf")
     text = (raw[3:] if bom else raw).decode("utf-8", "surrogateescape")
-    out, notes, section = [], [], ""
+    out, notes, section, comments = [], [], "", []
+    dropped = collections.Counter()
     for line in text.splitlines(keepends=True):
         m = re.match(r"\s*\[([^\]]+)\]", line)
         if m:
             section = m.group(1).strip().lower()
+        if section in DROPPED_SECTIONS:
+            dropped[section] += 1
+            continue
+        if line.lstrip().startswith(";"):
+            comments.append(line)
+            continue
         key = re.match(r"([A-Za-z0-9_]+)\s*=(.*?)(\r?\n)?$", line)
         if key:
             name = key.group(1).lower()
             base = "peer" if re.fullmatch(r"peer\d*", name) else name
+            if (section, name) in DROPPED_KEYS:
+                notes.append("[%s] %s removed (with %d comment line(s))" % (section, key.group(1), len(comments)))
+                comments = []
+                continue
             if (section, base) in PERSONAL and key.group(2).strip():
                 notes.append("[%s] %s cleared (was %r)" % (section, key.group(1), key.group(2).strip()))
                 line = key.group(1) + "=" + (key.group(3) or "")
+            forced = FORCED.get((section, name))
+            if forced and key.group(2).strip() != forced[0]:
+                notes.append("[%s] %s set to %s (was %r): %s" % (section, key.group(1), forced[0], key.group(2).strip(), forced[1]))
+                line = key.group(1) + "=" + forced[0] + (key.group(3) or "")
+        out += comments
+        comments = []
         out.append(line)
+    out += comments
+    for s, n in sorted(dropped.items()):
+        notes.append("[%s] removed (%d lines)" % (s, n))
     data = "".join(out).encode("utf-8", "surrogateescape")
     return (b"\xef\xbb\xbf" + data) if bom else data, notes
 
@@ -143,7 +173,7 @@ def main():
     ap.add_argument("--game", required=True, help="an installed Dead Space 2 folder with the mod's game data")
     ap.add_argument("--out", required=True, help="zip to write")
     ap.add_argument("--ini", default=str(REPO / "DS2United.ini"), help="release DS2United.ini")
-    ap.add_argument("--version", default="1.0")
+    ap.add_argument("--version", default="0.1")
     ap.add_argument("--list", action="store_true", help="print the plan, write nothing")
     ap.add_argument("--force", action="store_true", help="overwrite an existing zip")
     args = ap.parse_args()
@@ -162,7 +192,7 @@ def main():
 
     mp = REPO / "build" / "markerpatch-united" / "dinput8.dll"
     if mp.is_file() and b"MarkerPatchUnitedEdition" not in mp.read_bytes():
-        print("build\markerpatch-united\dinput8.dll has no MarkerPatchUnitedEdition export; run build_markerpatch_united.cmd")
+        print("build\\markerpatch-united\\dinput8.dll has no MarkerPatchUnitedEdition export; run build_markerpatch_united.cmd")
         return 1
     installed = game / "plugins" / "DS2United.asi"
     built = REPO / "build" / "DS2United.asi"

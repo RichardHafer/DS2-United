@@ -50,12 +50,17 @@ namespace DS2CoopConfig
                 return 2;
             }
             scratch = Path.Combine(Path.GetTempPath(), "DS2CoopConfig-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            // The phases save, back up and reset the file they get, so they get a copy: run on the
+            // repository's template they once left seeds, appended keys and reset values in it.
+            byte[] given = File.ReadAllBytes(path);
             try
             {
-                byte[] given = File.ReadAllBytes(path);
-                Execute(path);
-                Directory.CreateDirectory(scratch);
-                ScratchPhases(File.ReadAllBytes(path));
+                string work = Path.Combine(scratch, "given");
+                Directory.CreateDirectory(work);
+                string copy = Path.Combine(work, Path.GetFileName(path));
+                File.WriteAllBytes(copy, given);
+                Execute(copy);
+                ScratchPhases(File.ReadAllBytes(copy));
                 MergedFilePhases(given);
             }
             catch (Exception ex) { failures++; Log("  FAIL  exception: " + ex); }
@@ -64,9 +69,10 @@ namespace DS2CoopConfig
                 try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); }
                 catch (Exception ex) { Log("  note  scratch folder not removed: " + ex.Message); }
             }
+            Check(IniFile.SameBytes(given, File.ReadAllBytes(path)), "the given file is untouched");
             Log(failures == 0 ? "RESULT: PASS" : "RESULT: FAIL (" + failures + ")");
             string text = report.ToString();
-            File.WriteAllText(path + ".selftest.txt", text);
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "DS2UnitedConfig-selftest.txt"), text);
             Console.Write(text);
             return failures == 0 ? 0 : 1;
         }
@@ -337,7 +343,7 @@ namespace DS2CoopConfig
             Log("phase 12: templates and curated pages");
             Check(Templates.Missing.Count == 0, "all templates are built in" + (Templates.Missing.Count > 0 ? ", missing: " + string.Join(", ", Templates.Missing.ToArray()) : ""));
             var schema = Schema.Build();
-            foreach (var group in new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus })
+            foreach (var group in new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Multiplayer })
             {
                 var keys = schema.Where(o => o.Group == group).ToList();
                 var absent = keys.Where(o => !Templates.Has(o.Section, o.Key)).Select(o => o.Id).ToList();
@@ -349,10 +355,10 @@ namespace DS2CoopConfig
             var ids = schema.Select(o => o.Id).ToList();
             Check(ids.Distinct(StringComparer.OrdinalIgnoreCase).Count() == ids.Count, "no key is on two fixed pages");
             var model = new Model(schema, Model.LoadRecommended());
-            var differ = schema.Where(o => o.Group != Schema.Expert && Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus }, o.Group) >= 0 &&
+            var differ = schema.Where(o => o.Group != Schema.Expert && Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Multiplayer }, o.Group) >= 0 &&
                 model.Recommended[o.Id] != o.Effective(Templates.Doc.GetRaw(o.Section, o.Key), o.CodeDefault)).Select(o => o.Id).ToList();
             Check(differ.Count == 0, "curated recommendations are the template values");
-            var codeDiffers = schema.Where(o => Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Versus }, o.Group) >= 0 &&
+            var codeDiffers = schema.Where(o => Array.IndexOf(new[] { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Multiplayer }, o.Group) >= 0 &&
                 o.DefaultFrom == null && model.Recommended[o.Id] != o.CodeDefault).Select(o => o.Id + "=" + model.Recommended[o.Id] + " (code " + o.CodeDefault + ")").ToList();
             Log("  note  template differs from the plugin default for " + codeDiffers.Count + " curated keys: " + string.Join(", ", codeDiffers.ToArray()));
 
@@ -386,7 +392,7 @@ namespace DS2CoopConfig
             Log("  note  " + notSet + " template keys not in the file, " + unknown + " keys in no template, " + noted + " with a template note; built in " + buildMs + " ms");
             var kinds = new Dictionary<string, Kind>
             {
-                { "Coop.Port", Kind.Int }, { "Mirror.Classes", Kind.Text }, { "Coop.AudioTrace", Kind.Bool }, { "VersusPoints.HumanDouble", Kind.Int },
+                { "Coop.Port", Kind.Int }, { "Mirror.Classes", Kind.Text }, { "Coop.AudioTrace", Kind.Bool }, { "Necro.GhostSpeed", Kind.Int },
                 { "Bot1.Antics", Kind.Int }, { "Bot1.HarmfulAntics", Kind.Bool }, { "Survival.RewardMedPackSize", Kind.Int }, { "Bot1.Name", Kind.Text },
                 { "Gadgets.StasisMineEnabled", Kind.Bool }, { "Bot1.AimSway", Kind.Text }, { "Wave1.Enemies", Kind.Text }, { "Escalation.PauseStepSeconds", Kind.Text },
             };
@@ -451,8 +457,8 @@ namespace DS2CoopConfig
             Check(!Schema.Build().Any(o => o.Key.Equals("FollowIntoTubes", StringComparison.OrdinalIgnoreCase)), "no page row for the removed [Bot] FollowIntoTubes");
             string[] quiet = {
                 "DS2Randomizer.Enabled", "DS2Randomizer.GlobalTemplates", "DS2Randomizer.VentRebinding", "Survival.Enabled", "Survival.Map",
-                "Survival.MaxAlive", "Menu.Enabled", "Menu.Modes", "Menu.Mode", "Arena.Arenas", "Versus.Enabled", "Necro.Enabled",
-                "VersusSlashers.Enabled", "MpMap.Enabled", "Bot.Enabled", "Coop.Network", "Coop.JoinAddress", "Coop.SuitSync",
+                "Survival.MaxAlive", "Menu.Enabled", "Menu.Modes", "Menu.Mode", "Arena.Arenas", "Necro.Enabled", "Necro.Invasion",
+                "MpMap.Enabled", "Bot.Enabled", "Coop.Network", "Coop.JoinAddress", "Coop.SuitSync",
                 "Coop.MirrorDeath", "Coop.PeerTimeoutMs", "Coop.Enabled", "Coop.HostNPCs", "Coop.MPUniformStreams", "Coop.SyncAllObjects",
                 "Coop.Peer", "Coop.DeathSync" };
             foreach (var id in quiet) Expect("", id, null);
@@ -462,7 +468,6 @@ namespace DS2CoopConfig
             Expect("DS2Randomizer.GlobalTemplates=0", "Menu.Enabled", "cross-level enemy pool (Loading page) is off");
             Expect("Survival.Enabled=0 DS2Randomizer.GlobalTemplates=0", "Menu.Modes", "Turn both on");
             Expect("DS2Randomizer.GlobalTemplates=0", "Arena.Arenas", "locks its doors");
-            Expect("Survival.Enabled=0", "VersusSlashers.Enabled", "no AI slashers");
             Expect("Survival.Enabled=0", "Survival.Enabled", "Turn it on");
             Expect("DS2Randomizer.GlobalTemplates=0", "Survival.Enabled", "enemy pool");
             Expect("DS2Randomizer.GlobalTemplates=0", "DS2Randomizer.GlobalTemplates", "Survival needs it too");
@@ -483,13 +488,12 @@ namespace DS2CoopConfig
             Check(map.Check("ANY") == null && map.Check("arena_ch10") == null && map.Check("pdlc_mp_school") == null && map.Check("mp_typo") != null,
                 "Survival map accepts any, the picker's maps and the arenas, and refuses mp_typo");
 
-            // versus and the modes
-            Expect("Necro.Enabled=0", "Versus.Enabled", "spawns as Isaac");
-            Expect("!Necro.Enabled", "Versus.Enabled", "spawns as Isaac");
-            Expect("Necro.Enabled=0", "Necro.Enabled", "Turn it on");
-            Expect("Versus.Enabled=0", "Versus.Enabled", "still offers versus");
-            Expect("Versus.Enabled=0 Menu.Mode=4", "Menu.Mode", "Starts with versus");
-            Expect("Versus.SwapSeconds=1", "Versus.SwapSeconds", "raises this to 3");
+            // necromorph players and the modes; Versus is not in the release
+            Check(!Schema.Build().Any(o => o.Section.StartsWith("Versus", StringComparison.OrdinalIgnoreCase) || o.Key.StartsWith("Versus", StringComparison.OrdinalIgnoreCase)),
+                "no page row for Versus");
+            Expect("Necro.Enabled=1 Necro.Invasion=0", "Necro.Invasion", "does not follow the humans");
+            Expect("Necro.Enabled=0 Necro.Invasion=0", "Necro.Invasion", null);
+            Expect("Menu.Mode=4", "Menu.Mode", null);
 
             // Mercenaries and Hold the Zone: shrinking bonuses or a run limit end every run
             foreach (var id in new[] { "Mercenaries.BonusFadeSeconds", "Mercenaries.MaxRunSeconds", "Zone.BonusFadeSeconds", "Zone.MaxRunSeconds" })
@@ -555,34 +559,6 @@ namespace DS2CoopConfig
             return Encoding.GetEncoding(28591).GetString(doc.ToBytes());
         }
 
-        // The template without the randomizer's sections and the keys the survival file has: the
-        // co-op half's DS2Coop.ini from before the merge. With [DS2Randomizer] in it the migration
-        // would take it for the merged file.
-        static string CoopHalf(byte[] template, byte[] randomizer, byte[] survival)
-        {
-            var drop = new HashSet<string>(IniDocument.Parse(randomizer).SectionNames(), StringComparer.OrdinalIgnoreCase);
-            var surv = IniDocument.Parse(survival);
-            var survKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in surv.SectionNames())
-                foreach (var k in surv.KeyNames(s)) survKeys.Add(s + "\u0000" + k);
-            var sb = new StringBuilder();
-            bool skip = false;
-            string section = "";
-            foreach (var line in Encoding.GetEncoding(28591).GetString(template).Split('\n'))
-            {
-                var t = line.Trim();
-                if (t.StartsWith("[") && t.IndexOf(']') > 1)
-                {
-                    section = t.Substring(1, t.IndexOf(']') - 1).Trim();
-                    skip = drop.Contains(section);
-                }
-                int eq = t.IndexOf('=');
-                bool shared = !t.StartsWith(";") && eq > 0 && survKeys.Contains(section + "\u0000" + t.Substring(0, eq).Trim());
-                if (!skip && !shared) sb.Append(line).Append('\n');
-            }
-            return sb.ToString().TrimEnd('\n');
-        }
-
         // Phase 13: the old files merged into DS2Coop.ini, on the templates
         // with a duplicate, an unknown section and a stray key added.
         static void MigrationPhases()
@@ -591,7 +567,7 @@ namespace DS2CoopConfig
             var sources = new Dictionary<string, byte[]>
             {
                 { "DS2Randomizer.ini", Model.Resource("Recommended.ini") },
-                { "DS2Coop.ini", latin.GetBytes(CoopHalf(Model.Resource("Template.DS2United.ini"), Model.Resource("Recommended.ini"), Model.Resource("Template.DS2Survival.ini")) + "\r\n[SelftestCoopOnly]\r\nAlpha=1\r\n") },
+                { "DS2Coop.ini", latin.GetBytes(latin.GetString(Model.Resource("Template.DS2United.ini")) + "\r\n[SelftestCoopOnly]\r\nAlpha=1\r\n") },
                 { "DS2Survival.ini", latin.GetBytes(WithLine(Model.Resource("Template.DS2Survival.ini"), "Zone", "Ring=0")) },
                 { "DS2BotProfiles.ini", latin.GetBytes("Orphan=1\r\n" + latin.GetString(Model.Resource("Template.DS2BotProfiles.ini"))) },
             };

@@ -20,7 +20,7 @@ namespace DS2CoopConfig
         static readonly HashSet<string> NumberKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "RewardStasis", "Type", "PairedDamage" };
         static readonly HashSet<string> NumberSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "VersusPoints", "Weights", "MoreEnemies", "WatchdogTimers" };
+            { "Weights", "MoreEnemies", "WatchdogTimers" };
 
         static bool MaySwitch(string section, string key)
         {
