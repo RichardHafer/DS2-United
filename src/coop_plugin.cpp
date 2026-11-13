@@ -57,6 +57,7 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;   // this module, for the lobby build i
 #include "generated_scripted_containers.h"
 #include "generated_death_messages.h"   // the messages a level expects from its enemies
 #include "generated_fx_colors.h"        // [Visuals] effect and blood colours
+#include "spawn_watchdog.h"             // the state machine layout (the laser diagnostics read the owner's states)
 
 namespace {
 using Guid = std::array<unsigned, 4>;

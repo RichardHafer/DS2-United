@@ -25,7 +25,7 @@ constexpr DWORD kStaleMs = 500;
 struct Watched { uint32_t gun = 0, vtable = 0, owner = 0; DWORD at = 0; bool local = false; };
 Watched watched[8]{};
 bool cleanup = true;
-volatile LONG cleanups = 0, cleanupFaults = 0, cleanupRefused = 0, cleanupLines = 0, watchFull = 0;
+volatile LONG cleanups = 0, cleanupFaults = 0, cleanupRefused = 0, cleanupLines = 0, watchFull = 0, leftOnSeen = 0;
 void Watch(uint32_t g, uint32_t ownerRef, bool local) {
     const DWORD now = GetTickCount();
     Watched* free = nullptr;
@@ -46,9 +46,39 @@ __declspec(noinline) bool KillAimingVfx(uint32_t gun, uint32_t fn) {
         return false;
     }
 }
-// Frame tick, game thread (the guns update on it too).
+// The owner's state machines with their current state names, for the left-on line: which
+// state the switch-off message should have come from. Same walk as the spawn watchdog's.
+void OwnerStates(uint32_t actor, char* out, size_t size) {
+    namespace m = ::ds2::watchdog::machine;
+    out[0] = 0;
+    uint32_t root = 0;
+    if (!actor || !Read(actor + m::kActorTree + m::kTreeRoot, &root, 4) || !root) { std::snprintf(out, size, "unreadable"); return; }
+    uint32_t stack[32]{}, seen[32]{};
+    unsigned depth = 0, count = 0;
+    size_t used = 0;
+    stack[depth++] = root;
+    while (depth) {
+        const uint32_t sm = stack[--depth];
+        bool repeat = false;
+        for (unsigned i = 0; i < count; ++i) repeat = repeat || seen[i] == sm;
+        if (repeat || count >= 32) continue;
+        seen[count++] = sm;
+        uint32_t array = 0, index = 0, name = 0;
+        char text[32]{};
+        if (Read(sm + m::kStateArr, &array, 4) && array && Read(sm + m::kCurState, &index, 4) && index < 4096 &&
+            Read(array + index * m::kStateSize + m::kStateName, &name, 4) && name && Read(name, text, sizeof(text) - 1)) {
+            for (char& c : text) if (c && (c < 0x20 || c > 0x7E)) c = '?';
+            if (used + std::strlen(text) + 2 < size) used += static_cast<size_t>(std::snprintf(out + used, size - used, "%s%s", used ? "," : "", text));
+        }
+        uint32_t child = 0, next = 0;
+        if (Read(sm + m::kChildHead, &child, 4) && child && depth < 32) stack[depth++] = child;
+        if (Read(sm + m::kNext, &next, 4) && next && depth < 32) stack[depth++] = next;
+    }
+    if (!used) std::snprintf(out, size, "none");
+}
+// Frame tick, game thread (the guns update on it too). With LaserCleanup=0 it only reports.
 void Tick(DWORD now) {
-    if (!installed || !cleanup) return;
+    if (!installed) return;
     for (Watched& w : watched) {
         if (!w.gun || static_cast<LONG>(now - w.at) < static_cast<LONG>(kStaleMs)) continue;
         const Watched seen = w;
@@ -63,14 +93,21 @@ void Tick(DWORD now) {
         Read(seen.gun + kAmmoLoaded, &ammo, 4);
         Read(seen.gun + kGunFlags, &flags, 4);
         const bool slotOk = Read(vtable + kKillAimingVfxSlot, &fn, 4) && fn >= base + 0x1000 && fn < base + gate::kRdataLo;
-        const bool ok = slotOk && KillAimingVfx(seen.gun, fn);
-        InterlockedIncrement(!slotOk ? &cleanupRefused : ok ? &cleanups : &cleanupFaults);
-        if (InterlockedIncrement(&cleanupLines) <= 100)
-            gate::Event("laser left on: gun %08X (%s, owner %08X) no aiming update for %lu ms, beam %08X point %08X faded %08X empty %08X, ammo %d, flags %08X%s -> %s",
-                        seen.gun, seen.local ? "our Isaac" : "another player or bot", seen.owner ? seen.owner - 0x10 : 0, static_cast<unsigned long>(now - seen.at),
+        const bool ok = cleanup && slotOk && KillAimingVfx(seen.gun, fn);
+        InterlockedIncrement(!cleanup ? &leftOnSeen : !slotOk ? &cleanupRefused : ok ? &cleanups : &cleanupFaults);
+        if (InterlockedIncrement(&cleanupLines) <= 100) {
+            char states[200];
+            uint32_t ownerNow = 0;
+            Read(seen.gun + kGunOwner, &ownerNow, 4);
+            OwnerStates(ownerNow > 0x10 ? ownerNow - 0x10 : 0, states, sizeof(states));
+            gate::Event("laser left on: gun %08X (%s, owner %08X) no aiming update for %lu ms, beam %08X point %08X faded %08X empty %08X, ammo %d, flags %08X%s; "
+                        "owner states [%s] -> %s",
+                        seen.gun, seen.local ? "our Isaac" : "another player or bot", ownerNow > 0x10 ? ownerNow - 0x10 : 0, static_cast<unsigned long>(now - seen.at),
                         handles[0], handles[1], handles[2], handles[3], ammo, flags,
-                        reloadAt && now - reloadAt < 4000 ? ", within 4 s of a reload start" : "",
-                        !slotOk ? "NOT switched off (kill slot outside the code)" : ok ? "switched off (gun vtable +0x2E4)" : "kill FAULTED");
+                        reloadAt && now - reloadAt < 4000 ? ", within 4 s of a reload start" : "", states,
+                        !cleanup ? "left on ([Coop] LaserCleanup=0)" : !slotOk ? "NOT switched off (kill slot outside the code)"
+                                 : ok ? "switched off (gun vtable +0x2E4)" : "kill FAULTED");
+        }
     }
 }
 uint32_t __fastcall OnUpdateAimingVfx(void* gun, void*) {
@@ -132,12 +169,13 @@ void WriteDiagnostics(FILE* log) {
     if (!installed) return;
     static LONG lastChanges = -1;
     const LONG c = InterlockedCompareExchange(&changes, 0, 0) + InterlockedCompareExchange(&reloads, 0, 0) * 1000 +
-                   (InterlockedCompareExchange(&cleanups, 0, 0) + InterlockedCompareExchange(&cleanupFaults, 0, 0)) * 100000;
+                   (InterlockedCompareExchange(&cleanups, 0, 0) + InterlockedCompareExchange(&cleanupFaults, 0, 0) + InterlockedCompareExchange(&leftOnSeen, 0, 0)) * 100000;
     if (c == lastChanges) return;
     lastChanges = c;
-    std::fprintf(log, "laser frames=%ld changes=%ld reloads=%ld empty_frames=%ld lines=%ld | left on and switched off=%ld faults=%ld refused=%ld watch_full=%ld\n",
+    std::fprintf(log, "laser frames=%ld changes=%ld reloads=%ld empty_frames=%ld lines=%ld | left on: seen only=%ld switched off=%ld faults=%ld refused=%ld watch_full=%ld\n",
                  InterlockedCompareExchange(&frames, 0, 0), InterlockedCompareExchange(&changes, 0, 0), InterlockedCompareExchange(&reloads, 0, 0),
-                 InterlockedCompareExchange(&emptyFrames, 0, 0), InterlockedCompareExchange(&lines, 0, 0), InterlockedCompareExchange(&cleanups, 0, 0),
+                 InterlockedCompareExchange(&emptyFrames, 0, 0), InterlockedCompareExchange(&lines, 0, 0), InterlockedCompareExchange(&leftOnSeen, 0, 0),
+                 InterlockedCompareExchange(&cleanups, 0, 0),
                  InterlockedCompareExchange(&cleanupFaults, 0, 0), InterlockedCompareExchange(&cleanupRefused, 0, 0), InterlockedCompareExchange(&watchFull, 0, 0));
 }
 }  // namespace laserdiag
