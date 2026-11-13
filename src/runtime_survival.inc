@@ -912,6 +912,10 @@ struct Tracked {
     V3 spawnedAt;
     uint32_t forcedAt = 0, targetAt = 0;
     unsigned forces = 0;
+    // Losing the target after the first one: since when, how often, and for how long in all.
+    uint32_t lostAt = 0, untargetedMs = 0;
+    unsigned losses = 0;
+    bool justLost = false;
     uintptr_t engine = 0;           // the spawner a direct one came from
     uintptr_t spawner = 0;          // the spawner it came from, direct or vent: it owns the enemy's stream
     unsigned placeChecks = 0, replaced = 0;
@@ -970,6 +974,10 @@ bool chargeSightSet = false;
 // Templates whose tracking groups lack the players get GroupPlayer in a free slot for the run.
 struct TrackEdit { uint32_t attr; unsigned slot; };
 std::vector<TrackEdit> trackEdits;
+// Tracking ranges raised for the run ([Survival] TrackMeters). UpdateTrackedEntity
+// (0x00F81F90) compares [attr+0x00] live on every pass and drops a player beyond it.
+struct RangeEdit { uint32_t attr; float oldSq, newSq; };
+std::vector<RangeEdit> rangeEdits;
 std::set<uint32_t> awarePackets, chargePackets;
 SRWLOCK chargeLock = SRWLOCK_INIT;   // RestoreCharging also runs from the release hooks
 volatile LONG levelEndingAsked = 0, levelEndingEpoch = 0;
@@ -981,6 +989,7 @@ uint32_t chargeMaxBefore = 0;
 bool chargeMaxSet = false;
 struct AwareCounts {
     unsigned forced = 0, repaired = 0, noComponent = 0, mismatch = 0, targets = 0, neverTargeted = 0, charging = 0, writeFails = 0, playDeadOff = 0, groupAdded = 0;
+    unsigned rangeRaised = 0, targetsLost = 0, targetsRegained = 0, diedUntargeted = 0;
     float targetSum = 0, targetMax = 0;
 };
 AwareCounts aw;
@@ -2856,12 +2865,14 @@ void Retire(Tracked& t, survival::Fate fate, uint32_t now) {
     if (fate == survival::Fate::Killed && run.mercs && run.state == State::Wave) MercsKill(t, now);
     if (fate == survival::Fate::Killed && run.objective && run.state == State::Wave) ++run.objKills;
     if (fate == survival::Fate::Killed && run.zone && run.state == State::Wave) ++run.zoneKills;
+    const uint32_t untargeted = t.untargetedMs + (t.lostAt ? now - t.lostAt : 0);
+    if (t.lostAt && fate != survival::Fate::Killed) ++aw.diedUntargeted;
     if (Budget(run.killLines, 600))
-        Event("%s wave=%u family=%s path=%s actor=%08X alive=%lus engaged_after=%s target_after=%s charged=%d forces=%u spawned_at=(%.1f %.1f %.1f) left=%u",
+        Event("%s wave=%u family=%s path=%s actor=%08X alive=%lus engaged_after=%s target_after=%s target_lost=%u untargeted=%lus charged=%d forces=%u spawned_at=(%.1f %.1f %.1f) left=%u",
               survival::FateName(fate), t.wave, t.family.c_str(), t.vent ? "vent" : "direct", t.actor, static_cast<unsigned long>((now - t.watch.bornAt) / 1000),
               t.watch.engaged ? std::to_string((t.watch.engagedAt - t.watch.bornAt) / 1000).append("s").c_str() : "never",
-              t.targetAt ? std::to_string((t.targetAt - t.watch.bornAt) / 1000).append("s").c_str() : "never", t.charged ? 1 : 0, t.forces, t.spawnedAt.x,
-              t.spawnedAt.y, t.spawnedAt.z, Left());
+              t.targetAt ? std::to_string((t.targetAt - t.watch.bornAt) / 1000).append("s").c_str() : "never", t.losses,
+              static_cast<unsigned long>(untargeted / 1000), t.charged ? 1 : 0, t.forces, t.spawnedAt.x, t.spawnedAt.y, t.spawnedAt.z, Left());
     if (!t.targetAt && awareReady) ++aw.neverTargeted;
     t.actor = 0;
 }
@@ -2921,6 +2932,13 @@ void RestoreCharging() {
     }
     if (!trackEdits.empty()) Event("tracking groups put back=%u of %zu", groupsBack, trackEdits.size());
     trackEdits.clear();
+    unsigned rangesBack = 0;
+    for (const RangeEdit& e : rangeEdits) {
+        float sq = 0.0f;
+        if (Writable(e.attr + kAttrTrackSq, 4) && Read(e.attr + kAttrTrackSq, &sq, 4) && sq == e.newSq && WriteBytes(e.attr + kAttrTrackSq, &e.oldSq, 4)) ++rangesBack;
+    }
+    if (!rangeEdits.empty()) Event("tracking ranges put back=%u of %zu", rangesBack, rangeEdits.size());
+    rangeEdits.clear();
     unsigned restored = 0, left = 0;
     for (const auto& e : chargeEdits) {
         float start = 0.0f;
@@ -2981,10 +2999,29 @@ void AwareTemplate(const Tracked& t, uint32_t attr) {
             result = "tracks others only: GroupPlayer added for the run";
         } else result = "group add FAILED";
     }
+    // At least as far as the catch-up reaches, or an enemy between the two forgets the players
+    // and wanders until it is taken away.
+    float wantM = cfg.trackMeters;
+    if (wantM > 0.0f && cfg.catchUpMeters > 0.0f) wantM = std::max(wantM, cfg.catchUpMeters + 10.0f);
+    const float wantSq = wantM * wantM;
+    const char* range = "kept";
+    if (wantM > 0.0f && std::isfinite(trackSq) && trackSq < wantSq) {
+        if (WriteBytes(attr + kAttrTrackSq, &wantSq, 4)) {
+            AcquireSRWLockExclusive(&chargeLock);
+            rangeEdits.push_back(RangeEdit{attr, trackSq, wantSq});
+            ReleaseSRWLockExclusive(&chargeLock);
+            ++aw.rangeRaised;
+            range = "raised";
+        } else {
+            ++aw.writeFails;
+            range = "raise FAILED";
+        }
+    }
     if (Budget(awareLines, 64))
-        Event("aware template family=%s donor=%08X-%08X attr=%08X groups=[%08X %08X %08X %08X] at_spawn=%u span=%.0f track_m=%.0f always_m=%.0f -> %s", t.family.c_str(),
+        Event("aware template family=%s donor=%08X-%08X attr=%08X groups=[%08X %08X %08X %08X] at_spawn=%u span=%.0f track_m=%.0f always_m=%.0f -> %s; track range %s%s", t.family.c_str(),
               t.donor[0], t.donor[1], attr, groups[0], groups[1], groups[2], groups[3], atSpawn, span, std::sqrt(trackSq > 0 ? trackSq : 0.0f),
-              std::sqrt(alwaysSq > 0 ? alwaysSq : 0.0f), result);
+              std::sqrt(alwaysSq > 0 ? alwaysSq : 0.0f), result, range,
+              std::strcmp(range, "raised") == 0 ? (" to " + std::to_string(static_cast<int>(wantM)) + " m").c_str() : "");
 }
 // Zombie templates: run whenever they may, also off the target's screen.
 void ChargeTemplate(const Tracked& t) {
@@ -3106,6 +3143,20 @@ void Awareness(Tracked& t, uint32_t now) {
         uint32_t target = 0;
         if (Read(t.actor + kNpcTarget, &target, 4) && target) VersusTarget(t, target, attr);
     }
+    if (t.targetAt) {
+        uint32_t target = 0;
+        Read(t.actor + kNpcTarget, &target, 4);
+        if (!target && !t.lostAt) {
+            t.lostAt = now ? now : 1;
+            ++t.losses;
+            ++aw.targetsLost;
+            t.justLost = true;
+        } else if (target && t.lostAt) {
+            t.untargetedMs += now - t.lostAt;
+            t.lostAt = 0;
+            ++aw.targetsRegained;
+        }
+    }
     if (!t.targetAt) {
         uint32_t target = 0;
         if (Read(t.actor + kNpcTarget, &target, 4) && target) {
@@ -3126,13 +3177,15 @@ void AwareWaveLine() {
     uint32_t count = 0, max = 0;
     Read(base + kChargeCount, &count, 4);
     Read(base + kChargeMax, &max, 4);
-    Event("    awareness: forced=%u repaired_templates=%u groups_added=%u no_component=%u comp_mismatch=%u write_fails=%u targets=%u (avg %.1fs max %.1fs) "
-          "never_targeted=%u charging_seen=%u play_dead_off=%u chargers count=%u max=%u sight_gate=%s alive=%u",
-          aw.forced, aw.repaired, aw.groupAdded, aw.noComponent, aw.mismatch, aw.writeFails, aw.targets, aw.targets ? aw.targetSum / aw.targets : 0.0f, aw.targetMax,
-          aw.neverTargeted, aw.charging, aw.playDeadOff, count, max, chargeSightSet ? "open" : "stock", AliveCount());
-    const unsigned repaired = aw.repaired;
+    Event("    awareness: forced=%u repaired_templates=%u groups_added=%u ranges_raised=%u no_component=%u comp_mismatch=%u write_fails=%u targets=%u (avg %.1fs max %.1fs) "
+          "never_targeted=%u lost=%u regained=%u gone_while_lost=%u charging_seen=%u play_dead_off=%u chargers count=%u max=%u sight_gate=%s alive=%u",
+          aw.forced, aw.repaired, aw.groupAdded, aw.rangeRaised, aw.noComponent, aw.mismatch, aw.writeFails, aw.targets, aw.targets ? aw.targetSum / aw.targets : 0.0f,
+          aw.targetMax, aw.neverTargeted, aw.targetsLost, aw.targetsRegained, aw.diedUntargeted, aw.charging, aw.playDeadOff, count, max,
+          chargeSightSet ? "open" : "stock", AliveCount());
+    const unsigned repaired = aw.repaired, rangeRaised = aw.rangeRaised;
     aw = AwareCounts{};
     aw.repaired = repaired;
+    aw.rangeRaised = rangeRaised;
 }
 
 // Escalation of one enemy, by the wave it was spawned in: health and every limb's
@@ -3388,6 +3441,12 @@ void PollTracked(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
             const float d = survival::Distance(pos, viewers[i].feet);
             nearest = std::min(nearest, d);
             if (viewers[i].alive) nearestLiving = std::min(nearestLiving, d);
+        }
+        if (t.justLost) {
+            t.justLost = false;
+            if (Budget(run.spawnLines, cfg.logSpawnLines))
+                Event("target lost actor=%08X family=%s age=%lus nearest player %.1f m (loss %u)", t.actor, t.family.c_str(),
+                      static_cast<unsigned long>((now - t.watch.bornAt) / 1000), nearest < 1e8f ? nearest : -1.0f, t.losses);
         }
         if (t.unkillable) continue;   // the Ubermorph roams; it never holds a wave up
         if (t.killSent) {

@@ -331,6 +331,9 @@ struct Config {
     bool noPlayDead = true;            // no survival enemy lies down to play dead
     unsigned chargeUnseen = 0;         // charge without sight: 0 off, 1 in campaign arenas, 2 everywhere
     unsigned awareRefreshMs = 3000, maxChargers = 2;
+    // Tracking range for the run: most templates track the players to 30 m only, beyond that
+    // the engine drops them and forced awareness has nobody to point at (0 = leave it).
+    float trackMeters = 80.0f;
     float zombieChargeFloor = 0.9f;
     float engageMeters = 10.0f;
     bool timedEndKill = true, superVariants = false;
@@ -498,6 +501,7 @@ inline Config ParseConfig(const std::string& text) {
     c.forceAware = UnsignedOr(ini, s, "ForceAware", 1, 0, 1, c) != 0;
     c.awareRefreshMs = UnsignedOr(ini, s, "AwareRefreshMs", 3000, 500, 60000, c);
     c.repairBlindTemplates = UnsignedOr(ini, s, "RepairBlindTemplates", 1, 0, 1, c) != 0;
+    c.trackMeters = FloatOr(ini, s, "TrackMeters", 80.0f, 0.0f, 300.0f, c);
     c.maxChargers = UnsignedOr(ini, s, "MaxChargers", 2, 0, 30, c);
     c.zombieChargeFloor = FloatOr(ini, s, "ZombieChargeFloor", 0.9f, 0.0f, 1.0f, c);
     c.zombieChargeIgnoreVis = UnsignedOr(ini, s, "ZombieChargeIgnoreVis", 0, 0, 1, c) != 0;

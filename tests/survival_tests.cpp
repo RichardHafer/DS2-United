@@ -91,6 +91,8 @@ void ConfigEdges() {
     assert(none.gameOverS == 10 && ParseConfig("[Survival]\nGameOverSeconds=1\n").gameOverS == 3 &&
            ParseConfig("[Survival]\nGameOverSeconds=25\n").gameOverS == 25);
     assert(ParseConfig(ReadFile("DS2Survival.ini")).gameOverS == 10);
+    assert(none.trackMeters == 80.0f && ParseConfig(ReadFile("DS2Survival.ini")).trackMeters == 80.0f);
+    assert(ParseConfig("[Survival]\nTrackMeters=0\n").trackMeters == 0.0f && ParseConfig("[Survival]\nTrackMeters=900\n").trackMeters == 300.0f);
     // vents: no real minimum, a radius around the nearest player or bot
     assert(none.ventMinDistance == 0.0f && none.ventMaxDistance == 30.0f && !none.ventLineOfSight);
     const Config tight = ParseConfig("[Survival]\nVentMinDistance=10\nVentMaxDistance=9\n");
