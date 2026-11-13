@@ -69,7 +69,7 @@ void ReleaseNotice(DWORD ms) {
 const char* __fastcall FormatMenuText(void* locale, void*, uint32_t hash) {
     if (hash == kTextMainMenuTitle) {
         InterlockedIncrement(&titleLookups);
-        ReleaseNotice(7000);
+        ReleaseNotice(12000);
         return kMainMenuTitle;
     }
     return reinterpret_cast<const char*(__thiscall*)(void*, uint32_t)>(base + kLocaleLookup)(locale, hash);
@@ -229,44 +229,71 @@ void ShowRecords() {
     PageEvent("records", overlay::ShowPage("RECORDS", lines.data(), static_cast<int>(lines.size()), kPageMs));
     mpmap::Event("menu: records from %s: %u entries, %zu maps", bestFile.c_str(), n, order.size());
 }
+// A key name between the overlay's key colour marks.
+void KeyMark(int vk, char* out, size_t size) {
+    char name[32];
+    KeyName(vk, name, sizeof(name));
+    std::snprintf(out, size, "\x01%s\x02", name);
+}
+// The page reads the INI each time it opens, so it shows the keys as they are set now.
+// Topics in the topic colour, keys in the key colour; features that are off are left out.
 void ShowHowTo() {
-    char shop[32], start[32], bots[32], call[32], mark[32], mine[32], field[32], turret[32], ring[32], score[32], necro[32];
-    char follow[32], goThere[32], attack[32], hold[32], vanguard[32], help[32];
-    KeyName(IniKey("Shop", "Key", 'V'), shop, sizeof(shop));
-    KeyName(IniKey("Bot", "FollowHoldKey", VK_NUMPAD1), follow, sizeof(follow));
-    KeyName(IniKey("Bot", "GoThereKey", VK_NUMPAD2), goThere, sizeof(goThere));
-    KeyName(IniKey("Bot", "AttackTargetKey", VK_NUMPAD3), attack, sizeof(attack));
-    KeyName(IniKey("Bot", "FireHoldKey", VK_NUMPAD4), hold, sizeof(hold));
-    KeyName(IniKey("Bot", "VanguardKey", VK_NUMPAD5), vanguard, sizeof(vanguard));
-    KeyName(IniKey("Menu", "HelpKey", VK_F1), help, sizeof(help));
-    KeyName(IniKey("Survival", "StartKey", 0), start, sizeof(start));
-    KeyName(IniKey("Bot", "Key", 0), bots, sizeof(bots));
-    KeyName(IniKey("Bot", "CallKey", 0), call, sizeof(call));
-    KeyName(IniKey("Bot", "MarkKey", 105), mark, sizeof(mark));
-    KeyName(IniKey("Gadgets", "StasisMineKey", 103), mine, sizeof(mine));
-    KeyName(IniKey("Gadgets", "HealFieldKey", 104), field, sizeof(field));
-    KeyName(IniKey("Turret", "Key", 102), turret, sizeof(turret));
-    KeyName(IniKey("Zone", "ColorKey", VK_F7), ring, sizeof(ring));
-    KeyName(IniKey("Versus", "ScoreKey", VK_TAB), score, sizeof(score));
-    KeyName(IniKey("Necro", "Key", VK_F11), necro, sizeof(necro));
-    constexpr int kLines = 12;
-    char l[kLines][200];
-    std::snprintf(l[0], 200, "Supply terminal: %s. Guns, ammo, med packs, suits and upgrades for your credits.", shop);
-    std::snprintf(l[1], 200, "Start the first wave at once: %s.", start);
-    std::snprintf(l[2], 200, "Bots: %s on/off, %s calls them over, %s marks the moment in the bot log.", bots, call, mark);
-    std::snprintf(l[3], 200, "Bot orders: %s follow/hold, %s go there, %s attack target, %s hold fire, %s attack/cover formation.",
-                  follow, goThere, attack, hold, vanguard);
-    std::snprintf(l[4], 200, "Gadgets: %s stasis mine, %s heal field, %s turret.", mine, field, turret);
-    std::snprintf(l[5], 200, "Hold the Zone ring colour: %s. Versus score board: %s. Necro player: %s.", ring, score, necro);
-    std::snprintf(l[6], 200, "Survival: waves with breaks between them; the terminal opens in the breaks.");
-    std::snprintf(l[7], 200, "Mercenaries: the clock runs down; kills and time capsules add seconds.");
-    std::snprintf(l[8], 200, "Objective: the map's own goals against the clock. Hold the Zone: stand in the ring.");
-    std::snprintf(l[9], 200, "Versus: humans against necromorph players, with AI slashers on both sides.");
-    std::snprintf(l[10], 200, "Host co-op opens a lobby; friends pick join co-op with your address set in DS2UnitedConfig.exe.");
-    std::snprintf(l[11], 200, "%s shows or hides this page at any time. Every key can be changed in DS2UnitedConfig.exe.", help);
-    const char* lines[kLines];
-    for (int i = 0; i < kLines; ++i) lines[i] = l[i];
-    PageEvent("how to play", overlay::ShowPage("HOW TO PLAY", lines, kLines, kPageMs));
+    char shop[40], start[40], bots[40], call[40], mark[40], mine[40], field[40], turret[40], ring[40], necro[40], visit[40];
+    char follow[40], goThere[40], attack[40], hold[40], vanguard[40], help[40], debug[40], freeCam[40], slow[40], hideHud[40], bug[48];
+    KeyMark(IniKey("Shop", "Key", 'V'), shop, sizeof(shop));
+    KeyMark(IniKey("Bot", "FollowHoldKey", VK_NUMPAD1), follow, sizeof(follow));
+    KeyMark(IniKey("Bot", "GoThereKey", VK_NUMPAD2), goThere, sizeof(goThere));
+    KeyMark(IniKey("Bot", "AttackTargetKey", VK_NUMPAD3), attack, sizeof(attack));
+    KeyMark(IniKey("Bot", "FireHoldKey", VK_NUMPAD4), hold, sizeof(hold));
+    KeyMark(IniKey("Bot", "VanguardKey", VK_NUMPAD5), vanguard, sizeof(vanguard));
+    KeyMark(IniKey("Menu", "HelpKey", VK_F1), help, sizeof(help));
+    KeyMark(IniKey("Survival", "StartKey", 0), start, sizeof(start));
+    KeyMark(IniKey("Bot", "Key", 0), bots, sizeof(bots));
+    KeyMark(IniKey("Bot", "CallKey", 0), call, sizeof(call));
+    KeyMark(IniKey("Bot", "MarkKey", 105), mark, sizeof(mark));
+    KeyMark(IniKey("Gadgets", "StasisMineKey", 103), mine, sizeof(mine));
+    KeyMark(IniKey("Gadgets", "HealFieldKey", 104), field, sizeof(field));
+    KeyMark(IniKey("Turret", "Key", 102), turret, sizeof(turret));
+    KeyMark(IniKey("Zone", "ColorKey", VK_F7), ring, sizeof(ring));
+    KeyMark(IniKey("Necro", "Key", VK_F11), necro, sizeof(necro));
+    KeyMark(IniKey("MpMap", "Key", VK_DECIMAL), visit, sizeof(visit));
+    KeyMark(IniKey("Debug", "Key", VK_INSERT), debug, sizeof(debug));
+    KeyMark(IniKey("CameraTools", "FreeCamKey", VK_F6), freeCam, sizeof(freeCam));
+    KeyMark(IniKey("CameraTools", "SlowKey", VK_F5), slow, sizeof(slow));
+    KeyMark(IniKey("CameraTools", "HideHudKey", VK_F10), hideHud, sizeof(hideHud));
+    char bugKey[32];
+    KeyName(IniKey("Coop", "BugReportKey", VK_F12), bugKey, sizeof(bugKey));
+    std::snprintf(bug, sizeof(bug), "\x01%s%s\x02", IniKey("Coop", "BugReportCtrl", 1) ? "Ctrl+" : "", bugKey);
+    const bool gadgetsInStory = IniKey("Gadgets", "Story", 1) != 0;
+    std::vector<std::string> l;
+    char t[240];
+    auto add = [&](const char* format, ...) {
+        va_list args;
+        va_start(args, format);
+        std::vsnprintf(t, sizeof(t), format, args);
+        va_end(args);
+        l.push_back(t);
+    };
+    add("\x03Supply terminal\x02 %s: guns, ammo, med packs, suits and upgrades for your credits.", shop);
+    add("\x03Survival\x02 waves with breaks, the terminal opens in the breaks; %s starts the first wave at once.", start);
+    add("\x03Mercenaries\x02 the clock runs down, kills and time capsules add seconds.");
+    add("\x03Objective\x02 the map's own goals against the clock. \x03Hold the Zone\x02 stand in the ring, %s changes its colour.", ring);
+    add("\x03Gadgets\x02 %s stasis mine, %s heal field, %s turret%s.", mine, field, turret, gadgetsInStory ? "" : " (only in the game modes)");
+    if (IniKey("Bot", "Enabled", 0)) {
+        add("\x03" "Bots\x02 %s on/off, %s calls them over, %s marks the moment in the bot log.", bots, call, mark);
+        add("\x03" "Bot orders\x02 %s follow/hold, %s go there, %s attack target, %s hold fire, %s attack/cover formation.", follow, goThere, attack, hold,
+            vanguard);
+    }
+    if (IniKey("Necro", "Enabled", 0)) add("\x03Necromorph player\x02 (experimental) %s.", necro);
+    if (IniKey("MpMap", "Enabled", 0)) add("\x03Multiplayer map visit\x02 %s twice in the campaign, again on the map to go back.", visit);
+    if (IniKey("CameraTools", "Enabled", 0)) add("\x03" "Camera\x02 %s free camera, %s slow motion, %s hides the HUD.", freeCam, slow, hideHud);
+    if (IniKey("Debug", "Enabled", 1)) add("\x03" "Debug menu\x02 %s.", debug);
+    add("\x03" "Co-op\x02 host co-op opens a lobby; friends pick join co-op with your address set in DS2UnitedConfig.exe.");
+    if (IniKey("Coop", "BugReport", 1)) add("\x03" "Bug report\x02 %s saves the logs, a screenshot and a dump into one folder for a report.", bug);
+    add("%s shows or hides this page at any time. Every key can be changed in DS2UnitedConfig.exe.", help);
+    std::vector<const char*> lines;
+    for (const auto& s : l) lines.push_back(s.c_str());
+    PageEvent("how to play", overlay::ShowPage("HOW TO PLAY", lines.data(), static_cast<int>(lines.size()), kPageMs));
 }
 // [Menu] HelpKey shows the how to play page in a level too. Only the window in front
 // reacts, so two copies on one PC do not both open it.
@@ -293,12 +320,12 @@ void ShowAbout() {
     char when[32] = "?";
     if (localtime_s(&local, &stamp) == 0) std::strftime(when, sizeof(when), "%d.%m.%Y %H:%M", &local);
     char l[8][200];
-    std::snprintf(l[0], 200, "Dead Space 2 United: co-op story, survival game modes, bots and the enemy randomizer for Dead Space 2.");
+    std::snprintf(l[0], 200, "Dead Space 2 United " DS2UNITED_VERSION ", a fan made mod: co-op story, survival game modes, bots and the enemy randomizer.");
     std::snprintf(l[1], 200, "This build: %08X from %s. Everybody in a session needs the same one.", build, when);
-    std::snprintf(l[2], 200, "New: bots get guns and suits as the match goes on, like real players.");
-    std::snprintf(l[3], 200, "New: enemies left far behind come back near you; vents nobody can reach stay shut.");
-    std::snprintf(l[4], 200, "New: Objective props take three times the damage, holds grow with each real player.");
-    std::snprintf(l[5], 200, "New: the menu in red, the title screen, records, this page.");
+    std::snprintf(l[2], 200, "A highly experimental release: expect crashes and bugs, and back up your saves.");
+    std::snprintf(l[3], 200, "Created by Richard Hafer. Thanks to Wemino (Marker Patch) and Mark (Dead Space 2 Multiplayer).");
+    std::snprintf(l[4], 200, "Help, news and bug reports: the Dead Space Modding Discord, discord.com/invite/sWMRkYJ5JV");
+    std::snprintf(l[5], 200, "The keys: the how to play page here, or its key in the game (F1 unless changed).");
     std::snprintf(l[6], 200, "Settings: DS2UnitedConfig.exe in the game folder.");
     std::snprintf(l[7], 200, "Logs for bug reports: plugins\\DS2United.log, DS2Randomizer.log, DS2Bots.log.");
     const char* lines[8];
@@ -722,7 +749,7 @@ void Install(FILE* log, const std::string& ini) {
                  helpKey <= 0 ? "off" : overlay::ready ? "shows the how to play page in menus and levels" : "overlay NOT installed, no page");
     std::fprintf(log, "Dead Space 2 United %s, a highly experimental release: notice on the main menu, overlay %s\n", DS2UNITED_VERSION,
                  overlay::ready ? "ready" : "NOT installed");
-    if (!enabled || !mpmap::enabled) ReleaseNotice(7000);
+    if (!enabled || !mpmap::enabled) ReleaseNotice(12000);
     if (!enabled) { std::fprintf(log, "menu off ([Menu] Enabled=0)\n"); return; }
     if (!mpmap::enabled) { std::fprintf(log, "menu off: needs [MpMap] Enabled=1 for the launch\n"); return; }
     sitesOk = true;
@@ -753,7 +780,7 @@ void Install(FILE* log, const std::string& ini) {
     bool ok = SetLabel(log, "main menu item 1", kPc01Labels + 4, kPc01MultiLabel, kSurvivalLabel);
     notice::AddOverride(kTextMainMenuTitle, kMainMenuTitle);
     const bool lookup = InstallTitleLookup();
-    if (!lookup) ReleaseNotice(7000);
+    if (!lookup) ReleaseNotice(12000);
     std::fprintf(log, "menu first title lookup: %s\n", lookup ? "installed" : "unavailable; table override active");
     notice::AddOverride(kTextMultiplayerTitle, kModesTitle);
     notice::AddOverride(kTextEaAccount1, kHowToLabel);

@@ -409,6 +409,7 @@ struct Metrics {
 };
 inline int Advance(const Metrics& m, char c) {
     const unsigned char u = static_cast<unsigned char>(c);
+    if (u >= 1 && u <= 3) return 0;   // colour marks of the overlay pages, drawn as nothing
     return u >= 32 && u <= 126 ? m.advance[u - 32] : m.advance['?' - 32];
 }
 inline int Measure(const Metrics& m, const char* text) {

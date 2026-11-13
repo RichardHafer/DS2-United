@@ -287,10 +287,18 @@ void Rect(int x, int y, int w, int h, uint32_t color) {
     Quad(static_cast<float>(x), static_cast<float>(y), static_cast<float>(x + w), static_cast<float>(y + h), color, font.whiteU, font.whiteV, font.whiteU, font.whiteV);
 }
 int TextWidth(const char* text) { return coop_shop::Measure(font.metrics, text); }
+// Colour marks inside a text: 1 starts a key, 3 a topic, 2 goes back to the line's colour.
+constexpr char kMarkKey = 1, kMarkEnd = 2, kMarkTopic = 3;
+constexpr uint32_t kKeyColor = 0xFFFFD27A, kTopicColor = 0xFF8FEAFF;
 void Text(int x, int y, const char* text, uint32_t color) {
     const float tw = static_cast<float>(font.texW), th = static_cast<float>(font.texH);
+    const uint32_t lineColor = color;
     for (; *text; ++text) {
         unsigned char c = static_cast<unsigned char>(*text);
+        if (c == kMarkKey || c == kMarkTopic || c == kMarkEnd) {
+            color = c == kMarkKey ? kKeyColor : c == kMarkTopic ? kTopicColor : lineColor;
+            continue;
+        }
         if (c < 32 || c > 126) c = '?';
         const int i = c - 32;
         if (c != ' ') {

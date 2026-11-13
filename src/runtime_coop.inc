@@ -3784,6 +3784,7 @@ void Poll() {
     if (!installed || faulted) return;
     ExchangePlayerState();
     gate::Tick(GetTickCount());   // repeat votes, release what everybody reached
+    laserdiag::Tick(GetTickCount());
     checkpoint::Tick(GetTickCount());
     level::Tick(GetTickCount());
     gamemode::PollRestart();
