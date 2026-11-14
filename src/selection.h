@@ -30,6 +30,7 @@ struct EnemyRecord {
     std::string scriptedKey;
     Guid vent{};
     bool privateTemplate = false;
+    bool sceneLocked = false;   // a story scene actor: never a replacement (copies drop it)
     unsigned ventMask = 0;
     // Where this record was authored. Entities of one archive are loaded
     // together, so a donor sharing the source's archive is the one that is there

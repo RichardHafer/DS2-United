@@ -46,6 +46,124 @@ __declspec(noinline) bool KillAimingVfx(uint32_t gun, uint32_t fn) {
         return false;
     }
 }
+// 14.11.: every left-on laser came from a switch-off out of PlayerEquippedItemSM in mid aim,
+// a rebuild by the player's aim tick (0x00891AE9, runs while Sentient flag 7 at +0x298 is
+// set) in the same frame, and the aim release a frame later without a second switch-off. The
+// item machine's messages 0x1F..0x23, flag 7 changes and the rebuilding call are logged with
+// the return addresses on the stack, ours marked, to see who sends them and in which order.
+uint32_t frameNo = 0;
+uint32_t OursEnd() {
+    static uint32_t end = 0;
+    if (!end) {
+        const uintptr_t ours = reinterpret_cast<uintptr_t>(&__ImageBase);
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(ours);
+        end = static_cast<uint32_t>(ours + reinterpret_cast<const IMAGE_NT_HEADERS*>(ours + dos->e_lfanew)->OptionalHeader.SizeOfImage);
+    }
+    return end;
+}
+void StackCallers(const void* from, char* out, size_t size, bool raw = false) {
+    const uint32_t ours = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&__ImageBase)), oursEnd = OursEnd();
+    const uintptr_t sp = reinterpret_cast<uintptr_t>(from);
+    size_t used = 0;
+    unsigned found = 0;
+    out[0] = 0;
+    for (unsigned i = 0; i < 128 && found < 10 && used + 20 < size; ++i) {
+        uint32_t v = 0;
+        if (!Read(sp + i * 4, &v, 4)) break;
+        const bool exe = v >= base + 0x1000 && v < base + 0x1600000, mine = v >= ours + 0x1000 && v < oursEnd;
+        if (!exe && !mine) continue;
+        if (raw) {
+            used += static_cast<size_t>(std::snprintf(out + used, size - used, "%s%s%08X", used ? " " : "", mine ? "ours+" : "", mine ? v - ours : v));
+            ++found;
+            continue;
+        }
+        // only values right behind a call: E8 rel32, FF /2 as reg, [reg+disp8], [reg+disp32] or [abs32]
+        uint8_t b[7]{};
+        if (!Read(v - 7, b, 7)) continue;
+        const bool call = b[2] == 0xE8 || (b[5] == 0xFF && (b[6] & 0xF8) == 0xD0) || (b[4] == 0xFF && (b[5] & 0xF8) == 0x50) ||
+                          (b[1] == 0xFF && ((b[2] & 0xF8) == 0x90 || b[2] == 0x15));
+        if (!call) continue;
+        used += static_cast<size_t>(std::snprintf(out + used, size - used, "%s%s%08X", used ? " " : "", mine ? "ours+" : "", mine ? v - ours : v));
+        ++found;
+    }
+    if (!used) std::snprintf(out, size, "none");
+}
+constexpr uint32_t kItemSmMessageRva = 0x4A2F00, kSetFlagRva = 0xAA52F0, kClearFlagRva = 0xA942D0;
+constexpr uint32_t kSentientFlags = 0x298, kActiveItem = 0xCEC, kItemSmOwner = 0x50, kItemSmOther = 0x60;
+safetyhook::InlineHook itemMsgHook, setFlagHook, clearFlagHook;
+volatile LONG msgLines = 0, flagLines = 0, msgCounts[5]{}, flagSets = 0, flagClears = 0;
+bool AimFlag(uint32_t player) {
+    uint32_t f = 0;
+    return Read(player + kSentientFlags, &f, 4) && (f & 0x80) != 0;
+}
+uint32_t BeamOf(uint32_t ref) {
+    uint32_t beam = 0;
+    return ref > 0x10 && Read(ref - 0x10 + kBeam, &beam, 4) ? beam : 0;
+}
+// PlayerEquippedItemSM::HandleStateMessage, thiscall(sm, a1, a2, a3, msg, a5), ret 0x14
+uint32_t __fastcall OnItemSmMessage(void* sm, void*, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t msg, uint32_t a5) {
+    const uint32_t s = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(sm));
+    uint32_t owner = 0, active = 0, other = 0;
+    const uint32_t player = enabled && msg >= 0x1F && msg <= 0x23 ? LocalCampaignPlayer() : 0;
+    const bool ours = player && Read(s + kItemSmOwner, &owner, 4) && owner == player;
+    if (!ours) return itemMsgHook.thiscall<uint32_t>(sm, a1, a2, a3, msg, a5);
+    Read(player + kActiveItem, &active, 4);
+    Read(s + kItemSmOther, &other, 4);
+    const bool flagBefore = AimFlag(player);
+    const uint32_t beamBefore = BeamOf(active), otherBefore = BeamOf(other);
+    char stack[200];
+    StackCallers(_AddressOfReturnAddress(), stack, sizeof(stack));
+    const uint32_t result = itemMsgHook.thiscall<uint32_t>(sm, a1, a2, a3, msg, a5);
+    InterlockedIncrement(&msgCounts[msg - 0x1F]);
+    if (InterlockedIncrement(&msgLines) <= 600)
+        gate::Event("laser msg t=%lu frame=%lu msg %02X aim_flag=%d->%d gun %08X beam %08X->%08X other %08X beam %08X->%08X args %08X %08X %08X %08X | stack %s",
+                    static_cast<unsigned long>(GetTickCount()), static_cast<unsigned long>(frameNo), msg, flagBefore ? 1 : 0, AimFlag(player) ? 1 : 0,
+                    active > 0x10 ? active - 0x10 : 0, beamBefore, BeamOf(active), other > 0x10 ? other - 0x10 : 0, otherBefore, BeamOf(other), a1, a2, a3, a5, stack);
+    return result;
+}
+void NoteFlag(uint32_t sentient, bool set, const void* from) {
+    const uint32_t player = LocalCampaignPlayer();
+    if (!player || sentient != player || AimFlag(player) == set) return;
+    InterlockedIncrement(set ? &flagSets : &flagClears);
+    if (InterlockedIncrement(&flagLines) > 600) return;
+    char stack[200];
+    StackCallers(from, stack, sizeof(stack));
+    uint32_t active = 0;
+    Read(player + kActiveItem, &active, 4);
+    gate::Event("laser aim_flag %s t=%lu frame=%lu beam %08X | stack %s", set ? "set" : "cleared", static_cast<unsigned long>(GetTickCount()),
+                static_cast<unsigned long>(frameNo), BeamOf(active), stack);
+}
+uint32_t __fastcall OnSetFlag(void* sentient, void*, uint32_t flag) {
+    if (flag == 7 && enabled) NoteFlag(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(sentient)), true, _AddressOfReturnAddress());
+    return setFlagHook.thiscall<uint32_t>(sentient, flag);
+}
+uint32_t __fastcall OnClearFlag(void* sentient, void*, uint32_t flag) {
+    if (flag == 7 && enabled) NoteFlag(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(sentient)), false, _AddressOfReturnAddress());
+    return clearFlagHook.thiscall<uint32_t>(sentient, flag);
+}
+// The rebuild needs bit 3 of +0x390 again, which the kill clears and only Gun's base
+// StartAimingVFX (0x00DC81D0, vtable +0x2DC; every override jumps there) sets.
+constexpr uint32_t kStartAimingVfxRva = 0x9C81D0;
+safetyhook::InlineHook startHook;
+volatile LONG startLines = 0, startsSeen = 0;
+void __fastcall OnStartAimingVfx(void* gun, void*) {
+    const uint32_t g = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(gun));
+    uint32_t ownerRef = 0, beam = 0, flags = 0;
+    const uint32_t player = enabled ? LocalCampaignPlayer() : 0;
+    if (player && Read(g + kGunOwner, &ownerRef, 4) && ownerRef - 0x10 == player) {
+        Read(g + kBeam, &beam, 4);
+        Read(g + kGunFlags, &flags, 4);
+        InterlockedIncrement(&startsSeen);
+        if (InterlockedIncrement(&startLines) <= 300) {
+            char stack[160];
+            StackCallers(_AddressOfReturnAddress(), stack, sizeof(stack), true);
+            gate::Event("laser on t=%lu frame=%lu: gun %08X beam %08X flags %08X aim_flag=%d ret %08X | raw %s", static_cast<unsigned long>(GetTickCount()),
+                        static_cast<unsigned long>(frameNo), g, beam, flags, AimFlag(player) ? 1 : 0,
+                        static_cast<unsigned>(reinterpret_cast<uintptr_t>(_ReturnAddress())), stack);
+        }
+    }
+    startHook.thiscall<void>(gun);
+}
 // Who switches our laser off: Gun's base kill 0x00DB0A00 (thiscall(gun), ret; the guns' own
 // +0x2E4 overrides kill their extra handles and jump here), logged with the caller for our
 // Isaac's gun. A left-on laser is then the release whose usual caller never came.
@@ -65,8 +183,12 @@ void __fastcall OnKillAimingVfx(void* gun, void*) {
         for (Caller& c : killCallers) {
             if (c.rva == rva || !c.rva) { c.rva = rva; InterlockedIncrement(&c.count); break; }
         }
-        if (InterlockedIncrement(&killLines) <= 300)
-            gate::Event("laser off t=%lu: gun %08X beam %08X switched off from %08X", static_cast<unsigned long>(GetTickCount()), g, beam, from);
+        if (InterlockedIncrement(&killLines) <= 300) {
+            char stack[200];
+            StackCallers(_AddressOfReturnAddress(), stack, sizeof(stack));
+            gate::Event("laser off t=%lu frame=%lu: gun %08X beam %08X switched off from %08X aim_flag=%d | stack %s", static_cast<unsigned long>(GetTickCount()),
+                        static_cast<unsigned long>(frameNo), g, beam, from, AimFlag(player) ? 1 : 0, stack);
+        }
     }
     killHook.thiscall<void>(gun);
 }
@@ -106,6 +228,7 @@ void OwnerStates(uint32_t actor, char* out, size_t size) {
 // Frame tick, game thread (the guns update on it too). With LaserCleanup=0 it only reports.
 void Tick(DWORD now) {
     if (!installed) return;
+    ++frameNo;
     for (Watched& w : watched) {
         if (!w.gun || static_cast<LONG>(now - w.at) < static_cast<LONG>(kStaleMs)) continue;
         const Watched seen = w;
@@ -162,8 +285,11 @@ uint32_t __fastcall OnUpdateAimingVfx(void* gun, void*) {
         InterlockedIncrement(&changes);
         if (InterlockedIncrement(&lines) <= 400) {
             const DWORD t = GetTickCount();
-            gate::Event("laser t=%lu gun %08X ammo_loaded %d -> %d, beam %08X point %08X faded %08X update_ret %08X%s", t, g, last.gun == g ? last.ammo : -1, now.ammo, now.beam,
-                        now.point, now.faded, now.ret, reloadAt && t - reloadAt < 4000 ? " (within 4 s of a reload start)" : "");
+            char stack[200];
+            StackCallers(_AddressOfReturnAddress(), stack, sizeof(stack));
+            gate::Event("laser t=%lu frame=%lu gun %08X ammo_loaded %d -> %d, beam %08X point %08X faded %08X update_ret %08X aim_flag=%d%s | stack %s", t,
+                        static_cast<unsigned long>(frameNo), g, last.gun == g ? last.ammo : -1, now.ammo, now.beam, now.point, now.faded, now.ret,
+                        AimFlag(player) ? 1 : 0, reloadAt && t - reloadAt < 4000 ? " (within 4 s of a reload start)" : "", stack);
         }
         last = now;
     }
@@ -193,6 +319,25 @@ void Install(FILE* log, const std::string& ini) {
     const bool killOk = installed && hook_site::Install(log, "laser diagnostics Gun kill aiming VFX", base + kKillAimingVfxRva, kKill, sizeof(kKill),
                                                         reinterpret_cast<void*>(OnKillAimingVfx), killHook);
     std::fprintf(log, "laser switch-off callers %s (Gun 0x00DB0A00, our Isaac's gun only)\n", killOk ? "logged" : "NOT logged");
+    // push ebx / push esi / push edi / mov edi,ecx / mov ecx,[edi+50h] / mov eax,[ecx+0CECh]
+    static const unsigned char kItemMsg[] = {0x53, 0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x4F, 0x50, 0x8B, 0x81, 0xEC, 0x0C, 0x00, 0x00};
+    // push esi / push edi / mov edi,[esp+0Ch] / mov esi,ecx
+    static const unsigned char kSetFlag[] = {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C, 0x8B, 0xF1};
+    // mov edx,ecx / push esi / mov esi,[esp+8] / mov ecx,esi
+    static const unsigned char kClearFlag[] = {0x8B, 0xD1, 0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B, 0xCE};
+    const bool msgOk = installed && hook_site::Install(log, "laser diagnostics PlayerEquippedItemSM messages", base + kItemSmMessageRva, kItemMsg, sizeof(kItemMsg),
+                                                       reinterpret_cast<void*>(OnItemSmMessage), itemMsgHook);
+    const bool setOk = installed && hook_site::Install(log, "laser diagnostics Sentient::SetBehaviorFlag", base + kSetFlagRva, kSetFlag, sizeof(kSetFlag),
+                                                       reinterpret_cast<void*>(OnSetFlag), setFlagHook);
+    const bool clearOk = installed && hook_site::Install(log, "laser diagnostics Sentient::ClearBehaviorFlag", base + kClearFlagRva, kClearFlag, sizeof(kClearFlag),
+                                                         reinterpret_cast<void*>(OnClearFlag), clearFlagHook);
+    // sub esp,14h / push ebx / push esi / mov esi,ecx / push edi / mov edi,[esi+0Ch]
+    static const unsigned char kStart[] = {0x83, 0xEC, 0x14, 0x53, 0x56, 0x8B, 0xF1, 0x57, 0x8B, 0x7E, 0x0C};
+    const bool startOk = installed && hook_site::Install(log, "laser diagnostics Gun::StartAimingVFX", base + kStartAimingVfxRva, kStart, sizeof(kStart),
+                                                         reinterpret_cast<void*>(OnStartAimingVfx), startHook);
+    std::fprintf(log, "laser switch-on callers %s (Gun 0x00DC81D0, our Isaac's gun only)\n", startOk ? "logged" : "NOT logged");
+    std::fprintf(log, "laser message trace: item machine messages 0x1F..0x23 %s, aim flag 7 set %s, cleared %s (our Isaac only, stacks with ours+ for this plugin)\n",
+                 msgOk ? "logged" : "NOT logged", setOk ? "logged" : "NOT logged", clearOk ? "logged" : "NOT logged");
     std::fprintf(log, "laser diagnostics %s ([Coop] LaserDiag): our gun's laser handles and loaded ammo on every change, every reload start; "
                       "cleanup %s ([Coop] LaserCleanup): a gun with no aiming update for %lu ms and a laser still set is switched off\n",
                  installed ? "on" : "NOT installed", cleanup && installed ? "on" : "off", static_cast<unsigned long>(kStaleMs));
@@ -216,5 +361,9 @@ void WriteDiagnostics(FILE* log) {
             if (k.rva) std::fprintf(log, " %08X x%ld", k.rva + 0x400000u, k.count);
         std::fprintf(log, "\n");
     }
+    std::fprintf(log, "laser item messages 1F=%ld 20=%ld 21=%ld 22=%ld 23=%ld | aim flag sets=%ld clears=%ld | switch-ons=%ld | frame=%lu\n", InterlockedCompareExchange(&msgCounts[0], 0, 0),
+                 InterlockedCompareExchange(&msgCounts[1], 0, 0), InterlockedCompareExchange(&msgCounts[2], 0, 0), InterlockedCompareExchange(&msgCounts[3], 0, 0),
+                 InterlockedCompareExchange(&msgCounts[4], 0, 0), InterlockedCompareExchange(&flagSets, 0, 0), InterlockedCompareExchange(&flagClears, 0, 0),
+                 InterlockedCompareExchange(&startsSeen, 0, 0), static_cast<unsigned long>(frameNo));
 }
 }  // namespace laserdiag

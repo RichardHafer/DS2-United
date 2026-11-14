@@ -143,7 +143,7 @@ std::set<Guid> ventFamilyBlockedGuids;   // blocked by [VentFamilies] alone
 unsigned ventFamilyBlockedRecords = 0;
 unsigned poolFamilyUnpackaged = 0;
 unsigned poolPassiveDonors = 0;
-unsigned withdrawnDonors = 0;
+unsigned withdrawnDonors = 0, sceneCopiesFreed = 0;
 const Guid kWithdrawnDonors[] = {
     {0x30CA2DABu, 0x7FED4260u, 0x4D444E52u, 0x4C4F4F50u},   // pack boy stand-in, no state machines
 };
@@ -228,7 +228,8 @@ void LoadEnemyPool(const std::string& ini) {
         record.awareMessage = messages.aware;
         for (const auto& entry : ds2::kVentGuids) if (entry.target == row.guid) { record.vent = entry.vent; break; }
         record.sourceEnabled = GetPrivateProfileIntA("Sources", record.family.c_str(), 1, ini.c_str()) != 0;
-        record.targetEnabled = !IsSceneActor(row.guid) && GetPrivateProfileIntA("Targets", record.family.c_str(), 1, ini.c_str()) != 0;
+        record.sceneLocked = IsSceneActor(row.guid);
+        record.targetEnabled = !record.sceneLocked && GetPrivateProfileIntA("Targets", record.family.c_str(), 1, ini.c_str()) != 0;
         record.weight = ConfigInt(ini, "Weights", row.family, 100, 0, 1000);
         pool.push_back(std::move(record));
     }
@@ -265,6 +266,17 @@ void LoadEnemyPool(const std::string& ini) {
         globalTemplates = false;
         poolStageFailed = "variant_donors: " + ds2::variantDonorFailure;
     }
+    // The pool's copies are our own entities under their own GUIDs; the scene lock belongs to
+    // the original. Copies inherited it from 08.11. on: the only plain puker and two slasher
+    // skins were gone, and survival took super_puker for every puker from wave 4.
+    sceneCopiesFreed = 0;
+    for (auto& record : pool)
+        if (record.sceneLocked && !IsSceneActor(record.guid)) {
+            record.sceneLocked = false;
+            if (withdrawnForCampaign.count(record.guid)) continue;
+            record.targetEnabled = GetPrivateProfileIntA("Targets", record.family.c_str(), 1, ini.c_str()) != 0;
+            ++sceneCopiesFreed;
+        }
     twitcherRowsLoaded = oracleRowsLoaded = enhancedSources = 0;
     for (const auto& record : pool) {
         if (record.retargeted) ++twitcherRowsLoaded;

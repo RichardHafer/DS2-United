@@ -644,6 +644,7 @@ DWORD WINAPI Worker(void* module) {
     std::fprintf(log, "direct_donors=%d pack_boy_stand_in=%s withdrawn_donors=%u (offered to the survival director) corpse_templates=%zu\n", directDonors,
                  directDonors && !withdrawnDonors ? "offered" : "withheld in the campaign", withdrawnDonors,
                  std::size(ds2::kCorpseTemplates));
+    std::fprintf(log, "scene_actor_copies offered=%u (pool copies of story scene actors; the originals stay locked)\n", sceneCopiesFreed);
     std::fprintf(log, "variants enabled=%d offered=%u\n", variantsEnabled ? 1 : 0, variantsLoaded);
     std::fprintf(log, "twitchers enabled=%d severed rows=%u (oracle %u, for the %u enhanced sources) skipped=%u campaign_chance twitcher=%u pregnant=%u "
                       "campaign_plans=%u (no candidate %u)%s%s\n",
