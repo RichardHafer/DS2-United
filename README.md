@@ -14,6 +14,7 @@ everything around it: survival game modes on the multiplayer maps and in
 campaign arenas, companion bots, necromorph players invading the story, and the
 enemy randomizer with more enemies per spawn. Every part works solo too, and
 every part can be switched off on its own.
+> **Story Co-op is still pretty broken. Expect lots of bugs.**
 
 Nothing in the game's files is changed. The plugin runs on its own edition of
 the [Marker Patch](https://github.com/Wemino/MarkerPatch), which loads it and
@@ -42,6 +43,7 @@ hold fire, attack or cover formation).
 - **Co-op** for up to four players through the whole campaign, over LAN or a
   virtual network such as Tailscale, ZeroTier or Radmin. The host leads levels,
   checkpoints and enemies; doors, lifts and scenes wait for everybody.
+> **Story Co-op is still pretty broken. Expect lots of bugs.**
 - **Invasion** (experimental, off by default): a friend can join as a necromorph
   instead of a human and hunt the others during their playthrough.
 - **Enemy randomizer**: every enemy spawn can become a different enemy, through
