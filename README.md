@@ -2,6 +2,11 @@
   <img src="assets/United_Logo.png" alt="Dead Space 2 United" width="70%">
 </p>
 
+> **Version 0.1 is a highly experimental release.** A lot of this has only been
+> tested by a handful of people. Expect crashes and bugs, back up your saves,
+> and send the logs when something breaks. The settings window and the main
+> menu say so too.
+
 # Dead Space 2 United
 
 A mod for the PC port of Dead Space 2 that brings co-op to the story and adds
@@ -17,11 +22,6 @@ memory while you play.
 
 Before November 2026 this was the Co-op Mod (DS2Coop) and, earlier still, the
 Dead Space 2 Randomizer.
-
-> **Version 0.1 is a highly experimental release.** A lot of this has only been
-> tested by a handful of people. Expect crashes and bugs, back up your saves,
-> and send the logs when something breaks. The settings window and the main
-> menu say so too.
 
 ## What it does
 
@@ -257,7 +257,7 @@ with the amount the tree authored for its new stat.
 
 Visual Studio 2022 with the x86 toolchain and Python 3. `build_ds2coop.cmd`
 builds `build\DS2United.asi`; the `build_*_tests.cmd` scripts build the unit
-tests. `toolscvars32.cmd` finds whichever edition is installed. safetyhook
+tests. `tools\vcvars32.cmd` finds whichever edition is installed. safetyhook
 needs `std::expected`, hence `/std:c++latest`.
 
 `build_configurator.cmd` builds `DS2UnitedConfig.exe` with the C# compiler
