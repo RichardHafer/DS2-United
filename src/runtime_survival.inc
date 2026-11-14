@@ -2181,9 +2181,11 @@ size_t PickEscalated(const std::string& key, const std::vector<size_t>& ordinary
 // [Survival] TwitcherPercent / SeveredPregnantPercent: a slasher or pregnant comes as its Severed
 // counterpart, never a super slasher, and only where a copy of its family fits the same arrival
 // (a direct one, or one with the vent spawner's survival key).
+volatile LONG twitcherTooEarly = 0;
 size_t MaybeTwitcher(const survival::Item& item, size_t donor, const std::map<std::string, std::vector<size_t>>* ventTwitchers, const char* ventName) {
     const unsigned percent = item.family == "Zombie" ? cfg.twitcherPercent : item.family == "Pregnant" ? cfg.pregnantPercent : 0;
     if (donor == SIZE_MAX || !percent || item.super || superGuids.count(pool[donor].guid)) return donor;
+    if (EscWave(run.wave) < cfg.severedFromWave) { InterlockedIncrement(&twitcherTooEarly); return donor; }
     InterlockedIncrement(&twitcherRolls);
     if (rng.Unit() * 100.0f >= static_cast<float>(percent)) return donor;
     const auto& lists = ventTwitchers ? *ventTwitchers : twitcherDirect;
@@ -5782,6 +5784,7 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&navShort, 0, 0), InterlockedCompareExchange(&navNoPath, 0, 0));
     size_t directCopies = 0;
     for (const auto& f : twitcherDirect) directCopies += f.second.size();
+    std::fprintf(log, "survival severed from_wave=%u too_early=%ld\n", cfg.severedFromWave, InterlockedCompareExchange(&twitcherTooEarly, 0, 0));
     std::fprintf(log, "survival severed twitcher_percent=%u pregnant_percent=%u direct_copies=%zu vent_spots=%zu vent_copies=%zu rolls=%ld direct_picks=%ld vent_picks=%ld no_copy=%ld "
                       "| oracle (an enhanced enemy, from the escalation only) direct_copies=%zu vent_copies=%zu left_out_without_plain_donor=%zu picks=%ld capped=%ld share=%u%% max_alive=%u\n",
                  cfg.twitcherPercent, cfg.pregnantPercent, directCopies, twitcherVentSpots, twitcherVentCopies, InterlockedCompareExchange(&twitcherRolls, 0, 0), InterlockedCompareExchange(&twitcherPicks, 0, 0),

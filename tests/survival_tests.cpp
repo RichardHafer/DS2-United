@@ -60,7 +60,8 @@ void Template() {
     for (const auto& w : c.warnings) std::printf("template warning: %s\n", w.c_str());
     assert(c.warnings.empty());
     assert(EqualNoCase(c.map, "any"));   // every MP map, picked in the main menu
-    assert(c.startDelayS == 20 && c.startKey == 107 && c.maxAlive == 15 && c.pauseS == 20 && c.minDistance == 12.0f && c.maxDistance == 25.0f);
+    assert(c.startDelayS == 20 && c.startKey == 107 && c.maxAlive == 11 && c.pauseS == 20 && c.minDistance == 12.0f && c.maxDistance == 25.0f);
+    assert(c.twitcherPercent == 10 && c.severedFromWave == 6);
     assert(c.waves.size() == 10);
     // the wave table the task asked for
     assert(c.waves[0].Total() == 6 && c.waves[0].entries[0].family == "Zombie");

@@ -339,7 +339,8 @@ struct Config {
     float zombieChargeFloor = 0.9f;
     float engageMeters = 10.0f;
     bool timedEndKill = true, superVariants = false;
-    unsigned twitcherPercent = 20;     // a slasher comes as a Severed twitcher (0 = never)
+    unsigned twitcherPercent = 10;     // a slasher comes as a Severed twitcher (0 = never)
+    unsigned severedFromWave = 6;      // no Severed enemy before this wave
     unsigned pregnantPercent = 20;     // a pregnant comes as the Severed pregnant (0 = never)
     unsigned navReserveKiB = 96;
     unsigned rewardAmmoPerGun = 2, rewardMedPacks = 1, rewardMedSize = 1, rewardCredits = 1000, rewardStasis = 1;
@@ -518,7 +519,8 @@ inline Config ParseConfig(const std::string& text) {
     c.engageMeters = FloatOr(ini, s, "EngageMeters", 10.0f, 2.0f, 40.0f, c);
     c.timedEndKill = UnsignedOr(ini, s, "TimedEndKill", 1, 0, 1, c) != 0;
     c.superVariants = UnsignedOr(ini, s, "SuperVariants", 0, 0, 1, c) != 0;
-    c.twitcherPercent = UnsignedOr(ini, s, "TwitcherPercent", 20, 0, 100, c);
+    c.twitcherPercent = UnsignedOr(ini, s, "TwitcherPercent", 10, 0, 100, c);
+    c.severedFromWave = UnsignedOr(ini, s, "SeveredFromWave", 6, 1, 1000, c);
     c.pregnantPercent = UnsignedOr(ini, s, "SeveredPregnantPercent", 20, 0, 100, c);
     c.navReserveKiB = UnsignedOr(ini, s, "NavPowerReserveKiB", 96, 0, 4096, c);
     c.rewardAmmoPerGun = UnsignedOr(ini, s, "RewardAmmoPerGun", 2, 0, 10, c);
