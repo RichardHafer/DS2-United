@@ -2136,11 +2136,23 @@ unsigned OraclesAlive() {
     }
     return n;
 }
+unsigned EnhancedChanceNow() {
+    return ClockRun() ? survival::ClockEnhancedChance(run.wave, run.spec, cfg) : survival::EnhancedChanceFor(run.wave, run.spec, cfg);
+}
+// A list with nothing but enhanced donors is no source while the escalation allows none
+// (14.11.: wave 4 on mp_escape brought super_puker for every vent puker).
+bool OnlyEnhanced(const std::vector<size_t>& list) {
+    for (const size_t i : list)
+        if (!superGuids.count(pool[i].guid)) return false;
+    return !list.empty();
+}
+volatile LONG enhancedFallbackRefused = 0;
 size_t PickEscalated(const std::string& key, const std::vector<size_t>& ordinary, const std::vector<size_t>* enhanced) {
     std::vector<size_t> plain, super;
     for (const size_t i : ordinary) (superGuids.count(pool[i].guid) ? super : plain).push_back(i);
     if (enhanced) super.insert(super.end(), enhanced->begin(), enhanced->end());
-    const unsigned chance = ClockRun() ? survival::ClockEnhancedChance(run.wave, run.spec, cfg) : survival::EnhancedChanceFor(run.wave, run.spec, cfg);
+    const unsigned chance = EnhancedChanceNow();
+    if (plain.empty() && !chance) { InterlockedIncrement(&enhancedFallbackRefused); return SIZE_MAX; }
     const bool wantEnhanced = !super.empty() && chance && rng.Unit() * 100.0f < static_cast<float>(chance);
     size_t donor = SIZE_MAX;
     // Oracle twitchers at most OracleShare of the enhanced picks and OracleMaxAlive at once;
@@ -2266,11 +2278,13 @@ bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, un
     Pick pick, winding;
     reachRewalks = 6;
     const size_t count = ventSpots.size();
+    const bool enhancedAllowed = EnhancedChanceNow() > 0;
     for (size_t k = 0; k < count; ++k) {
         const size_t index = (run.rotation + k) % count;
         VentSpot& s = ventSpots[index];
         const auto d = s.donors.find(item.family);
         if (!s.resolvable || d == s.donors.end() || d->second.empty() || survival::DeadlinePending(now, s.coolUntil)) continue;
+        if (!enhancedAllowed && OnlyEnhanced(d->second)) continue;
         if (!item.package.empty() && !HasPackage(d->second, item.package)) continue;
         if (!KnownSpawnerUsable(s.pointer, s.row->spawner)) { s.resolvable = false; s.pointer = 0; ++run.probeMissing; continue; }
         // one arrival per spawner at a time: its header must not change under the last one
@@ -5741,7 +5755,7 @@ void WriteDiagnostics(FILE* log) {
     lastSignature = signature;
     lastSummary = now;
     std::fprintf(log, "survival summary state=%s run=%ld wave=%ld alive=%ld left=%ld spawned=%ld killed=%ld waves_started=%ld cleared=%ld casts=%ld cast_faults=%ld cast_us_avg=%ld cast_us_max=%ld wall_nudges=%ld wall_refusals=%ld "
-                      "frozen_kills=%ld escalated=%ld health=%ld speed=%ld esc_faults=%ld enhanced_picks=%ld ordinary_picks=%ld hud_pushes=%ld pauses=%ld paused_ticks=%ld paused_s=%u "
+                      "frozen_kills=%ld escalated=%ld health=%ld speed=%ld esc_faults=%ld enhanced_picks=%ld ordinary_picks=%ld enhanced_fallback_refused=%ld hud_pushes=%ld pauses=%ld paused_ticks=%ld paused_s=%u "
                       "driver frame=%ld machine=%ld threads frame=%lu machine=%lu pool_stream=%lu tick_faults=%ld faults=%ld last_fault=%08X lines=%ld over_budget=%ld lost=%ld\n",
                  StateName(static_cast<State>(InterlockedCompareExchange(&stateMirror, 0, 0))), InterlockedCompareExchange(&runsStarted, 0, 0),
                  InterlockedCompareExchange(&waveMirror, 0, 0), InterlockedCompareExchange(&aliveMirror, 0, 0), InterlockedCompareExchange(&leftMirror, 0, 0),
@@ -5752,7 +5766,8 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&wallNudges, 0, 0), InterlockedCompareExchange(&wallRefusals, 0, 0), InterlockedCompareExchange(&frozenKills, 0, 0),
                  InterlockedCompareExchange(&escalatedEnemies, 0, 0), InterlockedCompareExchange(&escalatedHealth, 0, 0),
                  InterlockedCompareExchange(&escalatedSpeed, 0, 0), InterlockedCompareExchange(&escalationFaults, 0, 0),
-                 InterlockedCompareExchange(&enhancedPicks, 0, 0), InterlockedCompareExchange(&ordinaryPicks, 0, 0), InterlockedCompareExchange(&hudPushes, 0, 0),
+                 InterlockedCompareExchange(&enhancedPicks, 0, 0), InterlockedCompareExchange(&ordinaryPicks, 0, 0),
+                 InterlockedCompareExchange(&enhancedFallbackRefused, 0, 0), InterlockedCompareExchange(&hudPushes, 0, 0),
                  InterlockedCompareExchange(&pauses, 0, 0), InterlockedCompareExchange(&pausedTicks, 0, 0), pausedTotal / 1000u,
                  InterlockedCompareExchange(&driverFrame, 0, 0), InterlockedCompareExchange(&driverMachine, 0, 0),
                  static_cast<unsigned long>(InterlockedCompareExchange(&frameThread, 0, 0)), static_cast<unsigned long>(InterlockedCompareExchange(&machineThread, 0, 0)),
