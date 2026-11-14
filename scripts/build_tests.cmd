@@ -1,8 +1,8 @@
 @echo off
 setlocal
-call "%~dp0tools\vcvars32.cmd"
+call "%~dp0..\tools\vcvars32.cmd"
 if %errorlevel% neq 0 exit /b 1
-pushd "%~dp0"
+pushd "%~dp0..\"
 if not exist build mkdir build
 cl /nologo /W4 /WX /EHsc /std:c++17 /MT tests\policy_tests.cpp /Fobuild\policy_tests.obj /Febuild\policy_tests.exe
 if %errorlevel% neq 0 exit /b 1

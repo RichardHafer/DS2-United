@@ -2,9 +2,9 @@
 :: The supply terminal's panel drawn by its own code on a real Direct3D 9 device
 :: (no game): BMP previews in build\overlay_preview\ and a state restore check.
 setlocal
-call "%~dp0tools\vcvars32.cmd"
+call "%~dp0..\tools\vcvars32.cmd"
 if %errorlevel% neq 0 exit /b 1
-pushd "%~dp0"
+pushd "%~dp0..\"
 if not exist build\overlay_preview mkdir build\overlay_preview
 cl /nologo /c /O2 /W4 /EHsc /std:c++latest /MT /Ithird_party tests\coop_overlay_preview.cpp /Fobuild\overlay_preview\
 if %errorlevel% neq 0 exit /b 1

@@ -2,7 +2,7 @@
 :: Builds the loose-file mod loader (DS2ModLoader.asi). No hooks, no safetyhook:
 :: it only calls the filesystem manager's own SetSearchPath on new storage.
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\"
 
 for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VSPATH=%%i
 if "%VSPATH%"=="" (

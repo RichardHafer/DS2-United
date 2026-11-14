@@ -3,7 +3,7 @@
 :: mod, build\DS2United.asi, comes from build_ds2coop.cmd.
 :: Separate target from build_observer.cmd: no randomizer module is compiled in.
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\"
 
 for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VSPATH=%%i
 if "%VSPATH%"=="" (

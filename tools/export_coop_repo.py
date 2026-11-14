@@ -20,12 +20,12 @@ SOURCES = ['src/coop_plugin.cpp', 'src/modloader.cpp'] + sorted(
     os.path.relpath(p, ROOT).replace('\\', '/') for p in
     glob.glob(os.path.join(ROOT, 'src', 'runtime_coop*.inc')) + glob.glob(os.path.join(ROOT, 'src', 'coop_*.h')))
 TESTS = sorted(os.path.relpath(p, ROOT).replace('\\', '/') for p in glob.glob(os.path.join(ROOT, 'tests', 'coop_*.cpp')))
-SCRIPTS = ['build_coop.cmd', 'build_modloader.cmd', 'build_ownership_probe.cmd', 'StartCoopEvents.cmd'] + sorted(
-    os.path.basename(p) for pattern in ('build_bot_*.cmd', 'build_coop_*.cmd', 'build_death_ack_tests.cmd', 'build_gate*.cmd',
+SCRIPTS = ['scripts/build_coop.cmd', 'scripts/build_modloader.cmd', 'scripts/build_ownership_probe.cmd', 'scripts/StartCoopEvents.cmd'] + sorted(
+    'scripts/' + os.path.basename(p) for pattern in ('build_bot_*.cmd', 'build_coop_*.cmd', 'build_death_ack_tests.cmd', 'build_gate*.cmd',
                                         'build_ghost_probe_tests.cmd', 'build_local_lifecycle_tests.cmd', 'build_npc_policy_tests.cmd',
                                         'build_peer*.cmd', 'build_ping_tests.cmd', 'build_save_policy_tests.cmd', 'build_template_tests.cmd',
                                         'build_uniform_tests.cmd', 'build_weapon_lookup_tests.cmd')
-    for p in glob.glob(os.path.join(ROOT, pattern)))
+    for p in glob.glob(os.path.join(ROOT, 'scripts', pattern)))
 TEMPLATES = ['DS2United.ini', 'DS2BotProfiles.ini', 'DS2ModLoader.ini', '.gitattributes']   # LICENSE lives in the target repo
 FOLDERS = ['third_party']   # the network launchers stay out while network co-op is not released
 TOOLS = ['tools/audit_coop_spawn_policy.py', 'tools/compare_coop_world.py', 'tools/coop_events_live.py',
@@ -60,7 +60,7 @@ def headers_of(files):
     return seen
 
 
-SCRIPT_REF = re.compile(r'(?:%~dp0|^|[\s"])((?:tools|src|tests)\\[\w.\\-]+\.(?:cmd|bat|py|cpp|h|c))', re.M | re.I)
+SCRIPT_REF = re.compile(r'(?:%~dp0(?:\.\.\\)?|^|[\s"])((?:tools|src|tests)\\[\w.\\-]+\.(?:cmd|bat|py|cpp|h|c))', re.M | re.I)
 
 
 def script_refs(scripts):

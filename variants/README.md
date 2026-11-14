@@ -44,7 +44,7 @@ DeadSpace2Randomizer folder with `python -I tools/variant_pack.py ...`.
 7. `check ArmoredBrute`, then set `"enabled": true`.
 8. `build` is a dry run on a scratch copy; `build --write` builds the pool, the shared model
    stream `ds2_randomizer_models` and `src/generated_variant_donors.h`. Then `build_ds2coop.cmd`
-   (or `Rebuild-Variants.cmd` for both steps).
+   (or `scripts\Rebuild-Variants.cmd` for both steps).
 9. Install with the game closed: `build\DS2Coop.asi` into `plugins\`, and
    `analysis\runtime_stream\ds2_randomizer_pool.str/.toc` plus `ds2_randomizer_models.str/.toc`
    into `<game>\randomizer\`. Every machine in co-op needs the same files.

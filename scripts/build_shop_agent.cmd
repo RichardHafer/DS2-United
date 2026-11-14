@@ -2,7 +2,7 @@
 :: The co-op plugin built into build\shop_agent\ (objects, DS2United.asi and its map),
 :: so a build here never touches build\ or build\coop\.
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\"
 
 for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VSPATH=%%i
 if "%VSPATH%"=="" (

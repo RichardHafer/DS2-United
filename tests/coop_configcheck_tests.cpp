@@ -1,5 +1,5 @@
 // Dead Space 2 United by Richard Hafer.
-// Tests for coop_configcheck.h: build_configcheck_tests.cmd [an INI to fingerprint]
+// Tests for coop_configcheck.h: scripts\build_configcheck_tests.cmd [an INI to fingerprint]
 #include <cassert>
 #include <cstdio>
 #include <fstream>

@@ -6,7 +6,7 @@
 
 Put the edited files, same names, 16 bit mono, into
 variants/sounds/<variant>/original/edited/ and name the banks in the spec
-under "custom_sounds" (see the SuperExploder entry); Rebuild-Variants.cmd
+under "custom_sounds" (see the SuperExploder entry); scripts\Rebuild-Variants.cmd
 then encodes them into private bank copies.
 """
 import json

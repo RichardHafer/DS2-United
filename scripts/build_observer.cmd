@@ -1,8 +1,8 @@
 @echo off
 setlocal
-call "%~dp0tools\vcvars32.cmd"
+call "%~dp0..\tools\vcvars32.cmd"
 if %errorlevel% neq 0 exit /b 1
-pushd "%~dp0"
+pushd "%~dp0..\"
 if not exist build mkdir build
 rem The generated headers are rebuilt from the extracted game data when it is
 rem present (analysis\catalog). Without it the committed headers are used as they are.

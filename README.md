@@ -258,8 +258,8 @@ with the amount the tree authored for its new stat.
 ## Building
 
 Visual Studio 2022 with the x86 toolchain and Python 3. `build_ds2coop.cmd`
-builds `build\DS2United.asi`; the `build_*_tests.cmd` scripts build the unit
-tests. `tools\vcvars32.cmd` finds whichever edition is installed. safetyhook
+builds `build\DS2United.asi`; `scripts\build_tests.cmd` and the other
+`scripts\build_*_tests.cmd` build the unit tests. `tools\vcvars32.cmd` finds whichever edition is installed. safetyhook
 needs `std::expected`, hence `/std:c++latest`.
 
 `build_configurator.cmd` builds `DS2UnitedConfig.exe` with the C# compiler
