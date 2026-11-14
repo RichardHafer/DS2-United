@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 [assembly: System.Reflection.AssemblyTitle("Dead Space 2 United Config")]
 [assembly: System.Reflection.AssemblyProduct("Dead Space 2 United")]
-[assembly: System.Reflection.AssemblyVersion("0.1.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.1.1.0")]
 
 namespace DS2CoopConfig
 {
@@ -21,7 +21,7 @@ namespace DS2CoopConfig
         public const string IniName = Merger.FileName;
         public const string Caption = "Dead Space 2 United";
         // the release the zip carries; shown on every start of this window
-        public const string ReleaseVersion = "0.1";
+        public const string ReleaseVersion = "0.1.1";
         public const string ExperimentalWarning =
             "Dead Space 2 United " + ReleaseVersion + " is a highly experimental release.\n\n" +
             "Expect crashes and bugs. Back up your save games before you play, and keep a copy of plugins\\DS2United.ini " +
