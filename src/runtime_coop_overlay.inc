@@ -492,6 +492,32 @@ bool TakeBanner() {
     return bannerView.until && static_cast<LONG>(bannerView.until - GetTickCount()) > 0;
 }
 constexpr uint32_t kBannerBand = 0xB4000000, kBannerTitle = 0xFFFF5A48;
+// A one-line note in the top left corner for the trailer camera's speed and state changes:
+// a new note replaces the last one at once, so stepping through values never stacks up.
+struct CornerNote { char text[64]; DWORD until; };
+SRWLOCK noteLock = SRWLOCK_INIT;
+CornerNote noteShared{}, noteView{};
+volatile LONG noteShows = 0;
+void ShowNote(const char* text, DWORD ms) {
+    AcquireSRWLockExclusive(&noteLock);
+    std::snprintf(noteShared.text, sizeof(noteShared.text), "%s", text ? text : "");
+    noteShared.until = GetTickCount() + ms;
+    if (!noteShared.until) noteShared.until = 1;
+    ReleaseSRWLockExclusive(&noteLock);
+    InterlockedIncrement(&noteShows);
+}
+bool TakeNote() {
+    AcquireSRWLockShared(&noteLock);
+    noteView = noteShared;
+    ReleaseSRWLockShared(&noteLock);
+    return noteView.until && static_cast<LONG>(noteView.until - GetTickCount()) > 0;
+}
+void DrawNote() {
+    const int px = font.px, lh = font.metrics.lineHeight;
+    const int w = TextWidth(noteView.text) + px, h = lh + px / 2;
+    Rect(px, px, w, h, kBannerBand);
+    Text(px + px / 2, px + px / 4, noteView.text, kText);
+}
 void DrawBanner(int W, int H) {
     const int px = font.px, lh = font.metrics.lineHeight, t = px / 16 < 1 ? 1 : px / 16;
     const int titleW = TextWidth(bannerView.title) * 2, lineW = TextWidth(bannerView.line);
@@ -1307,6 +1333,7 @@ void DrawFrame(uint32_t device) {
     if (panel && InterlockedCompareExchange(&pointerOn, 0, 0))
         DrawPointer(static_cast<int>(InterlockedCompareExchange(&pointerX, 0, 0)), static_cast<int>(InterlockedCompareExchange(&pointerY, 0, 0)));
     if (bannerView.until && static_cast<LONG>(bannerView.until - GetTickCount()) > 0) DrawBanner(static_cast<int>(desc.width), static_cast<int>(desc.height));
+    if (noteView.until && static_cast<LONG>(noteView.until - GetTickCount()) > 0) DrawNote();
     if (hintView.until && static_cast<LONG>(hintView.until - GetTickCount()) > 0) DrawHint(static_cast<int>(desc.width), static_cast<int>(desc.height));
     if (pageView.until && static_cast<LONG>(pageView.until - GetTickCount()) > 0) DrawPage(static_cast<int>(desc.width), static_cast<int>(desc.height));
     Flush();
@@ -1385,7 +1412,7 @@ void OnEndScene(safetyhook::Context& ctx) {
         InterlockedExchange(&disabled, 0);
         Line("drawing again after a 30 s pause (%s)", disabledWhy);
     }
-    const bool banner = TakeBanner();
+    const bool banner = TakeBanner() | TakeNote();
     const bool hintUp = TakeHint();
     const bool pageUp = TakePage();
     const bool hudUp = TakeHud();

@@ -31,6 +31,84 @@ inline float Stick(int16_t raw, int deadZone) {
 }
 inline float Trigger(uint8_t raw, int threshold) { return raw <= threshold ? 0.0f : static_cast<float>(raw - threshold) / static_cast<float>(255 - threshold); }
 
+// A pad binding: every button in `buttons` held, plus every button in `modifier`.
+// Written as names joined with '+', e.g. "LB", "Start+RB", "L3+R3"; "none" or empty: unbound.
+// In a text with a '+', the last name is the button and the ones before it the modifier.
+struct PadBind { uint16_t buttons = 0, modifier = 0; };
+inline uint16_t ButtonNamed(const std::string& raw) {
+    std::string n;
+    for (char c : raw)
+        if (c != ' ' && c != '\t') n += static_cast<char>(c >= 'a' && c <= 'z' ? c - 32 : c);
+    struct Name { const char* name; uint16_t bit; };
+    static const Name kNames[] = {{"A", kA}, {"B", kB}, {"X", kX}, {"Y", kY}, {"LB", kLb}, {"RB", kRb}, {"L1", kLb}, {"R1", kRb}, {"BACK", kBack},
+                                  {"SELECT", kBack}, {"VIEW", kBack}, {"START", kStart}, {"MENU", kStart}, {"L3", kL3}, {"R3", kR3}, {"LS", kL3}, {"RS", kR3},
+                                  {"UP", kUp}, {"DOWN", kDown}, {"LEFT", kLeft}, {"RIGHT", kRight}, {"DPADUP", kUp}, {"DPADDOWN", kDown},
+                                  {"DPADLEFT", kLeft}, {"DPADRIGHT", kRight}};
+    for (const Name& name : kNames)
+        if (n == name.name) return name.bit;
+    return 0;
+}
+inline bool ParseBind(const std::string& text, PadBind& out) {
+    out = PadBind{};
+    std::string t;
+    for (char c : text)
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') t += c;
+    if (t.empty() || t == "none" || t == "None" || t == "NONE" || t == "0") return true;
+    std::vector<uint16_t> parts;
+    size_t at = 0;
+    while (at <= t.size()) {
+        size_t plus = t.find('+', at);
+        if (plus == std::string::npos) plus = t.size();
+        const uint16_t bit = ButtonNamed(t.substr(at, plus - at));
+        if (!bit) return false;
+        parts.push_back(bit);
+        at = plus + 1;
+    }
+    out.buttons = parts.back();
+    for (size_t i = 0; i + 1 < parts.size(); ++i) out.modifier = static_cast<uint16_t>(out.modifier | parts[i]);
+    return true;
+}
+inline bool Held(const PadBind& b, uint16_t buttons) {
+    return b.buttons && (buttons & b.buttons) == b.buttons && (buttons & b.modifier) == b.modifier;
+}
+// A plain binding gives way while a modifier binding on the same button has its modifier
+// held: with Start+RB bound, Start and RB together do only that.
+inline bool HeldAlone(const PadBind& b, uint16_t buttons, const PadBind* all, size_t count) {
+    if (!Held(b, buttons)) return false;
+    if (b.modifier) return true;
+    for (size_t i = 0; i < count; ++i)
+        if (all[i].modifier && (all[i].buttons & b.buttons) && (buttons & all[i].modifier) == all[i].modifier) return false;
+    return true;
+}
+
+// Held buttons and keys step once, then again after `delay` every `every` seconds.
+struct Repeater { float held = -1.0f, next = 0.0f; };
+inline bool Repeat(Repeater& r, bool down, float dt, float delay = 0.35f, float every = 0.12f) {
+    if (!down) { r.held = -1.0f; return false; }
+    if (r.held < 0.0f) { r.held = 0.0f; r.next = delay; return true; }
+    r.held += dt;
+    if (r.held < r.next) return false;
+    r.next += every;
+    return true;
+}
+// Flying speed: 25 % a step, 0.05x to 16x.
+inline float SpeedStep(float s, int dir) {
+    s *= dir > 0 ? 1.25f : 0.8f;
+    return s < 0.05f ? 0.05f : (s > 16.0f ? 16.0f : s);
+}
+// Game speed steps; never faster than normal.
+constexpr float kTimeSteps[] = {0.05f, 0.1f, 0.25f, 0.5f, 0.75f, 1.0f};
+inline float TimeStep(float current, int dir) {
+    const int n = static_cast<int>(sizeof(kTimeSteps) / sizeof(kTimeSteps[0]));
+    int nearest = 0;
+    for (int i = 1; i < n; ++i)
+        if (std::fabs(kTimeSteps[i] - current) < std::fabs(kTimeSteps[nearest] - current)) nearest = i;
+    int next = nearest + (dir > 0 ? 1 : (dir < 0 ? -1 : 0));
+    if (next < 0) next = 0;
+    if (next >= n) next = n - 1;
+    return kTimeSteps[next];
+}
+
 struct Tuning {
     float moveSpeed = 3.0f;      // metres a second at full stick
     float lookSpeed = 1.4f;      // radians a second at full stick
@@ -76,8 +154,9 @@ inline float Follow(float current, float target, float dt, float smoothing) {
     return current + (target - current) * k;
 }
 // One frame of flying: left stick moves along the view, triggers go down/up, right stick
-// looks, the D-pad rolls (left/right), the shoulder buttons zoom; `speed` scales the movement.
-inline void Fly(Pose& p, Flight& f, const Pad& pad, float speed, float dt, const Tuning& t) {
+// looks; `roll` and `zoom` (-1..1) come from whatever is bound to them (positive tilts
+// right, positive zooms in); `speed` scales the movement.
+inline void Fly(Pose& p, Flight& f, const Pad& pad, float speed, float dt, const Tuning& t, float roll = 0.0f, float zoom = 0.0f) {
     if (dt <= 0.0f) return;
     if (dt > 0.1f) dt = 0.1f;
     float left[3], up[3], fwd[3];
@@ -98,11 +177,9 @@ inline void Fly(Pose& p, Flight& f, const Pad& pad, float speed, float dt, const
     p.pitch -= f.look[1] * dt;
     if (p.pitch > 1.5f) p.pitch = 1.5f;
     if (p.pitch < -1.5f) p.pitch = -1.5f;
-    const float rollWant = ((pad.buttons & kRight) ? 1.0f : 0.0f) - ((pad.buttons & kLeft) ? 1.0f : 0.0f);
-    f.roll = Follow(f.roll, rollWant * t.rollSpeed, dt, t.smoothing);
+    f.roll = Follow(f.roll, roll * t.rollSpeed, dt, t.smoothing);
     p.roll += f.roll * dt;
-    const float fovWant = ((pad.buttons & kLb) ? 1.0f : 0.0f) - ((pad.buttons & kRb) ? 1.0f : 0.0f);
-    f.fov = Follow(f.fov, fovWant * t.fovSpeed, dt, t.smoothing);
+    f.fov = Follow(f.fov, -zoom * t.fovSpeed, dt, t.smoothing);
     p.fov += f.fov * dt;
     if (p.fov < t.minFov) p.fov = t.minFov;
     if (p.fov > t.maxFov) p.fov = t.maxFov;

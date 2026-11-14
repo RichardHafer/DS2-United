@@ -17,8 +17,23 @@ namespace camtools {
 using coop_camtools::Pose;
 bool enabled = false, installed = false, speedOk = false;
 int freeKey = VK_F6, slowKey = VK_F5, freezeKey = VK_F4, recordKey = VK_F2, playKey = VK_F3, hideKey = VK_F10;
+// Stepping and steering keys (0 = unbound). Insert is the debug menu's, the numpad the bots'.
+int speedUpKey = VK_PRIOR, speedDownKey = VK_NEXT, timeFasterKey = VK_HOME, timeSlowerKey = VK_END;
+int rollLeftKey = VK_OEM_COMMA, rollRightKey = VK_OEM_PERIOD, zoomInKey = VK_OEM_PLUS, zoomOutKey = VK_OEM_MINUS, resetKey = 0;
 int deadZone = 7849;
 float slowFactor = 0.25f;
+// The pad: one binding per action, read from [CameraTools] Pad<Action>.
+enum PadAction { kPadFreeCam, kPadSlow, kPadFreeze, kPadRecord, kPadPlay, kPadReset, kPadRollLeft, kPadRollRight, kPadZoomIn, kPadZoomOut,
+                 kPadSpeedUp, kPadSpeedDown, kPadTimeFaster, kPadTimeSlower, kPadActions };
+struct PadActionInfo { const char* key; const char* fallback; };
+const PadActionInfo kPadActionInfo[kPadActions] = {
+    {"PadFreeCam", "L3+R3"}, {"PadSlow", "A"}, {"PadFreeze", "Back"}, {"PadRecord", "X"}, {"PadPlay", "Y"}, {"PadReset", "B"},
+    {"PadRollLeft", "LB"}, {"PadRollRight", "RB"}, {"PadZoomIn", "Start+RB"}, {"PadZoomOut", "Start+LB"},
+    {"PadSpeedUp", "Up"}, {"PadSpeedDown", "Down"}, {"PadTimeFaster", "Right"}, {"PadTimeSlower", "Left"}};
+coop_camtools::PadBind padBind[kPadActions];
+bool padHeldBefore[kPadActions]{};
+// 0: no notes, 1: a small note in the corner (never during playback), 2: the big banners.
+int notices = 1;
 bool hideHudInFreeCam = true, loopPath = false;
 coop_camtools::Tuning tuning;
 std::string pathFolder;
@@ -41,19 +56,26 @@ safetyhook::InlineHook pollHook;
 bool freeCam = false, recording = false, playing = false, slow = false, frozen = false, hudHidden = false, hudPatched = false, speedTouched = false;
 Pose pose;
 coop_camtools::Flight flight;
-float speedMul = 1.0f, gameFov = 1.2217305f;
+float speedMul = 1.0f, gameFov = 1.2217305f, timeScale = 0.25f;
 coop_camtools::Path path;
 LARGE_INTEGER frequency{};
 LONGLONG lastTick = 0, recordStart = 0, playStart = 0, lastLog = 0;
 bool keyDown[256]{};
-uint16_t padBefore = 0;
 volatile LONG padTaken = 0;
 volatile LONG polls = 0, swaps = 0, skipsNoManager = 0, faults = 0, padReads = 0, padFails = 0, speedWrites = 0, hudToggles = 0;
 volatile LONG freeCamToggles = 0, recordings = 0, plays = 0, samples = 0;
 
 bool PadTaken() { return InterlockedCompareExchange(&padTaken, 0, 0) != 0; }
 double Seconds(LONGLONG from, LONGLONG to) { return frequency.QuadPart ? static_cast<double>(to - from) / static_cast<double>(frequency.QuadPart) : 0.0; }
-void Say(const char* title, const char* line) { overlay::ShowBanner(title, line, 1500); }
+// Notes stay out of a playing path, which is what gets filmed.
+void Say(const char* title, const char* line) {
+    if (notices <= 0 || playing) return;
+    if (notices >= 2) { overlay::ShowBanner(title, line, 1500); return; }
+    char text[64];
+    std::snprintf(text, sizeof(text), "%s%s%s", title, line && line[0] ? "  " : "", line ? line : "");
+    overlay::ShowNote(text, 900);
+}
+coop_camtools::Repeater speedUpRep, speedDownRep, timeFasterRep, timeSlowerRep;
 
 // --- the game's camera ---
 uint32_t Blender0(uint32_t& manager) {
@@ -167,6 +189,16 @@ bool Pressed(int vk, bool focused) {
     keyDown[vk] = down;
     return edge;
 }
+bool KeyHeld(int vk, bool focused) { return vk > 0 && vk <= 255 && focused && (GetAsyncKeyState(vk) & 0x8000) != 0; }
+// Pad actions this frame: held (with the modifier rule) and newly pressed.
+bool padHeld[kPadActions]{};
+void ReadPadActions(bool havePad, uint16_t buttons) {
+    for (int i = 0; i < kPadActions; ++i) {
+        padHeldBefore[i] = padHeld[i];
+        padHeld[i] = havePad && coop_camtools::HeldAlone(padBind[i], buttons, padBind, kPadActions);
+    }
+}
+bool PadPressed(PadAction a) { return padHeld[a] && !padHeldBefore[a]; }
 
 // --- the HUD and the speed ---
 // Only our own overlay hides; the game's HUD stays (see the draws above).
@@ -241,12 +273,9 @@ void Frame(uint32_t blender, LONGLONG now) {
     const bool focused = necro::GameWindowFocused();
     coop_camtools::Pad pad;
     const bool havePad = ReadPad(pad);
-    const uint16_t pressed = havePad ? static_cast<uint16_t>(pad.buttons & ~padBefore) : 0;
-    padBefore = havePad ? pad.buttons : 0;
+    ReadPadActions(havePad, havePad ? pad.buttons : 0);
     const bool flying = freeCam || playing;
-    // free camera: the key, or both sticks pressed in
-    const bool bothSticks = havePad && (pad.buttons & coop_camtools::kL3) && (pad.buttons & coop_camtools::kR3) && (pressed & (coop_camtools::kL3 | coop_camtools::kR3));
-    if (Pressed(freeKey, focused) || bothSticks) {
+    if (Pressed(freeKey, focused) || PadPressed(kPadFreeCam)) {
         if (freeCam || playing) {
             if (recording) { recording = false; SavePath(); }
             freeCam = playing = false;
@@ -254,15 +283,32 @@ void Frame(uint32_t blender, LONGLONG now) {
             Say("FREE CAMERA OFF", "");
         } else {
             EnterFreeCam(blender);
-            Say("FREE CAMERA", "PAD FLIES - X RECORD - Y PLAY - A SLOW - BACK FREEZE");
+            Say("FREE CAMERA", "");
         }
     }
-    if (Pressed(slowKey, focused) || (flying && (pressed & coop_camtools::kA))) {
+    if (Pressed(slowKey, focused) || (flying && PadPressed(kPadSlow))) {
         slow = !slow;
-        Say(slow ? "SLOW MOTION" : "NORMAL SPEED", "");
-        gate::Event("camtools: slow motion %s (%.2f)", slow ? "on" : "off", slowFactor);
+        char value[32];
+        std::snprintf(value, sizeof(value), "%.2fx", timeScale);
+        Say(slow ? "SLOW MOTION" : "NORMAL SPEED", slow ? value : "");
+        gate::Event("camtools: slow motion %s (%.2f)", slow ? "on" : "off", timeScale);
     }
-    if (Pressed(freezeKey, focused) || (flying && (pressed & coop_camtools::kBack))) {
+    // game speed in steps, never faster than normal: the keys any time, the pad while flying
+    {
+        const bool faster = coop_camtools::Repeat(timeFasterRep, KeyHeld(timeFasterKey, focused) || (flying && padHeld[kPadTimeFaster]), dt);
+        const bool slower = coop_camtools::Repeat(timeSlowerRep, KeyHeld(timeSlowerKey, focused) || (flying && padHeld[kPadTimeSlower]), dt);
+        if (faster != slower) {
+            const float step = coop_camtools::TimeStep(slow ? timeScale : 1.0f, faster ? 1 : -1);
+            slow = step < 1.0f;
+            if (slow) timeScale = step;
+            frozen = false;
+            char value[32];
+            std::snprintf(value, sizeof(value), "%.2fx", step);
+            Say("GAME SPEED", slow ? value : "NORMAL");
+            gate::Event("camtools: game speed %.2f", step);
+        }
+    }
+    if (Pressed(freezeKey, focused) || (flying && PadPressed(kPadFreeze))) {
         frozen = !frozen;
         Say(frozen ? "TIME STOPPED" : "TIME RUNS", "");
         gate::Event("camtools: time %s", frozen ? "stopped (speed 0.01)" : "runs again");
@@ -271,7 +317,7 @@ void Frame(uint32_t blender, LONGLONG now) {
         hudHidden = !hudHidden;
         gate::Event("camtools: HUD key: %s", hudHidden ? "hidden" : "shown");
     }
-    if (Pressed(recordKey, focused) || (flying && !playing && (pressed & coop_camtools::kX))) {
+    if (Pressed(recordKey, focused) || (flying && !playing && PadPressed(kPadRecord))) {
         if (recording) {
             recording = false;
             SavePath();
@@ -286,14 +332,14 @@ void Frame(uint32_t blender, LONGLONG now) {
             recordStart = now;
             InterlockedIncrement(&recordings);
             gate::Event("camtools: recording a path");
-            Say("RECORDING PATH", "X OR THE RECORD KEY STOPS");
+            Say("RECORDING PATH", "");
         }
     }
-    if (Pressed(playKey, focused) || (flying && (pressed & coop_camtools::kY))) {
+    if (Pressed(playKey, focused) || (flying && PadPressed(kPadPlay))) {
         if (playing) {
             playing = false;
             gate::Event("camtools: path playback stopped");
-            Say("PLAYBACK STOPPED", "");
+            if (notices >= 2) Say("PLAYBACK STOPPED", "");   // stop and play stay silent with the small notes
         } else if (!recording && (!path.samples.empty() || LoadLastPath())) {
             playing = true;
             playStart = now;
@@ -304,11 +350,20 @@ void Frame(uint32_t blender, LONGLONG now) {
             Say("NO CAMERA PATH", "RECORD ONE FIRST");
         }
     }
-    if (freeCam && !playing && havePad) {
-        if (pressed & coop_camtools::kUp) speedMul = std::min(8.0f, speedMul * 2.0f);
-        if (pressed & coop_camtools::kDown) speedMul = std::max(0.125f, speedMul * 0.5f);
-        if (pressed & coop_camtools::kB) { pose.roll = 0.0f; pose.fov = gameFov; }
-        coop_camtools::Fly(pose, flight, pad, speedMul, dt, tuning);
+    if (freeCam && !playing) {
+        const bool up = coop_camtools::Repeat(speedUpRep, KeyHeld(speedUpKey, focused) || padHeld[kPadSpeedUp], dt);
+        const bool down = coop_camtools::Repeat(speedDownRep, KeyHeld(speedDownKey, focused) || padHeld[kPadSpeedDown], dt);
+        if (up != down) {
+            speedMul = coop_camtools::SpeedStep(speedMul, up ? 1 : -1);
+            char value[32];
+            std::snprintf(value, sizeof(value), "%.2fx", speedMul);
+            Say("CAMERA SPEED", value);
+        }
+        if (PadPressed(kPadReset) || Pressed(resetKey, focused)) { pose.roll = 0.0f; pose.fov = gameFov; Say("VIEW RESET", ""); }
+        const float roll = ((padHeld[kPadRollRight] || KeyHeld(rollRightKey, focused)) ? 1.0f : 0.0f) - ((padHeld[kPadRollLeft] || KeyHeld(rollLeftKey, focused)) ? 1.0f : 0.0f);
+        const float zoom = ((padHeld[kPadZoomIn] || KeyHeld(zoomInKey, focused)) ? 1.0f : 0.0f) - ((padHeld[kPadZoomOut] || KeyHeld(zoomOutKey, focused)) ? 1.0f : 0.0f);
+        coop_camtools::Pad idle;
+        coop_camtools::Fly(pose, flight, havePad ? pad : idle, speedMul, dt, tuning, roll, zoom);
     }
     if (playing) {
         const float t = static_cast<float>(Seconds(playStart, now));
@@ -321,7 +376,7 @@ void Frame(uint32_t blender, LONGLONG now) {
     if (recording && coop_camtools::Add(path, static_cast<float>(Seconds(recordStart, now)), pose)) InterlockedIncrement(&samples);
     InterlockedExchange(&padTaken, freeCam || playing ? 1 : 0);
     const bool timeChanged = slow || frozen;
-    if (timeChanged) { SetSpeed(frozen ? kMinSpeed : slowFactor); speedTouched = true; }
+    if (timeChanged) { SetSpeed(frozen ? kMinSpeed : timeScale); speedTouched = true; }
     else if (speedTouched) { SetSpeed(1.0f); speedTouched = false; }
     SetHud(hudHidden || (hideHudInFreeCam && (freeCam || playing)));
     if ((freeCam || playing) && Seconds(lastLog, now) >= 1.0) {
@@ -382,10 +437,36 @@ void Install(FILE* log, const std::string& ini) {
     recordKey = key("RecordKey", VK_F2);
     playKey = key("PlayKey", VK_F3);
     hideKey = key("HideHudKey", VK_F10);
+    speedUpKey = key("SpeedUpKey", VK_PRIOR);
+    speedDownKey = key("SpeedDownKey", VK_NEXT);
+    timeFasterKey = key("TimeFasterKey", VK_HOME);
+    timeSlowerKey = key("TimeSlowerKey", VK_END);
+    rollLeftKey = key("RollLeftKey", VK_OEM_COMMA);
+    rollRightKey = key("RollRightKey", VK_OEM_PERIOD);
+    zoomInKey = key("ZoomInKey", VK_OEM_PLUS);
+    zoomOutKey = key("ZoomOutKey", VK_OEM_MINUS);
+    resetKey = key("ResetViewKey", 0);
+    std::string padText;
+    unsigned badBinds = 0;
+    for (int i = 0; i < kPadActions; ++i) {
+        char bind[48]{};
+        GetPrivateProfileStringA("CameraTools", kPadActionInfo[i].key, kPadActionInfo[i].fallback, bind, sizeof(bind), ini.c_str());
+        if (!coop_camtools::ParseBind(bind, padBind[i])) {
+            ++badBinds;
+            std::fprintf(log, "camtools: [CameraTools] %s=%s is no button name; the default %s is used\n", kPadActionInfo[i].key, bind, kPadActionInfo[i].fallback);
+            coop_camtools::ParseBind(kPadActionInfo[i].fallback, padBind[i]);
+            std::snprintf(bind, sizeof(bind), "%s", kPadActionInfo[i].fallback);
+        }
+        padText += std::string(padText.empty() ? "" : " ") + (kPadActionInfo[i].key + 3) + "=" + bind;
+    }
+    notices = GetPrivateProfileIntA("CameraTools", "Notices", 1, ini.c_str());
+    if (notices < 0 || notices > 2) notices = 1;
     char text[32]{};
     GetPrivateProfileStringA("CameraTools", "SlowFactor", "0.25", text, sizeof(text), ini.c_str());
     slowFactor = static_cast<float>(std::atof(text));
     if (!(slowFactor >= kMinSpeed && slowFactor <= 1.0f)) slowFactor = 0.25f;
+    timeScale = coop_camtools::TimeStep(slowFactor, 0);
+    if (timeScale >= 1.0f) timeScale = 0.75f;
     GetPrivateProfileStringA("CameraTools", "MoveSpeed", "3.0", text, sizeof(text), ini.c_str());
     tuning.moveSpeed = static_cast<float>(std::atof(text));
     if (!(tuning.moveSpeed > 0.1f && tuning.moveSpeed < 50.0f)) tuning.moveSpeed = 3.0f;
@@ -415,7 +496,10 @@ void Install(FILE* log, const std::string& ini) {
                       "slow x%.2f move %.1f m/s look %.1f rad/s smoothing %.2f s; paths in %s\n",
                  installed ? "installed" : "NOT installed", freeKey, slowKey, freezeKey, recordKey, playKey, hideKey, speedOk ? "ok" : "MISMATCH (no slow motion)",
                  "our overlay only", padFn ? "read through the original XInputGetState" : "MISSING (no pad flying)", padFn ? "yes" : "no",
-                 slowFactor, tuning.moveSpeed, tuning.lookSpeed, tuning.smoothing, pathFolder.c_str());
+                 timeScale, tuning.moveSpeed, tuning.lookSpeed, tuning.smoothing, pathFolder.c_str());
+    std::fprintf(log, "camtools keys camera speed %d/%d, game speed %d/%d, tilt %d/%d, zoom %d/%d, reset %d; pad %s%s; notes %s\n", speedUpKey, speedDownKey,
+                 timeFasterKey, timeSlowerKey, rollLeftKey, rollRightKey, zoomInKey, zoomOutKey, resetKey, padText.c_str(), badBinds ? " (some defaults, see above)" : "",
+                 notices == 0 ? "off" : notices == 1 ? "small, in the corner, none during playback" : "banners");
 }
 void WriteDiagnostics(FILE* log) {
     if (!installed) return;

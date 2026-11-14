@@ -50,12 +50,36 @@ void Flying() {
     assert(p.pitch >= -1.5f && p.pitch <= 1.5f);
     // zoom and roll
     Pad zoom;
-    zoom.buttons = kRb | kRight;
     const float fovBefore = p.fov;
-    Fly(p, f, zoom, 1.0f, 0.1f, t);
+    Fly(p, f, zoom, 1.0f, 0.1f, t, 1.0f, 1.0f);   // tilt right, zoom in
     assert(p.fov < fovBefore && p.roll > 0.0f);
-    for (int i = 0; i < 200; ++i) Fly(p, f, zoom, 1.0f, 0.1f, t);
+    for (int i = 0; i < 200; ++i) Fly(p, f, zoom, 1.0f, 0.1f, t, 1.0f, 1.0f);
     assert(Near(p.fov, t.minFov));
+    // bindings: names, modifiers, and a plain binding giving way to a modifier one
+    {
+        PadBind b;
+        assert(ParseBind("LB", b) && b.buttons == kLb && !b.modifier);
+        assert(ParseBind("start + rb", b) && b.buttons == kRb && b.modifier == kStart);
+        assert(ParseBind("L3+R3", b) && b.buttons == kR3 && b.modifier == kL3);
+        assert(ParseBind("none", b) && !b.buttons && !Held(b, 0xFFFF));
+        assert(!ParseBind("LB+Banana", b));
+        PadBind all[2];
+        ParseBind("RB", all[0]);
+        ParseBind("Start+RB", all[1]);
+        assert(HeldAlone(all[0], kRb, all, 2) && !HeldAlone(all[1], kRb, all, 2));
+        assert(!HeldAlone(all[0], kRb | kStart, all, 2) && HeldAlone(all[1], kRb | kStart, all, 2));
+    }
+    // stepping: once, then after the delay at the repeat rate
+    {
+        Repeater r;
+        assert(Repeat(r, true, 0.016f));
+        assert(!Repeat(r, true, 0.2f));
+        assert(Repeat(r, true, 0.2f));
+        assert(!Repeat(r, false, 0.1f) && Repeat(r, true, 0.016f));
+        assert(Near(TimeStep(1.0f, 1), 1.0f) && Near(TimeStep(1.0f, -1), 0.75f) && Near(TimeStep(0.05f, -1), 0.05f));
+        assert(Near(TimeStep(0.3f, 0), 0.25f) && Near(TimeStep(0.25f, 1), 0.5f));
+        assert(Near(SpeedStep(1.0f, 1), 1.25f) && Near(SpeedStep(16.0f, 1), 16.0f) && Near(SpeedStep(0.05f, -1), 0.05f));
+    }
     // with smoothing the motion builds up instead of jumping
     Tuning soft;
     Pose q;

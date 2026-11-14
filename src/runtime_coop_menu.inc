@@ -261,6 +261,13 @@ void ShowHowTo() {
     KeyMark(IniKey("CameraTools", "FreeCamKey", VK_F6), freeCam, sizeof(freeCam));
     KeyMark(IniKey("CameraTools", "SlowKey", VK_F5), slow, sizeof(slow));
     KeyMark(IniKey("CameraTools", "HideHudKey", VK_F10), hideHud, sizeof(hideHud));
+    char camUp[40], camDown[40], timeUp[40], timeDown[40], tiltL[40], tiltR[40];
+    KeyMark(IniKey("CameraTools", "SpeedUpKey", VK_PRIOR), camUp, sizeof(camUp));
+    KeyMark(IniKey("CameraTools", "SpeedDownKey", VK_NEXT), camDown, sizeof(camDown));
+    KeyMark(IniKey("CameraTools", "TimeFasterKey", VK_HOME), timeUp, sizeof(timeUp));
+    KeyMark(IniKey("CameraTools", "TimeSlowerKey", VK_END), timeDown, sizeof(timeDown));
+    KeyMark(IniKey("CameraTools", "RollLeftKey", VK_OEM_COMMA), tiltL, sizeof(tiltL));
+    KeyMark(IniKey("CameraTools", "RollRightKey", VK_OEM_PERIOD), tiltR, sizeof(tiltR));
     char bugKey[32];
     KeyName(IniKey("Coop", "BugReportKey", VK_F12), bugKey, sizeof(bugKey));
     std::snprintf(bug, sizeof(bug), "\x01%s%s\x02", IniKey("Coop", "BugReportCtrl", 1) ? "Ctrl+" : "", bugKey);
@@ -286,7 +293,10 @@ void ShowHowTo() {
     }
     if (IniKey("Necro", "Enabled", 0)) add("\x03Necromorph player\x02 (experimental) %s.", necro);
     if (IniKey("MpMap", "Enabled", 0)) add("\x03Multiplayer map visit\x02 %s twice in the campaign, again on the map to go back.", visit);
-    if (IniKey("CameraTools", "Enabled", 0)) add("\x03" "Camera\x02 %s free camera, %s slow motion, %s hides the HUD.", freeCam, slow, hideHud);
+    if (IniKey("CameraTools", "Enabled", 0)) {
+        add("\x03" "Camera\x02 %s free camera, %s slow motion, %s hides the HUD.", freeCam, slow, hideHud);
+        add("\x03" "Camera\x02 %s/%s flying speed, %s/%s game speed, %s/%s tilt; pad buttons in [CameraTools].", camUp, camDown, timeUp, timeDown, tiltL, tiltR);
+    }
     if (IniKey("Debug", "Enabled", 1)) add("\x03" "Debug menu\x02 %s.", debug);
     add("\x03" "Co-op\x02 host co-op opens a lobby; friends pick join co-op with your address set in DS2UnitedConfig.exe.");
     if (IniKey("Coop", "BugReport", 1)) add("\x03" "Bug report\x02 %s saves the logs, a screenshot and a dump into one folder for a report.", bug);

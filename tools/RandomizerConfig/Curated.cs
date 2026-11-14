@@ -394,7 +394,7 @@ namespace DS2CoopConfig
                 SuitColor)
                 .Under("Colours"));
             add(B(Coop, "CameraTools", "Enabled", 0, "Trailer camera",
-                "A free camera flown with a gamepad while you keep playing Isaac with keyboard and mouse, slow motion and a camera path recorder. F6 or both sticks: free camera; F5 or A: slow motion; F4 or Back: stop time; F2 or X: record a path; F3 or Y: play it. Keys and speeds on the Expert page."));
+                "A free camera flown with a gamepad while you keep playing Isaac with keyboard and mouse, slow motion and a camera path recorder. F6 or both sticks: free camera; F5 or A: slow motion; F4 or Back: stop time; F2 or X: record a path; F3 or Y: play it. LB/RB tilt, Start+LB/RB zoom, D-pad up/down flying speed, D-pad left/right game speed (Page Up/Down and Home/End on the keyboard). Every key and pad button can be changed on the Expert page."));
             add(T(Extras, "Visuals", "StasisColor", "stock", "Stasis colour",
                 "The stasis shot, its blast and the frozen glow, also the stasis canisters. Same colours as the RIG. Read at the start of the game.",
                 SuitColor));
