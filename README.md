@@ -99,6 +99,10 @@ them while any player lacks the file.
   value and a warning when a combination does nothing or is risky.
 - **F1** in the game shows every key of the mod.
 
+<p align="center">
+  <img src="assets/screenshots/configurator.webp" alt="DS2UnitedConfig.exe, the settings window, on its Bots page" width="80%">
+</p>
+
 Every hook checks a byte signature before it is placed, and the log says which
 ones went in. An unsupported build of the game is left alone.
 
