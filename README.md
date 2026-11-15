@@ -24,6 +24,14 @@ memory while you play.
 Before November 2026 this was the Co-op Mod (DS2Coop) and, earlier still, the
 Dead Space 2 Randomizer.
 
+<p align="center">
+  <img src="assets/screenshots/title_screen.webp" alt="The title screen with the United logo" width="90%">
+</p>
+<p align="center">
+  <img src="assets/screenshots/story_menu.webp" alt="The story menu with new game+ and join co-op" width="45%">
+  <img src="assets/screenshots/suit_select.webp" alt="Suit select with every campaign suit and the profile level" width="45%">
+</p>
+
 ## What it does
 
 Everything except Invasion can be played solo and offline, and nearly every
