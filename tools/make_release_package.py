@@ -177,7 +177,7 @@ def main():
     ap.add_argument("--game", required=True, help="an installed Dead Space 2 folder with the mod's game data")
     ap.add_argument("--out", required=True, help="zip to write")
     ap.add_argument("--ini", default=str(REPO / "DS2United.ini"), help="release DS2United.ini")
-    ap.add_argument("--version", default="0.1.1")
+    ap.add_argument("--version", default="0.1.2")
     ap.add_argument("--list", action="store_true", help="print the plan, write nothing")
     ap.add_argument("--force", action="store_true", help="overwrite an existing zip")
     args = ap.parse_args()
