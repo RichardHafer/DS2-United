@@ -57,6 +57,7 @@ REPO_FILES = [
     (r"build\markerpatch-united\dinput8.dll", r"dinput8.dll"),
     (r"third_party\MarkerPatch-United\LICENSE", r"MarkerPatch_United_LICENSE.txt"),
     (r"third_party\MarkerPatch-United\README.md", r"MarkerPatch_United_README.md"),
+    (r"third_party\MarkerPatch-United\MarkerPatch.ini", r"MarkerPatch.ini"),
     (r"README.md", r"DS2United_README.md"),
     (r"LICENSE", r"DS2United_LICENSE.txt"),
 ]
@@ -84,6 +85,9 @@ games before you play.
    Patch, reads the same MarkerPatch.ini and keeps its fixes, except a few
    that clash with the mod (MarkerPatch_United_README.md lists them). Do not
    put the official one back: with it the mod stays off and says so.
+   MarkerPatch.ini holds its options with the MarkerPatch defaults. If you
+   already have a MarkerPatch.ini with your own settings, keep yours: do not
+   let the archive overwrite it.
 3. Start DS2UnitedConfig.exe to look through the settings (optional).
 4. Start the game. F1 in the game shows every key of the mod.
 
