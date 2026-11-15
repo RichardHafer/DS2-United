@@ -481,7 +481,7 @@ namespace DS2CoopConfig
                 line("safetyhook and Zydis for hooking", Look.Base, Look.Secondary);
                 line("Ultimate ASI Loader by ThirteenAG for loading the plugin", Look.Base, Look.Secondary);
                 y += Look.S(10);
-                line("MIT licence. Copyright (c) 2026 " + Author + ".", Look.Small, Look.Muted);
+                line("GNU GPL version 2. Copyright (c) 2026 " + Author + ".", Look.Small, Look.Muted);
                 line("Not affiliated with EA or Visceral Games. Dead Space is a trademark of EA.", Look.Small, Look.Muted);
                 var close = Look.MakeButton("Close", true, Look.S(32));
                 close.DialogResult = DialogResult.OK;

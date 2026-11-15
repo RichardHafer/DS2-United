@@ -96,3 +96,34 @@ index f68a783..dbc3799 100644
 +// Dead Space 2 United looks for this export to tell this edition from the official MarkerPatch.
 +extern "C" const char* MarkerPatchUnitedEdition() { return "Dead Space 2 United edition of MarkerPatch 3.2.0"; }
 \ No newline at end of file
+diff --git a/src/helper.cpp b/src/helper.cpp
+index 949b41f..6118af1 100644
+--- a/src/helper.cpp
++++ b/src/helper.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "safetyhook/safetyhook.hpp"
+ #include "dllmain.hpp"
++#include "united_default_ini.h"
+ 
+ namespace MemoryHelper
+ {
+@@ -270,6 +271,18 @@ namespace IniHelper
+ 
+ 	void Init()
+ 	{
++		// Dead Space 2 United edition: a missing MarkerPatch.ini is written with the defaults first.
++		const std::string path = SystemHelper::GetModulePath() + "\\MarkerPatch.ini";
++		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES)
++		{
++			HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
++			if (file != INVALID_HANDLE_VALUE)
++			{
++				DWORD written = 0;
++				WriteFile(file, kUnitedDefaultIni, static_cast<DWORD>(sizeof(kUnitedDefaultIni)), &written, nullptr);
++				CloseHandle(file);
++			}
++		}
+ 		iniFile.read(iniReader);
+ 	}
+ 

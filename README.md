@@ -300,6 +300,8 @@ Made by Richard Hafer.
 
 ## Licence
 
-MIT, see `LICENSE`. The Marker Patch edition in `third_party/MarkerPatch-United`
-and the `dinput8.dll` built from it are GPL-2.0, like the Marker Patch itself.
+Copyright (c) 2026 Richard Hafer. GNU General Public License version 2, see
+`LICENSE`, the same licence as the Marker Patch, whose edition in
+`third_party/MarkerPatch-United` and the `dinput8.dll` built from it ship with
+the mod. Versions before 0.1.2 were published under the MIT licence.
 Not affiliated with EA or Visceral Games.

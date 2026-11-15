@@ -20,6 +20,11 @@ the patch and builds `build\markerpatch-united\dinput8.dll`.
 | `FixAudioSyncStall` | Changes the audio mixer's wait and latency. Also on in that hang, and United's voice packs mix on top of the game's audio. |
 | `FixStreamingBudget` | Hooks the time slicer and `EntityPartSpawner::Spawn`. United streams its enemy pool during loads and spawns through the same spawner. Also on in that hang. |
 
+When the game folder has no `MarkerPatch.ini`, the edition writes one on the first start with
+the MarkerPatch 3.2.0 defaults (`MarkerPatch.ini` in this folder, embedded by
+`tools\embed_markerpatch_ini.py`), the options above set to 0. The official MarkerPatch only
+reads the file, which its own zip brings along.
+
 `LoadASIPlugins` is always on (United is an ASI plugin), and the loader skips any
 `plugins\MarkerPatch*.asi`, so an official MarkerPatch cannot be loaded a second time on top.
 

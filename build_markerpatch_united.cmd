@@ -12,6 +12,8 @@ if not exist "%SRC%\.git" (
 git -C "%SRC%" checkout --quiet -- .
 git -C "%SRC%" apply --ignore-whitespace "%~dp0third_party\MarkerPatch-United\united.patch"
 if errorlevel 1 goto :fail
+python -I tools\embed_markerpatch_ini.py third_party\MarkerPatch-United\MarkerPatch.ini "%SRC%\src\united_default_ini.h"
+if errorlevel 1 goto :fail
 for /f "usebackq delims=" %%m in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -find MSBuild\**\Bin\MSBuild.exe`) do set "MSBUILD=%%m"
 if not defined MSBUILD goto :fail
 "%MSBUILD%" "%SRC%\MarkerPatch.sln" -p:Configuration=Release -p:Platform=x86 -m:4 -nologo -v:minimal
