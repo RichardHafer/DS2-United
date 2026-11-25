@@ -311,7 +311,7 @@ void Escalation() {
            PauseFor(34, 20, c) == 8 && PauseFor(30, 5, c) == 5);   // a second every two waves
     // MaxAlive is for one player; each more adds three, capped at 23
     assert(MaxAliveFor(15, 1, 1, c) == 15 && MaxAliveFor(15, 2, 2, c) == 18 && MaxAliveFor(15, 3, 3, c) == 21 && MaxAliveFor(15, 4, 4, c) == 23 &&
-           MaxAliveFor(15, 8, 8, c) == 23 && MaxAliveFor(11, 1, 4, c) == 11 && MaxAliveFor(11, 2, 4, c) == 14);
+           MaxAliveFor(15, 8, 8, c) == 23 && MaxAliveFor(11, 1, 4, c) == 20 && MaxAliveFor(11, 2, 4, c) == 20);
     assert(BaseMaxAlive(11, 0, 0) == 11 && BaseMaxAlive(11, 10, 0) == 10 && BaseMaxAlive(11, 13, 14) == 11 && BaseMaxAlive(5, 10, 14) == 5 && BaseMaxAlive(30, 10, 8) == 8);
     assert(RewardPercent(10, c) == 100 && RewardPercent(11, c) == 98 && RewardPercent(12, c) == 95 && RewardPercent(40, c) == 40);   // 2.5 % a step
     assert(PricePercent(10, c) == 100 && PricePercent(12, c) == 100 && PricePercent(60, c) == 100);   // prices no longer scale

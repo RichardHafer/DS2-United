@@ -584,7 +584,7 @@ namespace DS2CoopConfig
                     ? "Capped at 10: Pathfinding memory (Loading page) is at the retail 576 KiB or less. Set it to 4608." : null));
             add(C(Survival, "Escalation", "MaxAlivePerPlayer", 3, 0, 30, "More per further player",
                 "Every further human player adds this many to Enemies alive at once."));
-            add(C(Survival, "Escalation", "MaxAlivePerBot", 0, 0, 30, "More per bot",
+            add(C(Survival, "Escalation", "MaxAlivePerBot", 3, 0, 30, "More per bot",
                 "Every companion bot adds this many to Enemies alive at once. 0: bots do not count."));
             add(C(Survival, "Escalation", "MaxAliveCap", 23, 1, 30, "Never more than",
                 "The most enemies alive at once, however many players and bots there are. Enemies alive at once itself is never lowered by it."));

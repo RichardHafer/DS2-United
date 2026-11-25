@@ -367,7 +367,7 @@ struct Config {
     float escPauseStepS = 0.5f;                              // the break between waves shrinks (0.5: a second every two waves)
     unsigned escPauseMinS = 8;
     unsigned escMaxAlivePerPlayer = 3, escMaxAliveCap = 23;  // MaxAlive is for one player; each further human adds
-    unsigned escMaxAlivePerBot = 0;                          // ... and each bot
+    unsigned escMaxAlivePerBot = 3;                          // ... and each bot
     float escRewardStep = 2.5f;                              // wave rewards shrink by this many percent a step ...
     unsigned escRewardMin = 40;                              // ... to this percent
     unsigned escPriceStep = 0, escPriceMax = 200;            // shop prices grow to this percent (0: never, user 20.10.)
@@ -556,7 +556,7 @@ inline Config ParseConfig(const std::string& text) {
         c.escPauseMinS = UnsignedOr(ini, e, "PauseMinSeconds", 8, 0, 600, c);
         c.escMaxAlivePerPlayer = UnsignedOr(ini, e, "MaxAlivePerPlayer", 3, 0, 30, c);
         c.escMaxAliveCap = UnsignedOr(ini, e, "MaxAliveCap", 23, 1, 30, c);
-        c.escMaxAlivePerBot = UnsignedOr(ini, e, "MaxAlivePerBot", 0, 0, 30, c);
+        c.escMaxAlivePerBot = UnsignedOr(ini, e, "MaxAlivePerBot", 3, 0, 30, c);
         c.escRewardStep = FloatOr(ini, e, "RewardStepPercent", 2.5f, 0.0f, 100.0f, c);
         c.escRewardMin = UnsignedOr(ini, e, "RewardMinPercent", 40, 0, 100, c);
         c.escPriceStep = UnsignedOr(ini, e, "PriceStepPercent", 0, 0, 100, c);
