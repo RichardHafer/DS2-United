@@ -198,6 +198,7 @@ bool CoopClient() {
 #include "runtime_navpower.inc"
 #include "runtime_loading_hold.inc"
 #include "runtime_message_trace.inc"
+volatile LONG hooksDone = 0;   // every hook of this half is in
 #include "runtime_variants.inc"
 #include "runtime_material_probe.inc"
 #include "runtime_divider_probe.inc"
@@ -849,6 +850,7 @@ DWORD WINAPI Worker(void* module) {
     loading_hold::Install(log, ini.c_str(), streamProbe);
     // Only the pool's own references can hold a zone switch up.
     if (streamProbe) zone_unload::Install(log, ini);
+    InterlockedExchange(&hooksDone, 1);
     std::fflush(log);
     seed_adopt::iniSeed = settings.seed;
     InterlockedExchange(&seed_adopt::ready, 1);
@@ -1122,6 +1124,14 @@ extern "C" __declspec(dllexport) int __cdecl DS2Survival_State(int* wave) {
 // the spawn hooks read the plans there too. Enemy picks and blueprints built from
 // now on follow it; the bench keeps the INI seed, its trees are read at start.
 // Returns 0 when nothing changed, else 1 enemy plans rebuilt | 2 blueprints reseeded | 4 seed set.
+// The co-op half's enemy speed: 1 the hook is in, 0 this half is not up yet, -1 refused.
+extern "C" __declspec(dllexport) int __cdecl DS2Randomizer_SetAnimSpeedFactor(variant_runtime::FactorFn fn) {
+    if (!InterlockedCompareExchange(&hooksDone, 0, 0)) return 0;
+    if (!variant_runtime::InstallSpeedOnly(nullptr)) return -1;
+    variant_runtime::factorFn = fn;
+    return 1;
+}
+extern "C" __declspec(dllexport) float __cdecl DS2Randomizer_VariantSpeed(uint32_t actor) { return variant_runtime::VariantSpeed(actor); }
 extern "C" __declspec(dllexport) int __cdecl DS2Randomizer_SetSessionSeed(unsigned seed, int active) {
     if (!InterlockedCompareExchange(&seed_adopt::ready, 0, 0)) return -1;
     const uint32_t wanted = active ? seed : seed_adopt::iniSeed;

@@ -16,6 +16,7 @@ namespace DS2CoopConfig
         public const string Survival = "Survival";
         public const string Multiplayer = "Multiplayer";
         public const string Extras = "Look & Extras";
+        public const string Speed = "Enemy Speed";
 
         static readonly Func<long, long> AsIs = v => v;
 
@@ -578,9 +579,15 @@ namespace DS2CoopConfig
             add(Key(Survival, "Survival", "StartKey", 0, "Start key",
                 "Starts the first wave at once or skips a break.", v => v < 0 ? 0 : v > 255 ? 255 : v));
             add(C(Survival, "Survival", "MaxAlive", 15, 1, 30, "Enemies alive at once",
-                "For one player; every further player adds more (Escalation, Expert page). Capped at 10 while the larger pathfinding memory is off.")
+                "For one player. A campaign arena or a wave with a lower limit of its own only lowers it. Capped at 10 while the larger pathfinding memory is off.")
                 .Warn(m => m.Int("Survival.MaxAlive") > 10 && m.Int("DS2Randomizer.NavPowerPoolKiB") <= 576
                     ? "Capped at 10: Pathfinding memory (Loading page) is at the retail 576 KiB or less. Set it to 4608." : null));
+            add(C(Survival, "Escalation", "MaxAlivePerPlayer", 3, 0, 30, "More per further player",
+                "Every further human player adds this many to Enemies alive at once."));
+            add(C(Survival, "Escalation", "MaxAlivePerBot", 0, 0, 30, "More per bot",
+                "Every companion bot adds this many to Enemies alive at once. 0: bots do not count."));
+            add(C(Survival, "Escalation", "MaxAliveCap", 23, 1, 30, "Never more than",
+                "The most enemies alive at once, however many players and bots there are. Enemies alive at once itself is never lowered by it."));
             add(C(Survival, "Survival", "PauseSeconds", 20, 0, 600, "Break between waves (s)",
                 "The pause between two waves."));
             add(B(Survival, "Survival", "VentSpawns", 1, "Enemies from vents",

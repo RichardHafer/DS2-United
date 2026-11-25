@@ -33,8 +33,8 @@ GAME_FILES = [
     (r"randomizer\ds2_leaper.toc", True, "TOC of the record above"),
     (r"randomizer\ds2_twitcher_*.str", True, "Twitcher looks"),
     (r"randomizer\ds2_twitcher_*.toc", True, "TOCs of the Twitcher looks"),
-    (r"randomizer\ds2_severed_*.str", True, "Severed records: Gabe's patrol helmet, the Severed pregnant"),
-    (r"randomizer\ds2_severed_*.toc", True, "TOCs of the Severed records"),
+    (r"randomizer\ds2_severed_pregnant.str", True, "Severed records: the Severed pregnant"),
+    (r"randomizer\ds2_severed_pregnant.toc", True, "TOCs of the Severed records"),
     (r"randomizer\ds2coop_frontend.str", True, "main menu copy: game mode row, title logo, map pictures, suit screens"),
     (r"randomizer\ds2coop_frontend_stock.str", True, "the same main menu in the game's own colours ([Menu] FrontendColours=stock)"),
     (r"randomizer\ds2coop_mpskins.lua", True, "suit list with the campaign suits"),
@@ -93,6 +93,7 @@ Updating from the Co-op Mod: delete plugins\\DS2Coop.asi (or HaferSprawl.asi).
 Your old DS2Coop.ini is taken over the first time the settings window opens.
 Keep your own plugins\\DS2United.ini when you update: extract everything except
 that file, or let the settings window merge it.
+You can delete randomizer\ds2_severed_patrol.str and .toc, they are not used any more.
 
 Optional: the Outbreak maps (Concourse and Academy) need DS2DAT12.DAT from
 Mark's Dead Space 2 Multiplayer: https://www.nexusmods.com/deadspace2/mods/181
@@ -175,7 +176,7 @@ def main():
     ap.add_argument("--game", required=True, help="an installed Dead Space 2 folder with the mod's game data")
     ap.add_argument("--out", required=True, help="zip to write")
     ap.add_argument("--ini", default=str(REPO / "DS2United.ini"), help="release DS2United.ini")
-    ap.add_argument("--version", default="0.1.2")
+    ap.add_argument("--version", default="0.1.3")
     ap.add_argument("--list", action="store_true", help="print the plan, write nothing")
     ap.add_argument("--force", action="store_true", help="overwrite an existing zip")
     args = ap.parse_args()

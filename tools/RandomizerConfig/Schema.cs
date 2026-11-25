@@ -28,11 +28,11 @@ namespace DS2CoopConfig
         public const string Diagnostics = "Diagnostics";
         public const string Expert = "Expert";
 
-        public static readonly string[] Groups = { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Multiplayer, Curated.Extras,
+        public static readonly string[] Groups = { Curated.Coop, Curated.Bots, Curated.Survival, Curated.Multiplayer, Curated.Extras, Curated.Speed,
             General, Enemies, More, Loot, Schematics, Loading, Watchdog, Diagnostics, Expert };
 
         // the side bar draws a divider after these entries: play, randomizer, technical
-        public static readonly int[] GroupBreaks = { 4, 9, 12 };
+        public static readonly int[] GroupBreaks = { 5, 10, 13 };
 
         public static readonly Dictionary<string, string> GroupIntro = new Dictionary<string, string>
         {
@@ -40,6 +40,7 @@ namespace DS2CoopConfig
             { Curated.Bots, "Companion bots: up to three extra Isaacs the game itself runs. They follow you, fight, loot, shop and heal. Their personalities are the [Bot1] to [Bot3] sections on the Expert page." },
             { Curated.Survival, "Survival waves on the multiplayer maps and in the campaign arenas, and the clock modes Mercenaries, Objective and Hold the Zone. The waves themselves ([Wave1] to [Wave10]) are on the Expert page." },
             { Curated.Multiplayer, "Necromorph players in story co-op, the pre-game lobby, the multiplayer character setup and the multiplayer map visit. Experimental." },
+            { Curated.Speed, "How fast each kind of enemy is, for the story and every game mode on its own." },
             { Curated.Extras, "How it looks and what you carry: colours, menus, the turret and gadgets, voice packs, Dementia, the difficulty question and the debug menu." },
             { Expert, "Every other key in DS2United.ini, grouped by section, with the note from its template. Most of these are tuning values, experiments and diagnostics: change one only when you know what the line does. A key marked \"not in file\" uses the plugin's built-in value until you add it." },
             { General, "The enemy randomizer's main switches: it replaces the campaign's enemies by seed. Restart the game after saving: the plugin reads this file only at startup. Back up your saves." },
@@ -480,8 +481,44 @@ namespace DS2CoopConfig
                 .Warn(m => m.Get(M("PlanDump")).Length > 0 ? "Test aid. Leave it empty for normal play." : null));
 
             Curated.Add(list);
+
+            // ---- Enemy speed: one table for the story and one per mode (src/enemy_speed.h)
+            var speedOn = B(Curated.Speed, "EnemySpeed", "Enabled", 0, "Enemy speed",
+                "Sets how fast every kind of enemy is, for the story and for each game mode on its own. Scripted scenes, grabs, spawns and vents keep the game's speed. In co-op the host's tables count.");
+            list.Add(speedOn);
+            foreach (var mode in SpeedModes)
+            {
+                string section = "EnemySpeed" + mode[0];
+                var table = new TableInfo
+                {
+                    Section = section, Group = Curated.Speed, Title = mode[1],
+                    Description = "Speed in percent, 100 = the game's own, 25 to 300. All is for every kind without its own value; bosses and set pieces never follow it.",
+                    NoteText = "Only used with Enemy speed on. Saving applies the values to a running game."
+                };
+                var all = I(Curated.Speed, section, "All", 100, 25, 300, "All", "Every kind without its own value.").Comment("Speed in percent for every kind without its own line.");
+                all.Table = section;
+                table.Cells.Add(all);
+                list.Add(all);
+                foreach (var kind in SpeedKinds)
+                {
+                    var cell = I(Curated.Speed, section, kind, 100, 25, 300, kind, "Speed of " + kind + " in percent.").Comment("Speed in percent, 100 = the game's own.");
+                    if (Array.IndexOf(SpeedBosses, kind) < 0) cell.From(section + ".All");
+                    cell.Table = section;
+                    table.Cells.Add(cell);
+                    list.Add(cell);
+                }
+                Tables.Add(table);
+            }
             return list;
         }
+
+        static readonly string[][] SpeedModes = {
+            new[] { "Story", "Story" }, new[] { "Survival", "Survival" }, new[] { "Mercenaries", "Mercenaries" }, new[] { "Objective", "Objective" },
+            new[] { "Zone", "Hold the zone" }, new[] { "Versus", "Versus" } };
+        static readonly string[] SpeedBosses = { "Tripod", "Guardian", "Nest", "Boss" };
+        static readonly string[] SpeedKinds = {
+            "Slasher", "Pack", "Swarmer", "TubeBeetle", "Leaper", "Lurker", "Exploder", "Infector", "Puker", "Pregnant", "Stalker", "Brute", "Ubermorph",
+            "Divider", "DividerPart", "Tripod", "Guardian", "Nest", "Boss" };
 
         // Rows the window leaves out on purpose; saving keeps them as they are.
         public static bool Hidden(string section, string key)

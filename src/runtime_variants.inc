@@ -85,18 +85,37 @@ bool ApplyEscalationSpeed(uint32_t actor, float factor) {
     InterlockedIncrement(&speedApplied);
     return true;
 }
+// The co-op half's per-kind speed (runtime_coop_enemyspeed.inc): asked for every SetAnimSpeed.
+using FactorFn = float(__cdecl*)(uint32_t actor, float asked, uint32_t caller);
+FactorFn factorFn = nullptr;
+float VariantSpeed(uint32_t actor) {
+    uint32_t vtable = 0;
+    Guid guid{};
+    if (!Read(actor, &vtable, 4) || !Read(actor + 0x24, guid.data(), 16)) return 1.0f;
+    for (const auto& entry : entries)
+        if (entry.actor == actor && entry.vtable == vtable && entry.guid == guid) return entry.speed;
+    return 1.0f;
+}
+SRWLOCK speedInstall = SRWLOCK_INIT;
+bool InstallSpeedOnlyLocked(FILE* log);
 bool InstallSpeedOnly(FILE* log) {
+    AcquireSRWLockExclusive(&speedInstall);
+    const bool ok = InstallSpeedOnlyLocked(log);
+    ReleaseSRWLockExclusive(&speedInstall);
+    return ok;
+}
+bool InstallSpeedOnlyLocked(FILE* log) {
     if (speedHook) { speedOnly = true; return true; }
     // push esi / mov esi,ecx / mov eax,[esi+194h] / test eax,eax / je
     const unsigned char expected[] = {0x56,0x8B,0xF1,0x8B,0x86,0x94,0x01,0x00,0x00,0x85,0xC0,0x74};
     unsigned char actual[sizeof(expected)]{};
     if (!Read(base + 0x351F40, actual, sizeof(actual)) || std::memcmp(actual, expected, sizeof(expected))) {
-        std::fprintf(log, "variant_runtime set_anim_speed signature mismatch; the escalation's speed is off\n");
+        if (log) std::fprintf(log, "variant_runtime set_anim_speed signature mismatch; enemy speed is off\n");
         return false;
     }
     speedHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x351F40), OnSetAnimSpeed);
     speedOnly = static_cast<bool>(speedHook);
-    std::fprintf(log, "variant_runtime set_anim_speed %s for the escalation's speed at %08X\n", speedOnly ? "installed" : "FAILED", static_cast<unsigned>(base + 0x351F40));
+    if (log) std::fprintf(log, "variant_runtime set_anim_speed %s for the escalation's speed at %08X\n", speedOnly ? "installed" : "FAILED", static_cast<unsigned>(base + 0x351F40));
     return speedOnly;
 }
 
@@ -104,6 +123,14 @@ bool InstallSpeedOnly(FILE* log) {
 // the first stack argument. A variant's factor is folded into it.
 void OnSetAnimSpeed(SafetyHookContext& ctx) {
     if (!enabled && !speedOnly) return;
+    if (factorFn) {
+        float asked = 0.0f;
+        uint32_t caller = 0;
+        if (Read(ctx.esp, &caller, 4) && Read(ctx.esp + 4, &asked, 4)) {
+            const float factor = factorFn(ctx.ecx, asked, caller);
+            if (factor != 1.0f) WriteFloat(ctx.esp + 4, asked * factor);
+        }
+    }
     for (const auto& entry : entries) {
         if (!entry.actor || entry.actor != ctx.ecx || entry.speed == 1.0f) continue;
         uint32_t vtable = 0;
@@ -337,7 +364,9 @@ bool Install(FILE* log) {
         std::fprintf(log, "variant_runtime set_anim_speed signature mismatch; speed and size off\n");
         return false;
     }
+    AcquireSRWLockExclusive(&speedInstall);
     speedHook = safetyhook::create_mid(reinterpret_cast<void*>(base + 0x351F40), OnSetAnimSpeed);
+    ReleaseSRWLockExclusive(&speedInstall);
     if (!speedHook) {
         std::fprintf(log, "variant_runtime hook failed; speed and size off\n");
         return false;

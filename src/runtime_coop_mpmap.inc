@@ -1910,8 +1910,19 @@ float fallLast[3]{};
 DWORD fallSampleAt = 0, stillSince = 0, guardRescuedAt = 0;
 uint32_t fallPlayer = 0;
 bool haveSafe = false;
-volatile LONG campaignFallRescues = 0, campaignFallFaults = 0, campaignSafeSpots = 0;
+volatile LONG campaignFallRescues = 0, campaignFallFaults = 0, campaignSafeSpots = 0, campaignFallSequenceHolds = 0, campaignFallStateHolds = 0;
 constexpr uint32_t kCmcFlagsOffset = 0x144;
+// 19.11.: the chapter 7 launch from the solar array down to the Sprawl hub falls fast in gravity
+// with no scene the scene reader knows, and the guard put Isaac back on the array. It now waits
+// for a while after our Isaac's last scripted sequence, and while one of his state machines is in
+// a flying or launch state.
+constexpr DWORD kAfterSequenceMs = 90000;
+bool FallingState(uint32_t player, char* states, size_t size) {
+    laserdiag::OwnerStates(player, states, size);
+    for (char* c = states; *c; ++c) *c = static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
+    // not "fall": a plain fall through a missing floor is what the guard is for
+    return std::strstr(states, "fly") || std::strstr(states, "flight") || std::strstr(states, "launch") || std::strstr(states, "zg");
+}
 void CampaignFallGuard(DWORD now) {
     if (!campaignFallGuard || visit.phase != coop_mpmap::Phase::Idle || now - fallSampleAt < 100) return;
     const DWORD dt = fallSampleAt ? now - fallSampleAt : 0;
@@ -1954,6 +1965,22 @@ void CampaignFallGuard(DWORD now) {
     }
     stillSince = 0;
     if (!haveSafe || vy > -12.0f || at[1] > safeMatrix[13] - 8.0f || (guardRescuedAt && now - guardRescuedAt < 2000)) return;
+    const DWORD sequenceAt = static_cast<DWORD>(InterlockedCompareExchange(&cutscene::localSequenceAt, 0, 0));
+    if (sequenceAt && now - sequenceAt < kAfterSequenceMs) {
+        if (InterlockedIncrement(&campaignFallSequenceHolds) <= 10)
+            Event("campaign fall guard: Isaac falling at %.1f m/s, %.1f m below his safe spot, left alone (scripted sequence %lu ms ago)", vy, safeMatrix[13] - at[1],
+                  static_cast<unsigned long>(now - sequenceAt));
+        return;
+    }
+    char states[200];
+    if (FallingState(player, states, sizeof(states))) {
+        if (InterlockedIncrement(&campaignFallStateHolds) <= 10)
+            Event("campaign fall guard: Isaac falling at %.1f m/s, %.1f m below his safe spot, left alone (states %s)", vy, safeMatrix[13] - at[1], states);
+        return;
+    }
+    if (InterlockedCompareExchange(&campaignFallRescues, 0, 0) <= 40)
+        Event("campaign fall guard: states before the rescue: %s; last scripted sequence %s", states,
+              sequenceAt ? "more than 90 s ago" : "none seen");
     guardRescuedAt = now;
     const int placed = PlaceRaw(player, safeMatrix);
     InterlockedIncrement(placed > 0 ? &campaignFallRescues : &campaignFallFaults);
@@ -2551,9 +2578,10 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&spawnGuardFaults, 0, 0), InterlockedCompareExchange(&readyArrivals, 0, 0),
                  InterlockedCompareExchange(&curtainsRaised, 0, 0), InterlockedCompareExchange(&curtainsLifted, 0, 0),
                  InterlockedCompareExchange(&fallRescues, 0, 0));
-    std::fprintf(log, "mpmap campaign fall_guard=%d rescues=%ld faults=%ld safe_spots=%ld | join_suit=%d given=%ld kept=%ld failed=%ld\n",
+    std::fprintf(log, "mpmap campaign fall_guard=%d rescues=%ld faults=%ld safe_spots=%ld held after_sequence=%ld flying_state=%ld | join_suit=%d given=%ld kept=%ld failed=%ld\n",
                  campaignFallGuard ? 1 : 0, InterlockedCompareExchange(&campaignFallRescues, 0, 0),
-                 InterlockedCompareExchange(&campaignFallFaults, 0, 0), InterlockedCompareExchange(&campaignSafeSpots, 0, 0), joinSuit ? 1 : 0,
+                 InterlockedCompareExchange(&campaignFallFaults, 0, 0), InterlockedCompareExchange(&campaignSafeSpots, 0, 0),
+                 InterlockedCompareExchange(&campaignFallSequenceHolds, 0, 0), InterlockedCompareExchange(&campaignFallStateHolds, 0, 0), joinSuit ? 1 : 0,
                  InterlockedCompareExchange(&joinSuitsGiven, 0, 0), InterlockedCompareExchange(&joinSuitsKept, 0, 0),
                  InterlockedCompareExchange(&joinSuitsFailed, 0, 0));
     static char copy[kRingLines][kLineSize];

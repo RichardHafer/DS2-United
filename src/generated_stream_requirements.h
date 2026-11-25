@@ -78,7 +78,6 @@ inline constexpr const char* kModelStreams[] = {
     "randomizer\\ds2_twitcher_security",
     "randomizer\\ds2_twitcher_classic",
     "randomizer\\ds2_twitcher_oracle",
-    "randomizer\\ds2_severed_patrol",
 };
 struct StreamProbeFile { const char* name; unsigned size; unsigned long long fingerprint; };
 inline constexpr StreamProbeFile kStreamProbeFiles[] = {
@@ -87,12 +86,10 @@ inline constexpr StreamProbeFile kStreamProbeFiles[] = {
     {"randomizer\\ds2_twitcher_security.str", 13238272, 0x98CC34F63731F8CAull},
     {"randomizer\\ds2_twitcher_classic.str", 10092544, 0xF72A32D613202EB2ull},
     {"randomizer\\ds2_twitcher_oracle.str", 13631488, 0xE4476C738490A37Bull},
-    {"randomizer\\ds2_severed_patrol.str", 16908288, 0x2C917E54EB16C28Bull},
     {"randomizer\\ds2_randomizer_pool.toc", 6144, 0xC8CF4EC65BBF4A79ull},
     {"randomizer\\ds2_severed_pregnant.toc", 2048, 0x161D08399492CE39ull},
     {"randomizer\\ds2_twitcher_security.toc", 2048, 0xFBFA9FED45CB9407ull},
     {"randomizer\\ds2_twitcher_classic.toc", 2048, 0x5547A3EEA2E9B399ull},
     {"randomizer\\ds2_twitcher_oracle.toc", 2048, 0x4B4E1147FC589DB4ull},
-    {"randomizer\\ds2_severed_patrol.toc", 2048, 0xE52F5A8489D4CA6Bull},
 };
 }

@@ -399,6 +399,21 @@ void OnRestart() {
 // bot never activates a door; a bot left behind a shut door is brought over
 // by the catch-up like any bot that falls behind.
 constexpr uint32_t kTryActivateRva = 0x9DA380;
+safetyhook::MidHook doorOccupancyHook;
+volatile LONG doorOccupants = 0, doorBotOccupants = 0;
+// UpdateEntitiesInRange walks the door's phantom directly, outside TriggerPhysical.
+// ESI is the resolved entity; the native next-entry path preserves earlier occupants.
+void OnDoorOccupant(SafetyHookContext& ctx) {
+    InterlockedIncrement(&doorOccupants);
+    if (!ctx.esi || !IsBotEntity(static_cast<uint32_t>(ctx.esi))) return;
+    if (InterlockedIncrement(&doorBotOccupants) <= 12) {
+        uint32_t guid[4]{};
+        Read(ctx.edi + 0x24, guid, sizeof(guid));
+        gate::Event("coop_ghosttrigger door %08X (%08X-%08X-%08X-%08X): bot %08X excluded from occupancy",
+                    static_cast<unsigned>(ctx.edi), guid[0], guid[1], guid[2], guid[3], static_cast<unsigned>(ctx.esi));
+    }
+    ctx.eip = base + 0x9D214B;
+}
 safetyhook::InlineHook doorActivateHook;
 volatile LONG doorByBot = 0, doorByLocal = 0, doorByOther = 0;
 bool __fastcall OnTryActivateDoor(void* door, void*, uint32_t actor) {
@@ -556,12 +571,20 @@ bool Install(FILE* log, const std::string& ini) {
     }
     bool doorHooked = false;
     if (botsIgnore) {
+        static const unsigned char kOccupant[] = {0x8B,0x8F,0x3C,0x02,0x00,0x00,0xD1,0xE9,0xF6,0xC1,0x01,0x74,0x33};
+        static const unsigned char kNext[] = {0x83,0xC5,0x10,0x3B,0x6C,0x24,0x18,0x0F,0x85,0x40,0xFF,0xFF,0xFF,0xEB,0x3E};
+        unsigned char next[sizeof(kNext)]{};
+        if (Read(base + 0x9D214B, next, sizeof(next)) && std::memcmp(next, kNext, sizeof(next)) == 0)
+            hook_site::InstallMid(log, "coop_ghosttrigger door occupancy", base + 0x9D20C2, kOccupant, sizeof(kOccupant), OnDoorOccupant, doorOccupancyHook);
+        else
+            std::fprintf(log, "coop_ghosttrigger door occupancy: next-entry signature mismatch; not installed\n");
         // push ebx / push esi / mov esi,ecx / cmp dword [esi+234h],0 / push edi / mov edi,[esp+10h]
         static const unsigned char kDoor[] = {0x53, 0x56, 0x8B, 0xF1, 0x83, 0xBE, 0x34, 0x02, 0x00, 0x00, 0x00, 0x57, 0x8B, 0x7C, 0x24, 0x10};
         doorHooked = hook_site::Install(log, "coop_ghosttrigger StandardDoor::TryToActivateDoor", base + kTryActivateRva, kDoor, sizeof(kDoor),
                                         reinterpret_cast<void*>(OnTryActivateDoor), doorActivateHook);
     }
     std::fprintf(log, "coop_ghosttrigger bots_ignore_doors=%d (a bot opens no door and loads no room behind the player)\n", doorHooked ? 1 : 0);
+    std::fprintf(log, "coop_ghosttrigger bots_ignore_door_occupancy=%d\n", doorOccupancyHook ? 1 : 0);
     ghostFilter = GetPrivateProfileIntA("Coop", "GhostTriggerFilter", 0, ini.c_str()) != 0;
     const bool ghostEntriesWanted = GetPrivateProfileIntA("Mirror", "GhostSequenceHoldMs", 20000, ini.c_str()) != 0;
     if (botsIgnore || ghostFilter || botWanted || ghostEntriesWanted) {
@@ -605,6 +628,8 @@ void CheckLevelChangeAfterBotTouch(FILE* log) {
 
 void WriteDiagnostics(FILE* log) {
     if (!installed) return;
+    std::fprintf(log, "coop_ghosttrigger door_occupancy checked=%ld bots_skipped=%ld\n",
+                 InterlockedCompareExchange(&doorOccupants, 0, 0), InterlockedCompareExchange(&doorBotOccupants, 0, 0));
     CheckLevelChangeAfterBotTouch(log);
     static LONG last = -1;
     const LONG now = InterlockedCompareExchange(&seen, 0, 0);

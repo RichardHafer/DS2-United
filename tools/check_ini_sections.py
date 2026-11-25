@@ -34,7 +34,7 @@ def read_sources(include_coop):
 
 bad = 0
 for ini in sys.argv[1:] or [str(ROOT / "DS2United.ini")]:
-    code = read_sources("coop" in Path(ini).name.lower())
+    code = read_sources("coop" in Path(ini).name.lower() or Path(ini).stem.lower() == "ds2united")
     section, seen = None, {}
     for line in open(ini, encoding="utf-8", errors="ignore"):
         line = line.strip()

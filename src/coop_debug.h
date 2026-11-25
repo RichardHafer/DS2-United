@@ -70,13 +70,24 @@ inline int EveryoneCommandFor(int row) {
     }
 }
 
-enum Cheat : int { kGodMode, kInfiniteStasis, kShowEnemies, kFullHealth, kRefillStasis, kAddCredits, kAddNodes, kVoiceTest, kCheatCount };
+enum Cheat : int { kGodMode, kInfiniteStasis, kShowEnemies, kZeroG, kFullHealth, kRefillStasis, kAddCredits, kAddNodes, kVoiceTest, kCheatCount };
 inline const char* CheatName(int c) {
-    static const char* const kNames[kCheatCount] = {"God mode", "Infinite stasis", "Show all enemies", "Full health", "Refill stasis", "Add credits", "Add power nodes",
+    static const char* const kNames[kCheatCount] = {"God mode", "Infinite stasis", "Show all enemies", "Zero G", "Full health", "Refill stasis", "Add credits", "Add power nodes",
                                                     "Voice test"};
     return c >= 0 && c < kCheatCount ? kNames[c] : "?";
 }
 inline bool CheatIsToggle(int c) { return c == kGodMode || c == kInfiniteStasis || c == kShowEnemies; }
+// Zero G steps AUTO (the map's own gravity) -> ON -> OFF (gravity in zero-G rooms) -> AUTO.
+enum ZeroGMode : int { kZeroGAuto, kZeroGOn, kZeroGOff, kZeroGModeCount };
+inline int NextZeroG(int m) { return m >= 0 && m + 1 < kZeroGModeCount ? m + 1 : kZeroGAuto; }
+inline const char* ZeroGName(int m) { return m == kZeroGOn ? "ON" : m == kZeroGOff ? "OFF" : "AUTO"; }
+// What the movement component gets: whether its vector is replaced by zero or by `gravity`.
+enum ZeroGAction : int { kZeroGLeave, kZeroGClear, kZeroGWeight };
+inline ZeroGAction ZeroGFor(int mode, float fieldLength) {
+    if (mode == kZeroGOn) return kZeroGClear;
+    if (mode == kZeroGOff && !(fieldLength > 0.1f)) return kZeroGWeight;
+    return kZeroGLeave;
+}
 // Usable without a local Isaac of one's own.
 inline bool CheatNeedsNoIsaac(int c) { return CheatIsToggle(c) || c == kVoiceTest; }
 

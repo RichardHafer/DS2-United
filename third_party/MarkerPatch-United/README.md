@@ -33,6 +33,17 @@ The edition exports `MarkerPatchUnitedEdition`. When the official MarkerPatch is
 
 ## Kept, although they touch the same places
 
+When the game-folder `d3d9.dll` is identified as DS2PCVR, this edition also disables
+`FixHazardSuitIcon`, `RawMouseInput`, `AutoHideMouseCursor`,
+`ImprovedAntiAliasingMode` and `AchievementSupport` before installing features.
+Together with the existing `FixSuitChangeTiming` exclusion, these are the six
+conflicts documented by the VR maintainer's
+[MarkerPatch-VR.ps1](https://github.com/chortdev/DeadSpace2VR/blob/main/MarkerPatch-VR.ps1).
+The values are changed only in memory; removing the VR proxy restores the user's
+usual settings on the next launch. Use the accompanying United plugin build to
+preserve the native archives needed by the VR settings page. VR gameplay testing
+is still pending.
+
 - `IncreasedEntityPersistence`: United's `[Lifetime]` sets the corpse limits again where it wants
   its own (game modes); in the story `0` leaves them to MarkerPatch.
 - `SkipArtificialLoadingDelay`: United puts the skipped branch back while its enemy pool loads

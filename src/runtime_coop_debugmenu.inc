@@ -18,7 +18,7 @@
 //   (shop::BuyGun, BuySupply, BuySupplyDrop, BuySuit), so they need [Shop] Enabled=1.
 // - CHEATS: god mode (HealthComponent::HandleDamage skipped for the local Isaac,
 //   hooked on first use), infinite stasis, full health, stasis refill, credits,
-//   power nodes.
+//   power nodes, zero G.
 namespace gamemode { int RequestRestart(); }   // runtime_coop_gamemode.inc
 namespace debugmenu {
 bool enabled = true, installed = false, holdSaves = true;
@@ -94,6 +94,79 @@ bool HookDamage() {
     return damageHooked;
 }
 
+// --- zero G: CharacterMovementComponent::UpdateGravity (0x00F72E30) asks the map's gravity fields
+// for the vector at +0x120 and sets flags +0x144 bit 1 (zero-G) or bit 0 from its length. The mid hook
+// at 0x00F72EB3, past the query on both paths, replaces the vector of the local Isaac alone; the game's
+// own zero-G and landing machines do the rest. +0x14 bit 3 skips the query, so a vector we wrote may
+// still stand there the next time: the field's own is kept and put back with AUTO.
+constexpr uint32_t kGravitySiteRva = 0xB72EB3, kCmcBits = 0x14, kCmcGravity = 0x120;
+safetyhook::MidHook gravityHook;
+bool gravityHooked = false, gravityTried = false;
+volatile LONG zeroG = coop_debug::kZeroGAuto, zeroGCmc = 0, zeroGForced = 0, zeroGRestored = 0, zeroGFaults = 0;
+uint32_t zeroGPlayer = 0;
+float zeroGField[3]{}, zeroGWritten[3]{}, zeroGWeight[3] = {0.0f, -9.8f, 0.0f};
+bool zeroGHaveField = false, zeroGWrote = false, zeroGHeld = false;
+void ApplyGravity(uint32_t cmc) {
+    float* v = reinterpret_cast<float*>(static_cast<uintptr_t>(cmc) + kCmcGravity);
+    const bool held = (*reinterpret_cast<uint32_t*>(static_cast<uintptr_t>(cmc) + kCmcBits) & 8) != 0;
+    const bool stale = zeroGWrote && held && zeroGHeld && std::memcmp(v, zeroGWritten, sizeof(zeroGWritten)) == 0;
+    zeroGHeld = held;
+    if (!stale) { std::memcpy(zeroGField, v, sizeof(zeroGField)); zeroGHaveField = true; }
+    const float length = std::sqrt(zeroGField[0] * zeroGField[0] + zeroGField[1] * zeroGField[1] + zeroGField[2] * zeroGField[2]);
+    if (length > 0.1f && std::isfinite(length)) std::memcpy(zeroGWeight, zeroGField, sizeof(zeroGWeight));
+    const int mode = scenekind::local != scenekind::kNone ? coop_debug::kZeroGAuto : static_cast<int>(InterlockedCompareExchange(&zeroG, 0, 0));
+    const coop_debug::ZeroGAction action = coop_debug::ZeroGFor(mode, length);
+    if (action == coop_debug::kZeroGLeave) {
+        if (stale) { std::memcpy(v, zeroGField, sizeof(zeroGField)); InterlockedIncrement(&zeroGRestored); }
+        zeroGWrote = false;
+        return;
+    }
+    static const float kNone[3]{};
+    std::memcpy(v, action == coop_debug::kZeroGClear ? kNone : zeroGWeight, sizeof(zeroGWritten));
+    std::memcpy(zeroGWritten, v, sizeof(zeroGWritten));
+    zeroGWrote = true;
+    InterlockedIncrement(&zeroGForced);
+}
+void OnGravity(safetyhook::Context& ctx) {
+    const uint32_t cmc = static_cast<uint32_t>(InterlockedCompareExchange(&zeroGCmc, 0, 0));
+    if (!cmc || ctx.esi != cmc) return;
+    __try { ApplyGravity(cmc); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&zeroGFaults); }
+}
+bool HookGravity() {
+    if (gravityTried) return gravityHooked;
+    gravityTried = true;
+    // movss xmm2,[esi+124h] / movss xmm1,[esi+128h]
+    static const unsigned char kSig[] = {0xF3, 0x0F, 0x10, 0x96, 0x24, 0x01, 0x00, 0x00, 0xF3, 0x0F, 0x10, 0x8E, 0x28, 0x01, 0x00, 0x00};
+    unsigned char code[sizeof(kSig)]{};
+    if (Read(base + kGravitySiteRva, code, sizeof(code)) && std::memcmp(code, kSig, sizeof(kSig)) == 0) {
+        gravityHook = safetyhook::create_mid(reinterpret_cast<void*>(base + kGravitySiteRva), OnGravity);
+        gravityHooked = static_cast<bool>(gravityHook);
+    }
+    Line("zero G hook at %08X %s (bytes %02X %02X %02X %02X)", static_cast<unsigned>(base + kGravitySiteRva), gravityHooked ? "installed" : "NOT installed", code[0],
+         code[1], code[2], code[3]);
+    return gravityHooked;
+}
+// A new Isaac (level, checkpoint, respawn) starts in the map's own gravity.
+void ZeroGTick(uint32_t player) {
+    if (player != zeroGPlayer) {
+        if (zeroG != coop_debug::kZeroGAuto) Line("zero G back to AUTO: Isaac %08X -> %08X", zeroGPlayer, player);
+        InterlockedExchange(&zeroGCmc, 0);
+        InterlockedExchange(&zeroG, coop_debug::kZeroGAuto);
+        zeroGPlayer = player;
+        zeroGWrote = zeroGHeld = zeroGHaveField = false;
+    }
+    if (!gravityHooked || !player) return;
+    if (!zeroGCmc) InterlockedExchange(&zeroGCmc, static_cast<LONG>(necro::FindCmc(player)));
+    static uint32_t lastFlags = 0xFFFFFFFFu;
+    uint32_t flags = 0;
+    if (zeroGCmc && Read(static_cast<uint32_t>(zeroGCmc) + mpmap::kCmcFlagsOffset, &flags, 4) && (flags & 3) != (lastFlags & 3)) {
+        lastFlags = flags;
+        Line("zero G %s: Isaac's movement now %s (flags %X, field %.2f %.2f %.2f, forced %ld restored %ld)", coop_debug::ZeroGName(static_cast<int>(zeroG)),
+             flags & 2 ? "in zero-G" : flags & 1 ? "in gravity" : "neither", flags, zeroGField[0], zeroGField[1], zeroGField[2], zeroGForced, zeroGRestored);
+    }
+}
+
 // --- cheats ---
 bool RefillStasis(uint32_t player) {
     const uint32_t hc = mpmap::HealthComponent(player);
@@ -142,6 +215,16 @@ void UseCheat(int row, uint32_t player) {
         break;
     }
     if (!player) { SetStatus(coop_shop::kStatusBad, "No Isaac here"); return; }
+    if (row == coop_debug::kZeroG) {
+        if (necro::LocalRole() != 0) { SetStatus(coop_shop::kStatusBad, "Zero G is for Isaac only"); return; }
+        if (!HookGravity()) { SetStatus(coop_shop::kStatusBad, "Zero G: the gravity hook did not go in"); return; }
+        const int next = coop_debug::NextZeroG(static_cast<int>(zeroG));
+        ZeroGTick(player);
+        InterlockedExchange(&zeroG, next);
+        SetStatus(zeroGCmc ? coop_shop::kStatusGood : coop_shop::kStatusBad, zeroGCmc ? "Zero G %s" : "Zero G %s: no movement component", coop_debug::ZeroGName(next));
+        Line("zero G %s (cmc %08X)", coop_debug::ZeroGName(next), static_cast<unsigned>(zeroGCmc));
+        return;
+    }
     if (row == coop_debug::kFullHealth) {
         float before = 0.0f, max = 0.0f;
         const bool ok = FullHealth(player, before, max);
@@ -705,6 +788,7 @@ void RowText(int tab, int row, uint32_t player, DWORD now, coop_shop::Row& r, ch
         if (row == coop_debug::kGodMode) std::snprintf(r.right, sizeof(r.right), "%s", god ? "ON" : "OFF");
         else if (row == coop_debug::kInfiniteStasis) std::snprintf(r.right, sizeof(r.right), "%s", infiniteStasis ? "ON" : "OFF");
         else if (row == coop_debug::kShowEnemies) std::snprintf(r.right, sizeof(r.right), "%s", InterlockedCompareExchange(&marks::showAll, 0, 0) ? "ON" : "OFF");
+        else if (row == coop_debug::kZeroG) std::snprintf(r.right, sizeof(r.right), "%s", coop_debug::ZeroGName(static_cast<int>(zeroG)));
         else if (row == coop_debug::kAddCredits) std::snprintf(r.right, sizeof(r.right), "+%d", creditStep);
         else if (row == coop_debug::kAddNodes) std::snprintf(r.right, sizeof(r.right), "+%d", nodeStep);
         else if (row == coop_debug::kVoiceTest) std::snprintf(r.right, sizeof(r.right), "%s", voices::installed ? "PLAY" : "OFF");
@@ -713,6 +797,7 @@ void RowText(int tab, int row, uint32_t player, DWORD now, coop_shop::Row& r, ch
         std::snprintf(detail, detailSize, "%s", row == coop_debug::kGodMode ? "No damage reaches Isaac's health (scripted deaths still kill)"
                                               : row == coop_debug::kInfiniteStasis ? "The stasis module is refilled twice a second"
                                               : row == coop_debug::kShowEnemies ? "Every living enemy of the level: kind, health, distance (nearest 60)"
+                                              : row == coop_debug::kZeroG ? "You only. AUTO: as the map says, ON: zero-G anywhere, OFF: gravity in zero-G rooms"
                                               : row == coop_debug::kVoiceTest ? "Everybody says a test line from his voice pack, in 3D, one after the other"
                                               : "Applied at once");
         return;
@@ -735,7 +820,7 @@ void Publish(uint32_t player, DWORD now) {
     std::snprintf(v.credits, sizeof(v.credits), "CR %s  N %d", number, nodes < 0 ? 0 : nodes);
     char map[64] = "", stream[64] = "";
     level::CurrentMap(map, sizeof(map), stream, sizeof(stream));
-    std::snprintf(v.wave, sizeof(v.wave), "%s%s%s%s", map[0] ? map : "?", god ? "  GOD" : "", infiniteStasis ? "  STASIS" : "", mpmap::debugHold ? "  SAVES HELD" : "");
+    std::snprintf(v.wave, sizeof(v.wave), "%s%s%s%s%s", map[0] ? map : "?", zeroG == coop_debug::kZeroGOn ? "  ZERO G" : zeroG == coop_debug::kZeroGOff ? "  GRAVITY" : "", god ? "  GOD" : "", infiniteStasis ? "  STASIS" : "", mpmap::debugHold ? "  SAVES HELD" : "");
     if (cursor.tab == coop_debug::kHost)
         std::snprintf(v.wave, sizeof(v.wave), "%s", NetRole() == 2 ? "CLIENT: THE HOST'S TOOLS" : directorInfo[0] ? directorInfo : "NO DIRECTOR");
     v.tabCount = coop_debug::kTabCount;
@@ -860,6 +945,7 @@ void TickInner() {
     if (now - menuReadAt >= 250) { menuReadAt = now; menuNow = InMainMenu(); }
     const uint32_t player = running && !menuNow ? LocalCampaignPlayer() : 0;
     InterlockedExchange(&godPlayer, static_cast<LONG>(player));
+    ZeroGTick(player);
     KitTick(now, player, running);
     JacketTick(now, player, running);
     HoldTick(running);
@@ -975,6 +1061,12 @@ void WriteDiagnostics(FILE* log) {
                  values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], values[11], values[12],
                  values[13], values[14], values[15], values[16], damageHooked ? 1 : 0, values[17], values[18], values[19], values[20], values[21],
                  values[22], values[23], values[24], values[25], adminFn ? "found" : "not found");
+    static LONG lastZeroG = -1;
+    if (gravityTried && zeroGForced + zeroGRestored * 3 + zeroGFaults * 5 + zeroG * 7 != lastZeroG) {
+        lastZeroG = zeroGForced + zeroGRestored * 3 + zeroGFaults * 5 + zeroG * 7;
+        std::fprintf(log, "debug zero_g=%s hook=%d cmc=%08lX forced=%ld restored=%ld faults=%ld\n", coop_debug::ZeroGName(static_cast<int>(zeroG)), gravityHooked ? 1 : 0,
+                     static_cast<unsigned long>(zeroGCmc), zeroGForced, zeroGRestored, zeroGFaults);
+    }
     static LONG lastJacket = -1;
     const LONG jacketNow = jacketJumps + jacketKept * 7 + jacketCleared * 13 + jacketFaults * 17;
     if (jacketNow != lastJacket) {

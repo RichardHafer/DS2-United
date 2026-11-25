@@ -563,9 +563,11 @@ const char* DeathDecidedElsewhere(DWORD now, unsigned& slot) {
     return nullptr;
 }
 volatile LONG botScriptedDeathsPassed = 0;
+volatile LONG localSequenceAt = 0;   // our Isaac's last accepted scripted sequence (GetTickCount, 0 = none)
 unsigned char __fastcall OnStartSequence(void* target, void*, uint32_t sequence, unsigned char flag) {
     uint32_t attributes = 0, flags = 0;
     const auto player = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(target)) - kSequenceTarget;
+    const bool train = teleport::traintrace::Begin(player, sequence);
     // The bot never plays a scripted death (a grab, a failed struggle): it would end in a level restart.
     // While bots are mortal (Versus, a necro player in the game) a necro's execution may kill one;
     // OnDeathSm in runtime_coop_bot.inc still swallows the level-wide death messages.
@@ -597,7 +599,10 @@ unsigned char __fastcall OnStartSequence(void* target, void*, uint32_t sequence,
             gate::Event("coop_cutscene scripted death %08X-%08X (flags %X) is ours: %s", guid[0], guid[1], flags,
                         gate::mirroring > 0 ? "the leader we follow failed, we fail with him" : "no partner's scene decides for us");
     }
-    return startSequenceHook.thiscall<unsigned char>(target, sequence, flag);
+    const unsigned char result = startSequenceHook.thiscall<unsigned char>(target, sequence, flag);
+    if (train) teleport::traintrace::Snapshot("start-after", player, sequence, result);
+    if (!result && player == LocalCampaignPlayer()) { const DWORD t = GetTickCount(); InterlockedExchange(&localSequenceAt, static_cast<LONG>(t ? t : 1)); }   // the campaign fall guard waits
+    return result;
 }
 
 bool __fastcall OnShouldProcessDamage(void* self, void*, const void* damage) {
@@ -978,13 +983,15 @@ bool Install(FILE* log, const std::string& ini) {
     valveMs = static_cast<DWORD>(GetPrivateProfileIntA("Cutscene", "FollowerValveMs", 90000, ini.c_str()));
     finaleOwnScenes = GetPrivateProfileIntA("Cutscene", "FinaleOwnScenes", 0, ini.c_str()) != 0;
     leaderDecidesDeaths = leaderOnly && GetPrivateProfileIntA("Cutscene", "LeaderDecidesDeaths", 0, ini.c_str()) != 0;
-    if (leaderDecidesDeaths || botWanted) {
+    if (leaderDecidesDeaths || botWanted || teleport::traintrace::enabled) {
         // push ebp / mov ebp,esp / and esp,-16 / sub esp,24h / push ebx / push esi / mov esi,ecx / mov eax,[esi+2A8h]
         static const unsigned char kStart[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0x83, 0xEC, 0x24, 0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x86, 0xA8, 0x02, 0x00, 0x00};
         if (!hook_site::Install(log, "coop_cutscene Player::StartScriptedSequence", base + kStartSequenceRva, kStart, sizeof(kStart),
                                 reinterpret_cast<void*>(OnStartSequence), startSequenceHook))
             leaderDecidesDeaths = false;
     }
+    if (teleport::traintrace::enabled)
+        std::fprintf(log, "train_trace sequence_start_hook=%d\n", startSequenceHook ? 1 : 0);
     std::fprintf(log, "coop_cutscene leader_decides_deaths=%d (a scripted death on our Isaac waits for the leader of the scene we follow)\n",
                  leaderDecidesDeaths ? 1 : 0);
     std::fprintf(log, "coop_cutscene finale_own_scenes=%d (in the finale nobody follows, yields, hides partners or streams his controller)\n",

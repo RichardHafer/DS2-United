@@ -9,6 +9,18 @@
 
 # Dead Space 2 United
 
+### DS2PCVR compatibility
+
+United detects [DS2PCVR](https://github.com/chortdev/DeadSpace2VR) in the game folder.
+Its native VR settings menu takes priority: United's title/map pictures, native
+mode row and recoloured menu archives are bypassed for that launch. Saved United
+settings are kept. Use both the updated `DS2United.asi` and United's updated
+`dinput8.dll`; the latter disables the MarkerPatch options documented as conflicting
+with VR. Keep DS2PCVR's `d3d9.dll` alongside it. These changes address known menu
+and configuration conflicts; gameplay compatibility has not yet been verified
+in a headset. This does not extend United's executable support beyond its tested
+Steam build.
+
 A mod for the PC port of Dead Space 2 that brings co-op to the story and adds
 everything around it: survival game modes on the multiplayer maps and in
 campaign arenas, companion bots, necromorph players invading the story, and the
@@ -97,6 +109,8 @@ them while any player lacks the file.
 - Colours for the RIG, inventory, HUD, stasis, kinesis, visor and the menus.
 - `DS2UnitedConfig.exe`: every setting with an explanation, the recommended
   value and a warning when a combination does nothing or is risky.
+- Enemy speed: every kind of enemy faster or slower, set for the story and for each game
+  mode on its own. Scripted scenes, grabs, spawns and vents keep the game's timing.
 - **F1** in the game shows every key of the mod.
 
 <p align="center">

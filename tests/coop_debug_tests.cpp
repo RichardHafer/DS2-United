@@ -78,6 +78,9 @@ void Cursoring() {
     c.row[kLevels] = 9;
     Fit(c, 4, 10);
     assert(c.row[kLevels] == 3 && c.top[kLevels] == 0);
+    assert(std::strcmp(CheatName(kZeroG), "Zero G") == 0 && std::strcmp(CheatName(kFullHealth), "Full health") == 0 && std::strcmp(CheatName(kVoiceTest), "Voice test") == 0);
+    assert(NextZeroG(kZeroGAuto) == kZeroGOn && NextZeroG(kZeroGOn) == kZeroGOff && NextZeroG(kZeroGOff) == kZeroGAuto && NextZeroG(-1) == kZeroGAuto);
+    assert(ZeroGFor(kZeroGAuto, 0.0f) == kZeroGLeave && ZeroGFor(kZeroGOn, 9.8f) == kZeroGClear && ZeroGFor(kZeroGOff, 0.0f) == kZeroGWeight && ZeroGFor(kZeroGOff, 9.8f) == kZeroGLeave);
     assert(CheatIsToggle(kGodMode) && !CheatIsToggle(kFullHealth) && std::strcmp(TabName(kSuits), "SUITS") == 0);
 }
 

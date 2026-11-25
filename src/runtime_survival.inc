@@ -548,6 +548,15 @@ unsigned zeroHealthSkipped = 0;
 const Guid kStoryDonors[] = {{0x31CAF23Au, 0x84B8CF8Fu, 0x43495250u, 0x32303045u}, {0x31CAF23Bu, 0x818D595Du, 0x43495250u, 0x32303045u}};
 bool StoryDonor(const Guid& g) { return std::find(std::begin(kStoryDonors), std::end(kStoryDonors), g) != std::end(kStoryDonors); }
 unsigned storyDonorsSkipped = 0;
+// A list with nothing but enhanced donors is no source for an enemy that comes as an ordinary one
+// (14.11.: wave 4 on mp_escape brought super_puker for every vent puker).
+bool OnlyEnhanced(const std::vector<size_t>& list) {
+    for (const size_t i : list)
+        if (!superGuids.count(pool[i].guid)) return false;
+    return !list.empty();
+}
+size_t learnedLastResort = 0;
+bool ItemEnhanced();   // below
 // Built once from the pool, which does not change during a session.
 void BuildDonors() {
     for (const auto& row : ds2::kGlobalTargets)
@@ -559,6 +568,9 @@ void BuildDonors() {
         if (!poolPackage[i])
             for (const auto& row : ds2::kGlobalTargets)
                 if (row.model == pool[i].model) { poolPackage[i] = row.package; break; }
+        // the vent records are copies with GUIDs of their own: by the template list alone every
+        // super_leaper and super_puker out of a vent counted as an ordinary one (18.11.)
+        if (SuperSkin(i)) superGuids.insert(pool[i].guid);
     }
     for (const auto& row : ds2::kVariantDonors) {
         if (!ds2::rowRetargeted(row)) continue;
@@ -607,7 +619,7 @@ void BuildDonors() {
         spot.source.ventOpenKey = row.ventOpen;
         spot.source.sourceEnabled = false;
         spot.source.targetEnabled = false;
-        std::map<std::string, std::vector<size_t>> oracles;
+        std::map<std::string, std::vector<size_t>> oracles, learnedBad;
         for (const auto& key : ds2::kSurvivalDonorKeys) {
             if (std::strcmp(key.survival, row.survival) != 0) continue;
             const ds2::EnemyRecord* r = PoolRecord(key.donor);
@@ -616,14 +628,28 @@ void BuildDonors() {
             // [VentFamilies] guards campaign rooms that count deaths; here the
             // watchdog writes off a donor that never becomes an NPC. The learned
             // per record blocklist still applies.
-            if (r->ventBlocked && !(cfg.ventIgnoreFamilyOff && ventFamilyBlockedGuids.count(r->guid))) continue;
+            const bool learned = r->ventBlocked && !(cfg.ventIgnoreFamilyOff && ventFamilyBlockedGuids.count(r->guid));
             if (r->family != row.family && !cfg.ventCrossFamily) continue;
             if (!survival::Info(r->family)) continue;
+            if (learned) {
+                if (cfg.ventLearnedLastResort && !r->retargeted && r->variantName.empty() && !superGuids.count(r->guid))
+                    learnedBad[r->family].push_back(static_cast<size_t>(r - pool.data()));
+                continue;
+            }
             // an oracle twitcher is one of the vent's enhanced donors (superGuids), the others its Severed rolls
             if (r->retargeted && r->enhanced) { oracles[r->family].push_back(static_cast<size_t>(r - pool.data())); continue; }
             if (r->retargeted) { spot.twitchers[r->family].push_back(static_cast<size_t>(r - pool.data())); continue; }
             if (!r->variantName.empty()) continue;
             spot.donors[r->family].push_back(static_cast<size_t>(r - pool.data()));
+        }
+        // A campaign room learned that this record gets stuck there; its only ordinary Leaper was
+        // blocked that way and every vent was left with enhanced ones. Here it is tried when the
+        // vent has no other ordinary donor of the family; the stuck watch retires it (NoteVentFailure).
+        for (const auto& f : learnedBad) {
+            auto& list = spot.donors[f.first];
+            if (!OnlyEnhanced(list) && !list.empty()) continue;
+            list.insert(list.end(), f.second.begin(), f.second.end());
+            learnedLastResort += f.second.size();
         }
         // Only next to plain donors of its family: PickEscalated falls back to the enhanced list
         // when a vent has nothing else, and the oracle must wait for the escalation (18.10.).
@@ -665,10 +691,10 @@ void FilterPackage(const std::vector<size_t>& list, const std::string& package, 
 bool VentPathOn() {
     return cfg.ventSpawns && settings.ventRebinding && bindingOwnerHook && bindingConstructorHook;
 }
-bool FamilyHasVent(const std::string& family) {
+bool FamilyHasVent(const std::string& family, bool ordinary = false) {
     if (!VentPathOn()) return false;
     for (const auto& s : ventSpots)
-        if (s.resolvable && s.donors.count(family) && !s.donors.at(family).empty()) return true;
+        if (s.resolvable && s.donors.count(family) && !s.donors.at(family).empty() && (!ordinary || !OnlyEnhanced(s.donors.at(family)))) return true;
     return false;
 }
 // Versus: a vent donor of this skin on a spawner of the current map.
@@ -2139,21 +2165,30 @@ unsigned OraclesAlive() {
 unsigned EnhancedChanceNow() {
     return ClockRun() ? survival::ClockEnhancedChance(run.wave, run.spec, cfg) : survival::EnhancedChanceFor(run.wave, run.spec, cfg);
 }
-// A list with nothing but enhanced donors is no source while the escalation allows none
-// (14.11.: wave 4 on mp_escape brought super_puker for every vent puker).
-bool OnlyEnhanced(const std::vector<size_t>& list) {
-    for (const size_t i : list)
-        if (!superGuids.count(pool[i].guid)) return false;
-    return !list.empty();
+// The current item's one roll for the enhanced variant. Rolled per try, a vent with nothing but
+// enhanced donors would win in the end whatever the chance.
+struct ItemRoll { unsigned number = 0, wave = 0; size_t next = SIZE_MAX; bool enhanced = false; };
+ItemRoll itemRoll;
+bool ItemEnhanced() {
+    if (itemRoll.number != run.number || itemRoll.wave != run.wave || itemRoll.next != run.next) {
+        const unsigned chance = EnhancedChanceNow();
+        itemRoll = ItemRoll{run.number, run.wave, run.next, chance && rng.Unit() * 100.0f < static_cast<float>(chance)};
+    }
+    return itemRoll.enhanced;
 }
-volatile LONG enhancedFallbackRefused = 0;
-size_t PickEscalated(const std::string& key, const std::vector<size_t>& ordinary, const std::vector<size_t>* enhanced) {
+volatile LONG enhancedFallbackRefused = 0, ordinaryStandIns = 0;
+size_t PickEscalated(const std::string& key, const std::vector<size_t>& ordinary, const std::vector<size_t>* enhanced, bool fixedSkin = false) {
+    if (fixedSkin) {   // an item that asks for a package gets it, enhanced or not
+        std::vector<size_t> all = ordinary;
+        if (enhanced) all.insert(all.end(), enhanced->begin(), enhanced->end());
+        return PickDonor(key, all);
+    }
     std::vector<size_t> plain, super;
     for (const size_t i : ordinary) (superGuids.count(pool[i].guid) ? super : plain).push_back(i);
     if (enhanced) super.insert(super.end(), enhanced->begin(), enhanced->end());
     const unsigned chance = EnhancedChanceNow();
     if (plain.empty() && !chance) { InterlockedIncrement(&enhancedFallbackRefused); return SIZE_MAX; }
-    const bool wantEnhanced = !super.empty() && chance && rng.Unit() * 100.0f < static_cast<float>(chance);
+    const bool wantEnhanced = !super.empty() && chance && ItemEnhanced();
     size_t donor = SIZE_MAX;
     // Oracle twitchers at most OracleShare of the enhanced picks and OracleMaxAlive at once;
     // the super slashers take the rest ([Escalation], 20.10.).
@@ -2280,7 +2315,7 @@ bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, un
     Pick pick, winding;
     reachRewalks = 6;
     const size_t count = ventSpots.size();
-    const bool enhancedAllowed = EnhancedChanceNow() > 0;
+    const bool enhancedAllowed = !item.package.empty() || ItemEnhanced();
     for (size_t k = 0; k < count; ++k) {
         const size_t index = (run.rotation + k) % count;
         VentSpot& s = ventSpots[index];
@@ -2360,7 +2395,7 @@ bool TryVent(const survival::Item& item, uint32_t now, const Viewer* viewers, un
     std::vector<size_t> skinOnly;
     if (!item.package.empty()) FilterPackage(all, item.package, skinOnly);
     const auto& donors = item.package.empty() ? all : skinOnly;
-    const size_t donor = MaybeTwitcher(item, PickEscalated(std::string("vent:") + s.row->name + ":" + item.family + (item.package.empty() ? "" : ":" + item.package), donors, nullptr), &s.twitchers, s.row->name);
+    const size_t donor = MaybeTwitcher(item, PickEscalated(std::string("vent:") + s.row->name + ":" + item.family + (item.package.empty() ? "" : ":" + item.package), donors, nullptr, !item.package.empty()), &s.twitchers, s.row->name);
     if (donor == SIZE_MAX) { ++run.refusals.noDonor; return false; }
     ds2::ExtraSpawnRule rule;
     rule.kind = item.family;
@@ -2604,7 +2639,7 @@ bool TryDirect(const survival::Item& item, uint32_t now, const Viewer* viewers, 
     }
     const size_t donor = MaybeTwitcher(item, list == directDonors.end() && enhanced == directEnhanced.end()
                              ? SIZE_MAX
-                             : PickEscalated("direct:" + item.family + (item.package.empty() ? "" : ":" + item.package), *plainList, enhancedList), nullptr, nullptr);
+                             : PickEscalated("direct:" + item.family + (item.package.empty() ? "" : ":" + item.package), *plainList, enhancedList, !item.package.empty()), nullptr, nullptr);
     if (donor == SIZE_MAX) { ++run.refusals.noDonor; Refuse("no direct donor left", item, nullptr); return false; }
     Engine* engine = nullptr;
     const uintptr_t spawner = PickEngine(&engine, viewers, viewerCount);
@@ -2711,18 +2746,26 @@ unsigned playersSeen = 1;   // PlayerManager's bodies at the last tick: the huma
 volatile LONG adminCap = 0;
 // maxalive= in the arena file (user 21.10.: 15 at once was too many for one player in the
 // security checkpoint): the arena's one-player cap instead of MaxAlive; a wave's own MaxAlive
-// counts only below it. Further players still add MaxAlivePerPlayer each.
+// counts only below it. MaxAlive is the player's own setting: arena and wave only lower it (24.11.).
+// Further human players add MaxAlivePerPlayer each, bots MaxAlivePerBot.
 unsigned BaseCap(const char** from = nullptr) {
     const coop_arena::Arena* a = RunArena();
     const unsigned arenaCap = a ? a->maxAlive : 0u, wave = run.spec.maxAlive;
-    const bool waveWins = wave && (!arenaCap || wave < arenaCap);
-    if (from) *from = waveWins ? "the wave's MaxAlive" : arenaCap ? "the arena's maxalive=" : "MaxAlive";
-    return waveWins ? wave : arenaCap ? arenaCap : cfg.maxAlive;
+    const unsigned lowest = survival::BaseMaxAlive(cfg.maxAlive, arenaCap, wave);
+    if (from) *from = lowest == cfg.maxAlive ? "MaxAlive" : wave && lowest == wave ? "the wave's MaxAlive" : "the arena's maxalive=";
+    return lowest;
+}
+// Human players of the run, this one included.
+unsigned HumansSeen() {
+    float partners[8 * 3];
+    const int n = partnerPositions && NetRole() == 1 ? partnerPositions(partners, 8) : 0;
+    const unsigned humans = 1u + static_cast<unsigned>(n > 0 ? n : 0);
+    return humans < playersSeen ? humans : playersSeen;
 }
 unsigned WaveCap() {
     const unsigned baseCap = BaseCap();
     const LONG forced = InterlockedCompareExchange(&adminCap, 0, 0);
-    const unsigned dynamic = forced > 0 ? static_cast<unsigned>(forced) : survival::MaxAliveFor(baseCap, playersSeen, cfg);
+    const unsigned dynamic = forced > 0 ? static_cast<unsigned>(forced) : survival::MaxAliveFor(baseCap, HumansSeen(), playersSeen, cfg);
     return survival::EffectiveCap(dynamic, dynamic, navpower::enlarged > 0);
 }
 // Probe one missing vent at a time while sectors stream during a wave.
@@ -2784,8 +2827,15 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
             }
     }
     ++run.itemTries;
-    const bool hasVent = ItemHasVent(item);
     const bool ventsOnly = ArenaVentsOnly();
+    // for an item that comes as an ordinary one a vent with enhanced donors alone is none
+    const bool hasVent = item.package.empty() && !ItemEnhanced() ? FamilyHasVent(item.family, true) : ItemHasVent(item);
+    if (ventsOnly && !hasVent && item.package.empty() && item.family != "Zombie" && FamilyHasVent(item.family) && FamilyHasVent("Zombie", true)) {
+        InterlockedIncrement(&ordinaryStandIns);
+        Event("wave %u: the arena's vents have only enhanced %s, a Zombie comes instead", run.wave, item.family.c_str());
+        run.queue[run.next].family = "Zombie";
+        return;
+    }
     const bool ventWanted = ventsOnly ? hasVent && VentPathOn() : survival::WantsVent(item.path, hasVent, VentPathOn(), cfg.ventSharePercent, rng.Unit());
     bool made = false;
     const bool ventTried = ventWanted && (item.groupHead || ventsOnly);
@@ -2824,6 +2874,9 @@ void SpawnStep(uint32_t now, const Viewer* viewers, unsigned viewerCount) {
 // An enemy from a vent that got nowhere: the second one retires that vent for the run.
 void NoteVentFailure(const Tracked& t) {
     if (!t.vent || t.marker < 0 || t.marker >= static_cast<int>(std::size(ds2::kSurvivalVentMarkers)) || markerRetired[t.marker]) return;
+    if (const auto found = std::lower_bound(pool.begin(), pool.end(), t.donor, [](const auto& r, const Guid& g) { return r.guid < g; });
+        found != pool.end() && found->guid == t.donor && found->ventBlocked)
+        donorFailures[static_cast<size_t>(found - pool.begin())] = 3;   // the campaign was right about this record
     if (++markerFailures[t.marker] < 2) return;
     markerRetired[t.marker] = true;
     InterlockedIncrement(&ventsRetired);

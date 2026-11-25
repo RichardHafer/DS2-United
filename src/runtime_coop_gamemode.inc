@@ -726,6 +726,10 @@ void InstallOpenOnly(FILE* log) {
 }
 void EarlyInstall(FILE* log, const std::string& ini) {
     startTick = GetTickCount();
+    const auto vr = ds2_vr::Detect();
+    const bool vrMenus = vr == ds2_vr::Detection::DS2PCVR;
+    std::fprintf(log, "VR compatibility: %s; native VR menu archives=%s (saved settings unchanged)\n",
+                 ds2_vr::Name(vr), vrMenus ? "preserved" : "not requested");
     {
         char exe[MAX_PATH]{};
         GetModuleFileNameA(nullptr, exe, MAX_PATH);
@@ -737,7 +741,7 @@ void EarlyInstall(FILE* log, const std::string& ini) {
         InterlockedExchange(&skinsRedirecting, loadout && present ? 1 : 0);
         std::fprintf(log, "loadout suit list: %s%s\n", !loadout ? "off ([Loadout] Enabled=0)" : present ? "mpskins.lua -> " : "no ", present || !loadout ? (loadout ? skinsPath : "") : skinsPath);
         // the red in-game menus and loading screens: whole streams of 128 KiB blocks with the stream header
-        const bool red = GetPrivateProfileIntA("Menu", "RedInGameMenus", 1, ini.c_str()) != 0;
+        const bool red = !vrMenus && GetPrivateProfileIntA("Menu", "RedInGameMenus", 1, ini.c_str()) != 0;
         const auto check = [&](const char* file, LONGLONG least) -> const char* {
             HANDLE h = CreateFileA((folder + file).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
             static const unsigned char kHeader[] = {0x33, 0x73, 0x6C, 0x6F, 0x0C, 0x00, 0x00, 0x00, 0x02, 0x00, 0x03, 0x01};
@@ -758,14 +762,14 @@ void EarlyInstall(FILE* log, const std::string& ini) {
         InterlockedExchange(&globalRedirecting, use ? 1 : 0);
         InterlockedExchange(&loadingRedirecting, useLoading ? 1 : 0);
         InterlockedExchange(&mpRedirecting, useMp ? 1 : 0);
-        std::fprintf(log, "in-game menus: %s; loading screens: %s; MP screens: %s\n", !red ? "stock ([Menu] RedInGameMenus=0)" : use ? "red (randomizer\\ds2coop_global_assets.str)" : why,
+        std::fprintf(log, "in-game menus: %s; loading screens: %s; MP screens: %s\n", vrMenus ? "preserved for DS2PCVR" : !red ? "stock ([Menu] RedInGameMenus=0)" : use ? "red (randomizer\\ds2coop_global_assets.str)" : why,
                      !red ? "stock" : useLoading ? "red (randomizer\\ds2coop_loading_screen.str)" : whyLoading,
                      !red ? "stock" : useMp ? "red (randomizer\\ds2coop_global_mp_assets.str)" : whyMp);
     }
     const bool modes = GetPrivateProfileIntA("Menu", "Modes", 1, ini.c_str()) != 0;
-    wanted = modes && GetPrivateProfileIntA("Menu", "NativeModeRow", 1, ini.c_str()) != 0;
+    wanted = !vrMenus && modes && GetPrivateProfileIntA("Menu", "NativeModeRow", 1, ini.c_str()) != 0;
     if (!wanted) {
-        std::fprintf(log, "native row off (%s)\n", modes ? "[Menu] NativeModeRow=0" : "[Menu] Modes=0");
+        std::fprintf(log, "native row off (%s)\n", vrMenus ? "DS2PCVR menu compatibility" : modes ? "[Menu] NativeModeRow=0" : "[Menu] Modes=0");
         InstallOpenOnly(log);
         return;
     }

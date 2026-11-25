@@ -23,6 +23,7 @@
 #define NOMINMAX
 #include "coop_panel_claims.h"
 #include <windows.h>
+#include "vr_compat.h"
 #include <winsock2.h>
 #include <tlhelp32.h>
 #include "ds2coop_config.h"

@@ -2353,6 +2353,7 @@ namespace necro { bool SuicideRow(); bool SuicideAvailable(); bool CommitSuicide
 namespace lifecycle { void PartnerLastPhase(unsigned machine, char* out, size_t size); }   // runtime_coop_lifecycle.inc
 #include "runtime_coop_disconnect.inc"
 #include "runtime_coop_aimguard.inc"
+#include "runtime_coop_objguard.inc"
 #include "runtime_coop_netrate.inc"
 #include "runtime_coop_helmet.inc"
 #include "runtime_coop_authority.inc"
@@ -3416,6 +3417,7 @@ bool OnBotSuitBytes(const void* data, int size) {
 #include "runtime_coop_uselock.inc"
 #include "runtime_coop_turret.inc"
 #include "runtime_coop_gadgets.inc"
+namespace laserdiag { void OwnerStates(uint32_t actor, char* out, size_t size); }   // runtime_coop_laserdiag.inc, for the campaign fall guard
 #include "runtime_coop_mpmap.inc"
 #include "runtime_coop_shop.inc"
 #include "runtime_coop_hud.inc"
@@ -3432,7 +3434,6 @@ bool OnBotSuitBytes(const void* data, int size) {
 #include "runtime_coop_zone.inc"
 #include "runtime_coop_marks.inc"
 #include "runtime_coop_npcwatch.inc"
-#include "runtime_coop_patrolhelmet.inc"
 #include "runtime_coop_credits.inc"
 #include "runtime_coop_escalation.inc"
 #include "runtime_coop_pcmcodec.inc"
@@ -3602,6 +3603,8 @@ int NetRole() { return !network ? 0 : IsHost() ? 1 : 2; }
 #include "runtime_coop_lobby.inc"
 #include "runtime_coop_arena.inc"
 #include "runtime_coop_debugmenu.inc"
+#include "enemy_speed.h"
+#include "runtime_coop_enemyspeed.inc"
 #include "runtime_coop_menu.inc"
 #include "runtime_coop_gamemode.inc"
 #include "runtime_coop_mpnative.inc"
@@ -3831,6 +3834,7 @@ void Poll() {
     arenarec::Tick(GetTickCount());   // the arena recorder ([Arena] RecordKey)
     arena::Tick(GetTickCount());      // a running campaign arena: doors locked, rooms held
     debugmenu::Tick();                // the debug menu ([Debug] Key, Insert)
+    enemyspeed::Tick();               // enemy speed per kind and mode ([EnemySpeed])
     lifetime::Tick(GetTickCount());   // how many corpses and body parts stay ([Lifetime])
     if (!IsHost()) {               // a client's music follows the host's state
         static LONG musicSeen = 0;
@@ -4651,6 +4655,7 @@ bool Install(FILE* log, const std::string& ini) {
     disconnect::Install(log, ini);
     matchend::Install(log, ini);
     aimguard::Install(log, ini);
+    objguard::Install(log, ini);
     netrate::Install(log, ini);
     notice::Install(log, ini);
     ghosttrigger::Install(log, ini);
@@ -4701,6 +4706,7 @@ bool Install(FILE* log, const std::string& ini) {
     lifetime::Install(log, ini);
     arena::Install(log, ini);
     debugmenu::Install(log, ini);
+    enemyspeed::Install(log, ini);
     survmusic::Install(log, ini);
     respawn::Install(log, ini);
     spectate::Install(log, ini);
@@ -4710,7 +4716,6 @@ bool Install(FILE* log, const std::string& ini) {
     zone::Install(log, ini);
     marks::Install(log, ini);
     npcwatch::Install(log, ini);
-    patrolhelmet::Install(log, ini);
     modcredits::Install(log, ini);
     configcheck::Install(log, ini);
     mesh::Install(log, ini);
@@ -4787,6 +4792,7 @@ void WriteDiagnostics(FILE* log) {
     lifetime::WriteDiagnostics(log);
     arena::WriteDiagnostics(log);
     debugmenu::WriteDiagnostics(log);
+    enemyspeed::WriteDiagnostics(log);
     survmusic::WriteDiagnostics(log);
     respawn::WriteDiagnostics(log);
     spectate::WriteDiagnostics(log);
@@ -4796,7 +4802,6 @@ void WriteDiagnostics(FILE* log) {
     zone::WriteDiagnostics(log);
     marks::WriteDiagnostics(log);
     npcwatch::WriteDiagnostics(log);
-    patrolhelmet::WriteDiagnostics(log);
     modcredits::WriteDiagnostics(log);
     configcheck::WriteDiagnostics(log);
     mesh::WriteDiagnostics(log);
@@ -4848,6 +4853,7 @@ void WriteDiagnostics(FILE* log) {
     disconnect::WriteDiagnostics(log);
     matchend::WriteDiagnostics(log);
     aimguard::WriteDiagnostics(log);
+    objguard::WriteDiagnostics(log);
     netrate::WriteDiagnostics(log);
     notice::WriteDiagnostics(log);
     ghosttrigger::WriteDiagnostics(log);

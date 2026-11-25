@@ -311,7 +311,7 @@ struct Config {
     float minDistance = 12.0f, botMinDistance = 8.0f, maxDistance = 25.0f, idealDistance = 16.0f, floorBand = 12.0f, maxPathFactor = 2.2f, otherFloorBonus = 2.0f;
     float wallClearance = 0.3f;   // a direct spawn keeps this much room from walls (0 = off)
     unsigned candidatesPerTick = 3;
-    bool ventSpawns = true, ventLineOfSight = false, ventCrossFamily = true, ventIgnoreFamilyOff = true;
+    bool ventSpawns = true, ventLineOfSight = false, ventCrossFamily = true, ventIgnoreFamilyOff = true, ventLearnedLastResort = true;
     // From the nearest player or bot. VentMinDistance holds for one of them, every further living
     // player or bot takes VentMinStep off (user, 13.11.: 5 m solo, 2 m less per player or bot).
     float ventMinDistance = 5.0f, ventMinStep = 2.0f, ventMaxDistance = 30.0f;
@@ -366,7 +366,8 @@ struct Config {
     unsigned escSpeedPerWave = 1, escSpeedMax = 40;          // animation playback, capped
     float escPauseStepS = 0.5f;                              // the break between waves shrinks (0.5: a second every two waves)
     unsigned escPauseMinS = 8;
-    unsigned escMaxAlivePerPlayer = 3, escMaxAliveCap = 23;  // MaxAlive is for one player; each more (bots too) adds
+    unsigned escMaxAlivePerPlayer = 3, escMaxAliveCap = 23;  // MaxAlive is for one player; each further human adds
+    unsigned escMaxAlivePerBot = 0;                          // ... and each bot
     float escRewardStep = 2.5f;                              // wave rewards shrink by this many percent a step ...
     unsigned escRewardMin = 40;                              // ... to this percent
     unsigned escPriceStep = 0, escPriceMax = 200;            // shop prices grow to this percent (0: never, user 20.10.)
@@ -499,6 +500,7 @@ inline Config ParseConfig(const std::string& text) {
     }
     c.ventCrossFamily = UnsignedOr(ini, s, "VentCrossFamily", 1, 0, 1, c) != 0;
     c.ventIgnoreFamilyOff = UnsignedOr(ini, s, "VentIgnoreVentFamilies", 1, 0, 1, c) != 0;
+    c.ventLearnedLastResort = UnsignedOr(ini, s, "VentLearnedLastResort", 1, 0, 1, c) != 0;
     c.ventSharePercent = UnsignedOr(ini, s, "VentShare", 40, 0, 100, c);
     c.ventGapMs = UnsignedOr(ini, s, "VentGapMs", 3500, 3000, 60000, c);
     c.ventWaitMs = UnsignedOr(ini, s, "VentWaitMs", 15000, 0, 120000, c);
@@ -554,6 +556,7 @@ inline Config ParseConfig(const std::string& text) {
         c.escPauseMinS = UnsignedOr(ini, e, "PauseMinSeconds", 8, 0, 600, c);
         c.escMaxAlivePerPlayer = UnsignedOr(ini, e, "MaxAlivePerPlayer", 3, 0, 30, c);
         c.escMaxAliveCap = UnsignedOr(ini, e, "MaxAliveCap", 23, 1, 30, c);
+        c.escMaxAlivePerBot = UnsignedOr(ini, e, "MaxAlivePerBot", 0, 0, 30, c);
         c.escRewardStep = FloatOr(ini, e, "RewardStepPercent", 2.5f, 0.0f, 100.0f, c);
         c.escRewardMin = UnsignedOr(ini, e, "RewardMinPercent", 40, 0, 100, c);
         c.escPriceStep = UnsignedOr(ini, e, "PriceStepPercent", 0, 0, 100, c);
@@ -864,9 +867,14 @@ inline unsigned PauseFor(unsigned wave, unsigned basePause, const Config& c) {
     if (!cut || basePause <= c.escPauseMinS) return basePause;
     return basePause > cut + c.escPauseMinS ? basePause - cut : c.escPauseMinS;
 }
+// The player's MaxAlive, lowered by the arena's or the wave's own (0: none).
+inline unsigned BaseMaxAlive(unsigned own, unsigned arena, unsigned wave) {
+    if (arena && arena < own) own = arena;
+    return wave && wave < own ? wave : own;
+}
 // players: everybody PlayerManager holds (the human, partners, bots)
-inline unsigned MaxAliveFor(unsigned base, unsigned players, const Config& c) {
-    const unsigned extra = players > 1 ? (players - 1) * c.escMaxAlivePerPlayer : 0;
+inline unsigned MaxAliveFor(unsigned base, unsigned humans, unsigned players, const Config& c) {
+    const unsigned extra = (humans > 1 ? (humans - 1) * c.escMaxAlivePerPlayer : 0) + (players > humans ? (players - humans) * c.escMaxAlivePerBot : 0);
     const unsigned v = base + extra;
     return v > c.escMaxAliveCap ? (base > c.escMaxAliveCap ? base : c.escMaxAliveCap) : v;
 }
