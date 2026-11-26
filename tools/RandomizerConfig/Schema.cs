@@ -37,7 +37,7 @@ namespace DS2CoopConfig
         public static readonly Dictionary<string, string> GroupIntro = new Dictionary<string, string>
         {
             { Curated.Coop, "Online co-op between several copies of the game. Most switches have to match on every machine; the host decides levels, checkpoints and enemies." },
-            { Curated.Bots, "Companion bots: up to three extra Isaacs the game itself runs. They follow you, fight, loot, shop and heal. Their personalities are the [Bot1] to [Bot3] sections on the Expert page." },
+            { Curated.Bots, "Companion bots: up to three extra Isaacs the game itself runs. They follow you, fight, loot, shop and heal. Each bot's personality is at the end of this page." },
             { Curated.Survival, "Survival waves on the multiplayer maps and in the campaign arenas, and the clock modes Mercenaries, Objective and Hold the Zone. The waves themselves ([Wave1] to [Wave10]) are on the Expert page." },
             { Curated.Multiplayer, "Necromorph players in story co-op, the pre-game lobby, the multiplayer character setup and the multiplayer map visit. Experimental." },
             { Curated.Speed, "How fast each kind of enemy is, for the story and every game mode on its own." },

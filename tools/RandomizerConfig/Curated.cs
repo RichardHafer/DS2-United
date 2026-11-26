@@ -55,6 +55,19 @@ namespace DS2CoopConfig
             return o;
         }
 
+        // a decimal the plugin reads with atof and clamps to [lo, hi]
+        static Option Dec(string group, string section, string key, string def, double lo, double hi, string title, string desc)
+        {
+            return T(group, section, key, def, title, desc + " " + lo.ToString(CultureInfo.InvariantCulture) + " to " + hi.ToString(CultureInfo.InvariantCulture) + ".", v =>
+            {
+                if (v.Length == 0) return null;
+                string bad = Validators.Decimal(v);
+                if (bad != null) return bad;
+                double d = double.Parse(v, CultureInfo.InvariantCulture);
+                return d < lo || d > hi ? "The game uses " + lo.ToString(CultureInfo.InvariantCulture) + " to " + hi.ToString(CultureInfo.InvariantCulture) + "." : null;
+            });
+        }
+
         static Option T(string group, string section, string key, string def, string title, string desc, Func<string, string> validate)
         {
             var o = Make(group, section, key, Kind.Text, 0, 0, 0, title, desc);
@@ -501,7 +514,7 @@ namespace DS2CoopConfig
             add(C(Bots, "Bot", "Count", 1, 1, 3, "Number of bots",
                 "How many bots at once. Online, every human partner takes one bot's seat (four players at most)."));
             add(B(Bots, "Bot", "Profiles", 0, "Personalities",
-                "Each bot gets its own name, reaction time, aim, courage and pace from the [Bot1] to [Bot3] sections (Expert page). Off: every bot is the same and reacts at once."));
+                "Each bot gets its own name, reaction time, aim, courage and pace (Bot 1 to Bot 3 personality, below). Off: every bot is the same and reacts at once."));
             add(B(Bots, "Bot", "AnticsEnabled", 1, "Antics",
                 "Lets the bots do the playful things their profiles allow while nothing is going on. Off: none for any bot."));
             add(B(Bots, "Bot", "HideInScenes", 0, "Hide in cutscenes",
@@ -557,6 +570,63 @@ namespace DS2CoopConfig
                 "After a fight the bots stomp fresh corpses near them and you until the loot drops, and pick it up. A corpse you stand at is yours."));
             add(B(Bots, "Bot", "LootContainers", 1, "Open crates and lockers",
                 "When calm, the bots open supply crates and lockers near you and pick up what drops. Locked ones and those the level needs stay shut."));
+
+            // ---- Bots: the personalities ([Bot1] to [Bot3], src/runtime_coop_bot.inc LoadProfile and BuiltInProfile)
+            string[] botNames = { "Vasquez", "Novak", "Harlan" };
+            string[] botLooks = { "the quick one, close and up front", "the calm marksman, a little farther out", "the careful one who watches your back" };
+            for (int b = 0; b < 3; b++)
+            {
+                string sec = "Bot" + (b + 1), who = "Bot " + (b + 1);
+                Func<Model, string> profilesOff = Needs("Bot.Profiles", "Only used with Personalities on.");
+                add(T(Bots, sec, "Name", botNames[b], who + ": name", "Shown in the log and in its notices. The built-in " + who.ToLowerInvariant() + " is " + botNames[b] + ", " + botLooks[b] + ".",
+                    v => Validators.PlainText(v, 31)).Under(who + " personality").Warn(profilesOff));
+                add(T(Bots, sec, "FavoriteSuits", "", who + ": favourite suits",
+                    "Suits it wears first, best first, comma separated, names as in the store (Security, Riot Security, Vintage, Advanced...). In the campaign only suits you own count.",
+                    v => Validators.PlainText(v, 191)));
+                add(T(Bots, sec, "ForceSuit", "", who + ": always this suit", "One suit it always wears, owned or not. Empty: it picks from its favourites.",
+                    v => Validators.PlainText(v, 63)));
+                add(T(Bots, sec, "FavoriteWeapons", "", who + ": favourite weapons",
+                    "Guns it buys and keeps first, comma separated: PlasmaCutter, PulseRifle, LineGun, Javelin, Ripper, Detonator, Flamethrower, SeekerRifle, ForceGun, ContactBeam.",
+                    v => Validators.PlainText(v, 95)));
+                add(C(Bots, sec, "ReactionMinMs", new long[] { 180, 300, 350 }[b], 0, 10000, who + ": quickest reaction (ms)",
+                    "How long at least before it notices a new enemy, starts to follow or runs for a door."));
+                add(C(Bots, sec, "ReactionMaxMs", new long[] { 450, 650, 800 }[b], 0, 10000, who + ": slowest reaction (ms)",
+                    "How long at most. Below the quickest one it counts as the quickest."));
+                add(C(Bots, sec, "AimAcquireMs", new long[] { 180, 320, 280 }[b], 0, 10000, who + ": aim before the first shot (ms)",
+                    "How long it aims at a new target before it fires."));
+                add(Dec(Bots, sec, "AimSkill", new[] { "0.85", "0.92", "0.78" }[b], 0, 1, who + ": aim skill",
+                    "0 sloppy to 1 sharp: how far its first aim is off, how fast that settles and how much it wanders."));
+                add(Dec(Bots, sec, "AimSway", new[] { "0.06", "0.04", "0.09" }[b], 0, 0.5, who + ": aim sway (m)",
+                    "How far its aim point wanders around the target, more when it is hurt or crowded."));
+                add(Dec(Bots, sec, "AimSpeed", new[] { "1.15", "0.9", "0.95" }[b], 0.4, 2, who + ": aim speed",
+                    "How fast it turns its aim. 1 is normal."));
+                add(Dec(Bots, sec, "Courage", new[] { "0.8", "0.5", "0.3" }[b], 0, 1, who + ": courage",
+                    "0 backs off early, 1 lets enemies come close before it backs off."));
+                add(Dec(Bots, sec, "PreferredDistance", new[] { "4.5", "7", "6" }[b], 3, 15, who + ": fighting distance (m)",
+                    "How far from its target it likes to fight."));
+                add(C(Bots, sec, "HealBelowPercent", new long[] { 45, 60, 70 }[b], -1, 95, who + ": heal below (%)",
+                    "Uses a med pack below this much health. -1: the squad setting."));
+                add(C(Bots, sec, "KinesisChance", new long[] { 60, 35, 50 }[b], 0, 100, who + ": kinesis (%)",
+                    "How likely it wants a kinesis object when an enemy comes near."));
+                add(Dec(Bots, sec, "WalkPace", new[] { "1.0", "0.9", "0.85" }[b], 0.5, 1, who + ": walking pace",
+                    "0.5 to 1 of the full walking speed. Running is always full speed."));
+                add(Dec(Bots, sec, "FollowAngle", new[] { "60", "-70", "-125" }[b], -180, 180, who + ": place beside you (degrees)",
+                    "Where it walks next to you: degrees from where you face, + right, - left, 0 in front, 180 behind."));
+                add(Dec(Bots, sec, "FollowDistance", new[] { "2.4", "2.8", "3.2" }[b], 1.5, 6, who + ": distance to you (m)",
+                    "How far from you it walks."));
+                add(Dec(Bots, sec, "WatchAngle", new[] { "35", "-40", "180" }[b], -180, 180, who + ": watches (degrees)",
+                    "The direction it keeps an eye on when nothing happens, in the same degrees."));
+                add(C(Bots, sec, "CombatSide", new long[] { 1, -1, 1 }[b], -1, 1, who + ": side in a fight",
+                    "1 your right, -1 your left."));
+                add(Dec(Bots, sec, "CombatSideMeters", new[] { "2.0", "2.6", "3.4" }[b], 1, 5, who + ": how far out in a fight (m)",
+                    "How far to its side of you it stands in a fight."));
+                add(Dec(Bots, sec, "CombatBack", new[] { "0.3", "0.8", "1.2" }[b], -1, 4, who + ": how far back in a fight (m)",
+                    "How far back from you, away from the enemy, it stands in a fight."));
+                add(C(Bots, sec, "Antics", 0, 0, 3, who + ": antics",
+                    "0 never, 1 rare, 2 now and then, 3 often: with nothing about it does something playful near you. Antics (above) turns them off for every bot."));
+                add(B(Bots, sec, "HarmfulAntics", 0, who + ": stasis prank",
+                    "With antics on it may, very rarely, put a stasis shot on you from a few metres away."));
+            }
 
             // ---- Survival
             add(B(Survival, "Survival", "Enabled", 0, "Survival waves",
