@@ -16,7 +16,7 @@
 
 **Update 16.11.2026, VR (not installed or tested in VR):** DS2PCVR is detected from identifying strings in the game-folder `d3d9.dll`. United preserves the original menu archives for the VR settings page, temporarily bypassing NativeModeRow and RedInGameMenus without editing the INI. The United MarkerPatch build also disables the VR maintainer's conflicting input, UI and rendering options for that launch. Other D3D9 proxies retain the usual settings. This addresses known menu/configuration conflicts, not a guarantee that every gameplay hook works in VR.
 
-**Update 16.11.2026 (not installed, in-game verification pending):** with `[Bot] IgnoreTriggers`, companion bots are excluded from StandardDoor's native occupancy scan as well as its activation and trigger paths. This addresses a missing filter relevant to issue #8: a bot could keep a door open without activating it. Offline retail-loop tests cover bots, players, NPCs and mixed occupants; they do not establish that the reported room-loading failure is fully resolved.
+**Update 16.11.2026, withdrawn 26.11.:** bots were taken out of StandardDoor's occupancy scan (issue #8). A door then shut on a bot that stayed behind, so this is back as before: a bot in a doorway counts as an occupant again.
 
 Every feature of Dead Space 2 United for Dead Space 2 (by Hafer) in one place: per game mode what is on or off and whether it works, then a catalog by area.
 
