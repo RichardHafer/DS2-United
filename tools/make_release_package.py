@@ -4,7 +4,7 @@ The plugin and the settings window come from build\\, the settings from a releas
 (default: the repository's DS2United.ini) with the personal values cleared, the game
 data the plugin loads (enemy pool, Severed and Twitcher records, the frontend and menu
 copies) from an installed game folder, and the United edition of MarkerPatch as dinput8.dll
-(build_markerpatch_united.cmd). The Outbreak archive is not packed; INSTALL.txt links it. The zip unpacks straight into the Dead Space 2 folder.
+(build_markerpatch_united.cmd). The Outbreak archive is not packed; INSTALL.txt links it. The zip unpacks straight into the Dead Space 2 folder; the read me, licences, install notes and manifest go to DS2United_Docs.
 
     python -I tools/make_release_package.py --game "<Dead Space 2>" --out <zip>
         [--ini <release DS2United.ini>] [--version 0.1] [--list] [--force]
@@ -55,10 +55,10 @@ REPO_FILES = [
     (r"build\DS2United.asi", r"plugins\DS2United.asi"),
     (r"build\DS2UnitedConfig.exe", r"DS2UnitedConfig.exe"),
     (r"build\markerpatch-united\dinput8.dll", r"dinput8.dll"),
-    (r"third_party\MarkerPatch-United\LICENSE", r"MarkerPatch_United_LICENSE.txt"),
-    (r"third_party\MarkerPatch-United\README.md", r"MarkerPatch_United_README.md"),
-    (r"README.md", r"DS2United_README.md"),
-    (r"LICENSE", r"DS2United_LICENSE.txt"),
+    (r"third_party\MarkerPatch-United\LICENSE", r"DS2United_Docs\MarkerPatch_United_LICENSE.txt"),
+    (r"third_party\MarkerPatch-United\README.md", r"DS2United_Docs\MarkerPatch_United_README.md"),
+    (r"README.md", r"DS2United_Docs\DS2United_README.md"),
+    (r"LICENSE", r"DS2United_Docs\DS2United_LICENSE.txt"),
 ]
 
 # values cleared in the packed INI: (section, key), lower case; Peer1..PeerN count as Peer
@@ -82,8 +82,9 @@ games before you play.
 2. dinput8.dll is United's own edition of the Marker Patch (by Wemino,
    https://github.com/Wemino/MarkerPatch). It replaces an official Marker
    Patch, reads the same MarkerPatch.ini and keeps its fixes, except a few
-   that clash with the mod (MarkerPatch_United_README.md lists them). Do not
-   put the official one back: with it the mod stays off and says so.
+   that clash with the mod (DS2United_Docs\MarkerPatch_United_README.md
+   lists them). Do not put the official one back: with it the mod stays off
+   and says so.
    Without a MarkerPatch.ini it writes one with the MarkerPatch defaults on
    the first start; an existing one is used as it is.
 3. Start DS2UnitedConfig.exe to look through the settings (optional).
@@ -233,8 +234,8 @@ def main():
             manifest.append("%s  %s" % (sha1(p), dst))
         z.writestr(r"plugins\DS2United.ini", ini_data)
         manifest.append("%s  %s" % (hashlib.sha1(ini_data).hexdigest(), r"plugins\DS2United.ini"))
-        z.writestr("DS2United_INSTALL.txt", INSTALL.format(version=args.version, line="=" * len(title) + " (" + stamp + ")").replace("\n", "\r\n"))
-        z.writestr("DS2United_MANIFEST.txt", ("sha1 of every file, " + title + ", " + stamp + "\n" + "\n".join(manifest) + "\n").replace("\n", "\r\n"))
+        z.writestr(r"DS2United_Docs\DS2United_INSTALL.txt", INSTALL.format(version=args.version, line="=" * len(title) + " (" + stamp + ")").replace("\n", "\r\n"))
+        z.writestr(r"DS2United_Docs\DS2United_MANIFEST.txt", ("sha1 of every file, " + title + ", " + stamp + "\n" + "\n".join(manifest) + "\n").replace("\n", "\r\n"))
     print("wrote %s (%.1f MB)" % (out, out.stat().st_size / 1048576.0))
     return 0
 
