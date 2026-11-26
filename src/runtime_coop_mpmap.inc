@@ -1923,10 +1923,34 @@ bool FallingState(uint32_t player, char* states, size_t size) {
     // not "fall": a plain fall through a missing floor is what the guard is for
     return std::strstr(states, "fly") || std::strstr(states, "flight") || std::strstr(states, "launch") || std::strstr(states, "zg");
 }
+float standY[coop_peers::kMaxPeers]{};
+DWORD standSince[coop_peers::kMaxPeers]{};
+bool PartnerStands(DWORD now) {
+    for (unsigned s = 0; s < coop_peers::kMaxPeers; ++s) {
+        if (!standSince[s] || now - standSince[s] < 1000) continue;
+        const float* p = peerRuntime[s].pos;
+        const float dx = p[0] - safeMatrix[12], dy = p[1] - safeMatrix[13], dz = p[2] - safeMatrix[14];
+        if (dx * dx + dy * dy + dz * dz < 60.0f * 60.0f) return true;
+    }
+    return false;
+}
+void WatchPartners(DWORD now) {
+    for (unsigned s = 0; s < coop_peers::kMaxPeers; ++s) {
+        const auto& r = peerRuntime[s];
+        if (!peerTable.peers[s].used || !r.lastState || now - r.lastState > 1000 || std::fabs(r.pos[1] - standY[s]) > 1.0f ||
+            loadsync::PartnerOnOurMap(peerTable.peers[s].token, now) == 0) {
+            standSince[s] = 0;
+            standY[s] = r.pos[1];
+        } else if (!standSince[s]) {
+            standSince[s] = now ? now : 1;
+        }
+    }
+}
 void CampaignFallGuard(DWORD now) {
     if (!campaignFallGuard || visit.phase != coop_mpmap::Phase::Idle || now - fallSampleAt < 100) return;
     const DWORD dt = fallSampleAt ? now - fallSampleAt : 0;
     fallSampleAt = now;
+    WatchPartners(now);
     const uint32_t player = LocalCampaignPlayer();
     uint32_t vtable = 0;
     if (!player || IsBotEntity(player) || !Read(player, &vtable, 4) || vtable != base + placement::kPlayerPrimaryVtableRva ||
@@ -1966,7 +1990,10 @@ void CampaignFallGuard(DWORD now) {
     stillSince = 0;
     if (!haveSafe || vy > -12.0f || at[1] > safeMatrix[13] - 8.0f || (guardRescuedAt && now - guardRescuedAt < 2000)) return;
     const DWORD sequenceAt = static_cast<DWORD>(InterlockedCompareExchange(&cutscene::localSequenceAt, 0, 0));
-    if (sequenceAt && now - sequenceAt < kAfterSequenceMs) {
+    // In co-op a scripted drop takes everybody along: a partner standing near our safe spot means
+    // that we fell alone, through a floor that is not there.
+    const bool fellAlone = PartnerStands(now);
+    if (sequenceAt && now - sequenceAt < kAfterSequenceMs && !fellAlone) {
         if (InterlockedIncrement(&campaignFallSequenceHolds) <= 10)
             Event("campaign fall guard: Isaac falling at %.1f m/s, %.1f m below his safe spot, left alone (scripted sequence %lu ms ago)", vy, safeMatrix[13] - at[1],
                   static_cast<unsigned long>(now - sequenceAt));

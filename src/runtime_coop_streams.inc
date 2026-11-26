@@ -734,7 +734,11 @@ bool ReleaseLeave(DWORD now, bool force, const char* cause) {
 }
 // A checkpoint restart puts everybody back: a held leave, and a held set
 // activation (its node is freed with the old world), belong to the old world.
-namespace curtain { void MarkLoad(const char* why); }
+namespace curtain {
+void MarkLoad(const char* why);
+uint32_t Lookup(uint32_t hash);
+uint32_t MemberHash(const uint32_t* g);
+}
 namespace pin { void ForgetDesired(); }
 void OnRestartLeave() { pin::ForgetDesired(); leave::hold = leave::Hold{}; held = Held{}; noticeShown = false; curtain::MarkLoad("a checkpoint restart"); }
 // From worldcalls: a door whose leave is held is being used again. Somebody
@@ -1371,6 +1375,23 @@ void Tick(DWORD now) {
 // the unload list's reach and the set would never have finished.
 namespace pin {
 bool enabled = false, hooked = false;
+// The floor our Isaac stands on ([Streams] KeepFloor). A partner's scene, his replayed message or a
+// script his progress fired can switch our zone set while we are rooms behind him; only his own
+// rooms were kept then, and ours unloaded under us. The streams under our feet (vis::home) that the
+// last switch asked for stay in such a switch, the next one of our own lets them go.
+bool keepFloor = true;
+constexpr float kAlongM = 20.0f;   // a partner this close walks with us: the switch is ours too
+volatile LONG floorKept = 0, floorSwitches = 0, floorFull = 0, floorLines = 0;
+// The zone set's own work left: loads waiting, streams loading and unloading (SetDesired_i reads the same three).
+constexpr uint32_t kSetLoads = 0x99C, kSetLoading = 0xC8, kSetUnloading = 0x240;
+constexpr DWORD kStuckMs = 20000;
+DWORD busySince = 0;
+bool stuckSaid = false;
+uint32_t askedSet = 0, askedCount = 0, askedAdded = 0, askedActivator[4]{};
+bool askedHasActivator = false;
+uint32_t asked[46][4]{};
+unsigned char askedHidden[46]{};
+volatile LONG stuck = 0, stuckHealed = 0;
 // A partner this close walks through with us: his own game switches a moment
 // later, and a room kept for him stays loaded here until our next switch.
 // 12.10.: the client, 5 m behind the host, still reported the set he had taken
@@ -1388,7 +1409,7 @@ constexpr unsigned kMaxDesired = 46;
 // The engine's previous zone request also contains rooms retained for a partner.
 uint32_t lastZone = 0, lastDesired[kMaxDesired][4]{};
 unsigned lastDesiredCount = 0;
-void ForgetDesired() { lastZone = 0; lastDesiredCount = 0; }
+void ForgetDesired() { lastZone = 0; lastDesiredCount = 0; askedSet = askedCount = askedAdded = 0; busySince = 0; stuckSaid = false; }
 
 safetyhook::InlineHook setDesiredHook;
 volatile LONG switches = 0, kept = 0, keptOwn = 0, full = 0, lines = 0, notZone = 0, fullLines = 0;
@@ -1405,6 +1426,50 @@ uint32_t ZoneSet() {
 bool InList(const uint32_t (*list)[4], unsigned count, const uint32_t* guid) {
     for (unsigned i = 0; i < count; ++i) if (GuidEqual(list[i], guid)) return true;
     return false;
+}
+// Whether a switch asked for now is somebody else's walk and not our Isaac's.
+bool NotOurWalk(DWORD now, const uint32_t* activator, const char** why) {
+    if (gate::mirroring > 0 || gate::replaying > 0) { *why = "a partner's replayed message"; return true; }
+    if (cutscene::Following()) { *why = "a partner's scene"; return true; }
+    if (referenceUntil && now < referenceUntil && referenceSlot != 0xFE) { *why = "right after a partner's scene"; return true; }
+    if (lastActivationKind == kKindDoor || lastActivationKind == kKindLevelStart) return false;
+    float me[3]{};
+    if (!activator || GuidZero(activator) || !gate::LocalPosition(me)) return false;
+    for (unsigned s = 0; s < coop_peers::kMaxPeers; ++s) {
+        const auto& peer = peerTable.peers[s];
+        const PeerArea& a = peerAreas[s];
+        if (!peer.used || !peer.token || !a.at || TicksSince(now, a.at) > kStaleMs || !GuidEqual(a.area, activator)) continue;
+        const auto& runtime = peerRuntime[s];
+        if (!runtime.lastState || now - runtime.lastState > 5000) continue;
+        if (coop_gate::DistanceSquared(me, runtime.pos) > kAlongM * kAlongM) { *why = "a partner far away is in that set already"; return true; }
+    }
+    return false;
+}
+unsigned KeepFloor(uint32_t set, const uint32_t* activator, uint32_t (*list)[4], unsigned char* hidden, unsigned& n, DWORD now) {
+    const char* why = "";
+    if (!keepFloor || lastZone != set || !lastDesiredCount || mpmap::InVisit() || GhostFollower() || necro::LocalRole() != 0 ||
+        !NotOurWalk(now, activator, &why)) return 0;
+    InterlockedIncrement(&floorSwitches);
+    unsigned added = 0;
+    for (unsigned h = 0; h < vis::kFloorPoints; ++h) {
+        char name[96];
+        uint32_t stream = 0, slot = 0, identity = 0, key = 0;
+        if (!vis::home[h]) continue;
+        stream = vis::StreamOfHandle(vis::home[h], name, sizeof(name));
+        if (!stream || !Read(stream + 0x18, &slot, 4) || !slot || !Read(slot, &identity, 4) || !identity || !Read(identity + 4, &key, 4) || !key) continue;
+        for (unsigned i = 0; i < lastDesiredCount; ++i) {
+            if (InList(list, n, lastDesired[i]) || curtain::Lookup(curtain::MemberHash(lastDesired[i])) != key) continue;
+            if (n >= kMaxDesired) { InterlockedIncrement(&floorFull); break; }
+            std::memcpy(list[n], lastDesired[i], 16);
+            hidden[n] = 0;
+            ++n; ++added;
+            InterlockedIncrement(&floorKept);
+            if (InterlockedIncrement(&floorLines) <= 100)
+                gate::Event("coop_streams the floor under our Isaac (%s) would unload in a switch that is not our walk (%s, asked by %s): kept", name, why,
+                            KindName(lastActivationKind));
+        }
+    }
+    return added;
 }
 void __fastcall OnSetDesired(void* self, void*, const uint32_t (*guids)[4], const unsigned char* hidden, uint32_t count, const uint32_t* activator) {
     const auto set = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(self));
@@ -1426,6 +1491,13 @@ void __fastcall OnSetDesired(void* self, void*, const uint32_t (*guids)[4], cons
     std::memcpy(list, guids, count * 16);
     std::memcpy(spawnHidden, hidden, count);
     unsigned added = 0;
+    if (partners) added += KeepFloor(set, activator, list, spawnHidden, n, GetTickCount());
+    askedSet = set;
+    askedCount = n;
+    askedHasActivator = activator != nullptr;
+    if (activator) std::memcpy(askedActivator, activator, 16);
+    std::memcpy(asked, list, n * sizeof(list[0]));
+    std::memcpy(askedHidden, spawnHidden, n);
     if (partners || keepOwn) {
         uint32_t ours[kMaxMembers][4]{};
         const uint32_t ourNode = GuidZero(area) ? 0 : mirror::ObjectByGuid(area);
@@ -1531,13 +1603,49 @@ void __fastcall OnSetDesired(void* self, void*, const uint32_t (*guids)[4], cons
         }
     }
     if (arenaMerge) added += arenaMerge(list, spawnHidden, n, kMaxDesired, caller);
+    askedAdded = n - askedCount;
+    busySince = 0;
+    stuckSaid = false;
     lastZone = set;
     lastDesiredCount = n;
     std::memcpy(lastDesired, list, n * sizeof(list[0]));
     setDesiredHook.thiscall<void>(self, added ? list : guids, added ? spawnHidden : hidden, n, activator);
 }
+// A switch that makes no progress: both players' rooms together did not fit, so nothing new loads
+// and the players stand in a void. After kStuckMs the partner's kept rooms are given up.
+void StuckTick(DWORD now) {
+    if (!enabled || !hooked || !askedSet || !peerTable.Count() || !inLevel || !levelSettled) { busySince = 0; return; }
+    uint32_t loads = 0, loading = 0, unloading = 0;
+    if (askedSet != ZoneSet() || !Read(askedSet + kSetLoads, &loads, 4) || !Read(askedSet + kSetLoading, &loading, 4) ||
+        !Read(askedSet + kSetUnloading, &unloading, 4) || loads > 46 || loading > 46 || unloading > 46 || !(loads | loading | unloading)) {
+        busySince = 0;
+        return;
+    }
+    if (!busySince) { busySince = Stamp(now); return; }
+    if (TicksSince(now, busySince) < kStuckMs || cutscene::SequenceRunningNow() || cutscene::Following() || cutscene::Leading()) return;
+    if (!stuckSaid) {
+        stuckSaid = true;
+        InterlockedIncrement(&stuck);
+        gate::Event("coop_streams zone set STUCK for %lu ms: %u to load, %u loading, %u unloading, %u asked, %u kept for partners%s",
+                    static_cast<unsigned long>(TicksSince(now, busySince)), loads, loading, unloading, askedCount, askedAdded,
+                    askedAdded ? ": their rooms are given up" : "");
+    }
+    if (!askedAdded || arena::RunningNow()) return;
+    askedAdded = 0;
+    busySince = 0;
+    lastDesiredCount = askedCount;
+    std::memcpy(lastDesired, asked, askedCount * sizeof(asked[0]));
+    __try {
+        setDesiredHook.thiscall<void>(reinterpret_cast<void*>(askedSet), asked, askedHidden, askedCount, askedHasActivator ? askedActivator : nullptr);
+        InterlockedIncrement(&stuckHealed);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        gate::Event("coop_streams stuck zone set: asking again faulted");
+        askedSet = 0;
+    }
+}
 void Install(FILE* log, const std::string& ini) {
     enabled = GetPrivateProfileIntA("Streams", "PinPartnerStreams", 0, ini.c_str()) != 0;
+    keepFloor = GetPrivateProfileIntA("Streams", "KeepFloor", 1, ini.c_str()) != 0;
     nearM = static_cast<float>(GetPrivateProfileIntA("Streams", "PinNearM", 0, ini.c_str()));
     const bool arenas = GetPrivateProfileIntA("Arena", "Arenas", 1, ini.c_str()) != 0;
     if (enabled || arenas || farDoorGuard || doorApproach) {
@@ -1552,6 +1660,8 @@ void Install(FILE* log, const std::string& ini) {
 }
 void WriteDiagnostics(FILE* log) {
     if (!enabled) return;
+    std::fprintf(log, "coop_streams floor switches=%ld kept=%ld list_full=%ld | zone set stuck=%ld given_up=%ld\n", floorSwitches, floorKept, floorFull, stuck,
+                 stuckHealed);
     std::fprintf(log, "coop_streams keep switches=%ld kept=%ld kept_own=%ld list_full=%ld not_zone=%ld partners_near_skipped=%ld kept_for_scene=%ld\n",
                  InterlockedCompareExchange(&switches, 0, 0), InterlockedCompareExchange(&kept, 0, 0), InterlockedCompareExchange(&keptOwn, 0, 0),
                  InterlockedCompareExchange(&full, 0, 0), InterlockedCompareExchange(&notZone, 0, 0), InterlockedCompareExchange(&nearSkipped, 0, 0),
@@ -1871,6 +1981,24 @@ unsigned LoadedStreams(Loaded* out, unsigned max) {
     }
     return n;
 }
+// Every stream of this set that a mounted TOC knows is loaded.
+bool SetLoaded(const uint32_t* set) {
+    const uint32_t node = GuidZero(set) ? 0 : mirror::ObjectByGuid(set);
+    uint32_t members[kMaxMembers][4]{};
+    const unsigned count = node ? Members(node, members) : 0;
+    if (!count || !lookupOk) return false;
+    static Loaded table[512];
+    const unsigned n = LoadedStreams(table, 512);
+    for (unsigned i = 0; i < count; ++i) {
+        const uint32_t name = Lookup(MemberHash(members[i]));
+        if (!name) continue;
+        const Loaded* hit = nullptr;
+        for (unsigned k = 0; k < n && !hit; ++k) if (table[k].name == name) hit = &table[k];
+        uint32_t status = 0;
+        if (!hit || !Read(hit->stream + 0x24, &status, 4) || status != kStatusLoaded) return false;
+    }
+    return true;
+}
 struct Rooms { bool fresh; unsigned members, registered, loaded, visible, shown, leftHidden; uint32_t missing[4]; };
 Rooms Check(DWORD now, bool show) {
     Rooms r{};
@@ -2004,9 +2132,24 @@ void Tick(DWORD now) {
 }
 }  // namespace curtain
 
+// For a move to a partner (runtime_coop_catchup.inc): 1 his rooms are loaded here, 0 not (yet), -1 not
+// known (no set reported, or the lookup did not match). Asks for his set when `load`, ours kept.
+int PartnerRooms(unsigned slot, DWORD now, bool load) {
+    uint32_t set[4]{};
+    if (!installed || !enabled || !curtain::lookupOk || mpmap::InVisit() || arena::RunningNow() || slot >= coop_peers::kMaxPeers ||
+        !PeerSet(slot, set)) return -1;
+    if (!mirror::ObjectByGuid(set)) return 0;   // a set of another map
+    if (curtain::SetLoaded(set)) return 1;
+    const PeerArea& a = peerAreas[slot];
+    // a level start's set is his room only after a while (dumps 44632, 45712)
+    const bool settled = a.kind != kKindLevelStart && a.kind != kKindUnknown ? true : a.completedAgoMs + TicksSince(now, a.at) >= kLevelStartSettleMs;
+    if (load && settled && !Covers(set)) Follow(set);
+    return 0;
+}
 // Game thread, from Poll.
 void Tick(DWORD now) {
     curtain::Tick(now);
+    pin::StuckTick(now);
     if (!inLevel || !levelSettled) pin::ForgetDesired();
     if (!installed || !enabled) return;
     const bool preparingScene = mirror::agreement::PreparingRooms(now);

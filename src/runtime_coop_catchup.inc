@@ -81,12 +81,45 @@ const char* StageChurchIsaac(uint32_t player, const float* at) {
     gate::Event("church opener staged Isaac=%08X cmc=%08X distance=%.2f m", player, cmc, gap);
     return nullptr;
 }
+// A move to a partner whose rooms are not loaded here drops our Isaac into the void (they follow the
+// body only once it is there). His set is asked for first and the move waits for it.
+struct Pending { bool used = false, pull = false; unsigned slot = 0; float at[3]{}; char why[128]{}; DWORD since = 0, askedAt = 0; };
+Pending pending;
+constexpr DWORD kRoomsMs = 15000;
+volatile LONG roomWaits = 0, roomsCame = 0, roomsMissing = 0;
+unsigned SlotNear(const float* at, DWORD now) {
+    unsigned best = coop_peers::kMaxPeers;
+    float bestD = 0.0f;
+    for (unsigned s = 0; s < coop_peers::kMaxPeers; ++s) {
+        if (!Fresh(s, now)) continue;
+        const float d = Distance(peerRuntime[s].pos, at);
+        if (best == coop_peers::kMaxPeers || d < bestD) { best = s; bestD = d; }
+    }
+    return best;
+}
+// True: the rooms are in (or nothing is known about them) and the move may go ahead now.
+bool RoomsFirst(unsigned slot, bool pull, const float* at, const char* why, DWORD now) {
+    if (slot >= coop_peers::kMaxPeers || streams::PartnerRooms(slot, now, true) != 0) return true;
+    pending = Pending{};
+    pending.used = true;
+    pending.pull = pull;
+    pending.slot = slot;
+    pending.since = pending.askedAt = now ? now : 1;
+    if (at) std::memcpy(pending.at, at, 12);
+    std::snprintf(pending.why, sizeof(pending.why), "%s", why);
+    InterlockedIncrement(&roomWaits);
+    gate::Event("coop_catchup move to partner %u waits: his rooms are not loaded here (%s)", slot, why);
+    notice::Show("LOADING PARTNER'S ROOMS");
+    return false;
+}
 // From the gate: the group waits for this player at a progression point.
 volatile LONG pulled = 0;
+bool roomsIn = false;   // the wait is over, the move comes now
 bool PullTo(const float* at, const char* why) {
     if (!inLevel) return false;
     if (spectate::Active()) { InterlockedIncrement(&spectate::catchupRefused); return false; }   // the corpse stays where he died
     if (necro::LocalRole() != 0) { Refuse("a necro player is not pulled to the group"); return false; }   // slot 0 holds the necro or nothing
+    if (!roomsIn && !RoomsFirst(SlotNear(at, GetTickCount()), true, at, why, GetTickCount())) return true;
     float gap = 0.0f;
     uint32_t player = 0, cmc = 0;
     if (!MoveIsaac(at, gap, player, cmc)) {
@@ -115,6 +148,8 @@ void Jump(DWORD now) {
         if (Distance(matrix + 12, peerRuntime[s].pos) >= kMinGap) slot = s;
     }
     if (slot == coop_peers::kMaxPeers) { Refuse(fresh ? "every partner is already next to us" : "no partner with a current position"); return; }
+    if (!roomsIn && !RoomsFirst(slot, false, nullptr, "the catch-up key", now)) return;
+    if (roomsIn) slot = pending.slot;   // the one we waited for
     const auto& runtime = peerRuntime[slot];
     const float gap = Distance(matrix + 12, runtime.pos);
     // The newest trail point a little behind that partner, else his own spot.
@@ -150,9 +185,31 @@ void Jump(DWORD now) {
     }
 }
 
+void PendingTick(DWORD now) {
+    if (!pending.used) return;
+    if (!inLevel || !Fresh(pending.slot, now) || spectate::Active() || necro::LocalRole() != 0) { pending.used = false; return; }
+    if (now - pending.askedAt < 250) return;
+    pending.askedAt = now;
+    if (streams::PartnerRooms(pending.slot, now, now - pending.since < 3000) != 0) {
+        InterlockedIncrement(&roomsCame);
+        gate::Event("coop_catchup partner %u's rooms are loaded after %lu ms", pending.slot, static_cast<unsigned long>(now - pending.since));
+        pending.used = false;
+        roomsIn = true;
+        if (pending.pull) PullTo(pending.at, pending.why);
+        else Jump(now);
+        roomsIn = false;
+        return;
+    }
+    if (now - pending.since < kRoomsMs) return;
+    InterlockedIncrement(&roomsMissing);
+    gate::Event("coop_catchup partner %u's rooms did not load in %lu ms: not moved (%s)", pending.slot, static_cast<unsigned long>(kRoomsMs), pending.why);
+    notice::Show("PARTNER'S ROOMS DID NOT LOAD");
+    pending.used = false;
+}
 // Game thread, every frame.
 bool trailsHeld = false;
 void Poll() {
+    PendingTick(GetTickCount());
     // The trails are positions in the old level: dropped when it goes.
     if (!inLevel) { if (trailsHeld) { Reset(); trailsHeld = false; } return; }
     if (!key || !peerTable.Count()) return;
@@ -186,9 +243,10 @@ void Install(FILE* log, const std::string& ini) {
 
 void WriteDiagnostics(FILE* log) {
     static LONG last = -1;
-    const LONG n = jumps + pulled + refused + faults + otherMap;
+    const LONG n = jumps + pulled + refused + faults + otherMap + roomWaits + roomsCame + roomsMissing;
     if (n == last) return;
     last = n;
-    std::fprintf(log, "coop_catchup jumps=%ld pulled=%ld refused=%ld faults=%ld other_map_skips=%ld\n", jumps, pulled, refused, faults, otherMap);
+    std::fprintf(log, "coop_catchup jumps=%ld pulled=%ld refused=%ld faults=%ld other_map_skips=%ld room_waits=%ld rooms_came=%ld rooms_missing=%ld\n", jumps, pulled, refused, faults, otherMap,
+                 roomWaits, roomsCame, roomsMissing);
 }
 }  // namespace catchup
