@@ -1910,7 +1910,8 @@ float fallLast[3]{};
 DWORD fallSampleAt = 0, stillSince = 0, guardRescuedAt = 0;
 uint32_t fallPlayer = 0;
 bool haveSafe = false;
-volatile LONG campaignFallRescues = 0, campaignFallFaults = 0, campaignSafeSpots = 0, campaignFallSequenceHolds = 0, campaignFallStateHolds = 0;
+volatile LONG campaignFallRescues = 0, campaignFallFaults = 0, campaignSafeSpots = 0, campaignFallSequenceHolds = 0, campaignFallStateHolds = 0,
+              campaignFallCameraHolds = 0;
 constexpr uint32_t kCmcFlagsOffset = 0x144;
 // 19.11.: the chapter 7 launch from the solar array down to the Sprawl hub falls fast in gravity
 // with no scene the scene reader knows, and the guard put Isaac back on the array. It now waits
@@ -1997,6 +1998,13 @@ void CampaignFallGuard(DWORD now) {
         if (InterlockedIncrement(&campaignFallSequenceHolds) <= 10)
             Event("campaign fall guard: Isaac falling at %.1f m/s, %.1f m below his safe spot, left alone (scripted sequence %lu ms ago)", vy, safeMatrix[13] - at[1],
                   static_cast<unsigned long>(now - sequenceAt));
+        return;
+    }
+    // 27.11.: the solar array jump runs no scripted sequence; the camera tied to Isaac's bones
+    // (or any other scene camera) says the game carries him
+    if (!scenekind::localGameplayCamera) {
+        if (InterlockedIncrement(&campaignFallCameraHolds) <= 10)
+            Event("campaign fall guard: Isaac falling at %.1f m/s, %.1f m below his safe spot, left alone (%s camera)", vy, safeMatrix[13] - at[1], scenekind::cameraName);
         return;
     }
     char states[200];
@@ -2605,10 +2613,11 @@ void WriteDiagnostics(FILE* log) {
                  InterlockedCompareExchange(&spawnGuardFaults, 0, 0), InterlockedCompareExchange(&readyArrivals, 0, 0),
                  InterlockedCompareExchange(&curtainsRaised, 0, 0), InterlockedCompareExchange(&curtainsLifted, 0, 0),
                  InterlockedCompareExchange(&fallRescues, 0, 0));
-    std::fprintf(log, "mpmap campaign fall_guard=%d rescues=%ld faults=%ld safe_spots=%ld held after_sequence=%ld flying_state=%ld | join_suit=%d given=%ld kept=%ld failed=%ld\n",
+    std::fprintf(log, "mpmap campaign fall_guard=%d rescues=%ld faults=%ld safe_spots=%ld held after_sequence=%ld flying_state=%ld scene_camera=%ld | join_suit=%d given=%ld kept=%ld failed=%ld\n",
                  campaignFallGuard ? 1 : 0, InterlockedCompareExchange(&campaignFallRescues, 0, 0),
                  InterlockedCompareExchange(&campaignFallFaults, 0, 0), InterlockedCompareExchange(&campaignSafeSpots, 0, 0),
-                 InterlockedCompareExchange(&campaignFallSequenceHolds, 0, 0), InterlockedCompareExchange(&campaignFallStateHolds, 0, 0), joinSuit ? 1 : 0,
+                 InterlockedCompareExchange(&campaignFallSequenceHolds, 0, 0), InterlockedCompareExchange(&campaignFallStateHolds, 0, 0),
+                 InterlockedCompareExchange(&campaignFallCameraHolds, 0, 0), joinSuit ? 1 : 0,
                  InterlockedCompareExchange(&joinSuitsGiven, 0, 0), InterlockedCompareExchange(&joinSuitsKept, 0, 0),
                  InterlockedCompareExchange(&joinSuitsFailed, 0, 0));
     static char copy[kRingLines][kLineSize];

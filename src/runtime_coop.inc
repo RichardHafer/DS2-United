@@ -3605,6 +3605,7 @@ int NetRole() { return !network ? 0 : IsHost() ? 1 : 2; }
 #include "runtime_coop_debugmenu.inc"
 #include "enemy_speed.h"
 #include "runtime_coop_enemyspeed.inc"
+#include "runtime_coop_scenedamage.inc"
 #include "runtime_coop_menu.inc"
 #include "runtime_coop_gamemode.inc"
 #include "runtime_coop_mpnative.inc"
@@ -4707,6 +4708,7 @@ bool Install(FILE* log, const std::string& ini) {
     arena::Install(log, ini);
     debugmenu::Install(log, ini);
     enemyspeed::Install(log, ini);
+    scenedamage::Install(log, ini);
     survmusic::Install(log, ini);
     respawn::Install(log, ini);
     spectate::Install(log, ini);
@@ -4793,6 +4795,7 @@ void WriteDiagnostics(FILE* log) {
     arena::WriteDiagnostics(log);
     debugmenu::WriteDiagnostics(log);
     enemyspeed::WriteDiagnostics(log);
+    scenedamage::WriteDiagnostics(log);
     survmusic::WriteDiagnostics(log);
     respawn::WriteDiagnostics(log);
     spectate::WriteDiagnostics(log);

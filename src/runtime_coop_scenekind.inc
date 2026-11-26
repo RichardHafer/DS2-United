@@ -35,6 +35,13 @@ struct Reading {
     char lower[24] = "";
 };
 uint32_t local = kNone;
+// The Isaac `local` was read from, and whether a script had him: a scripted sequence running with the
+// master in its scriptedSequence state, or a QTE inside one (runtime_coop_scenedamage.inc).
+uint32_t localPlayer = 0;
+// The local Isaac's camera is a gameplay one (chase, manual aim, or none known).
+bool localGameplayCamera = true;
+const char* cameraName = "none";
+bool localScripted = false;
 DWORD localSince = 0;
 bool sendNow = false;   // streams::vis sends its packet at once
 uint8_t partner[coop_peers::kMaxPeers]{};
@@ -125,10 +132,16 @@ void Tick(DWORD now) {
             else k = Classify(r, transition);
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             InterlockedIncrement(&readFaults);
+            localPlayer = 0;
+            localScripted = false;
             return;
         }
     }
+    localGameplayCamera = !p || !r.camVtable || r.camVtable == base + kChaseCamRva || r.camVtable == base + kManualAimCamRva;
+    cameraName = CameraName(r.camVtable);
     if (transition) { InterlockedIncrement(&transitions); return; }
+    localPlayer = k == kNone ? 0 : p;
+    localScripted = k != kNone && (k == kQte || ((r.tflags & 4) && r.seq && r.master == 1));
     static uint32_t previousCamera = 0;
     static unsigned cameraLines = 0;
     if (r.camVtable != previousCamera) {
